@@ -40,6 +40,12 @@ function extraAllowedHosts(): string[] {
     .filter(Boolean);
 }
 
+function hostAllowed(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (ALLOWED_SUFFIXES.some((suffix) => host.endsWith(suffix))) return true;
+  return extraAllowedHosts().some((h) => host === h || host.endsWith(`.${h}`));
+}
+
 /** True when MANAGEBAC_FEED_HOSTS is unset and the built-in allowlist is the only source. */
 function hostRestrictionConfigured(): boolean {
   return ALLOWED_SUFFIXES.length > 0 || Deno.env.get('MANAGEBAC_FEED_HOSTS') !== undefined;
