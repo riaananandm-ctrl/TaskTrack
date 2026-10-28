@@ -1,0 +1,29 @@
+{
+  "projectId": "71379805",
+  "functions": {
+    "delete-account": {
+      "hasChanged": false,
+      "hash": "8808735cdd0684481b700b719a4b34aea09d15f71c99e213d447f63cde34c74a"
+    },
+    "documents-worker": {
+      "hasChanged": false,
+      "hash": "04fa5cbe67bb7d40eb33fe5f2a318b25716683b85ab744b5dc71e883523e13c0"
+    },
+    "managebac-connect": {
+      "hasChanged": false,
+      "hash": "7a55bc58fe0751bfd0c0a90b57862e614a3420ab0c1dff9870f128b1c74dc932"
+    },
+    "send-study-notifications": {
+      "hasChanged": false,
+      "hash": "8a7533b46b010c117c20ac1e706c380d38bd37a19a658368747bc38bf4d891c3"
+    },
+    "study-session-chat": {
+      "hasChanged": false,
+      "hash": "24ae39521817e0998d6d416bef678468974b059f623bc813c20ed43bcfdd6d70"
+    },
+    "sync-managebac-calendar": {
+      "hasChanged": false,
+      "hash": "87fce8d74afed62ffdc84f3b3a0573527e79a9b21d16da966ee0011ccef4dbad"
+    }
+  }
+}

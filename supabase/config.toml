@@ -1,0 +1,24 @@
+# Supabase project configuration.
+# Each [functions.<slug>] table tells the deploy tool which functions exist and
+# whether the platform should verify a JWT before invoking them.
+
+[functions.study-session-chat]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.send-study-notifications]
+verify_jwt = false
+
+[functions.managebac-connect]
+verify_jwt = false
+
+[functions.sync-managebac-calendar]
+verify_jwt = false
+
+[functions.documents-worker]
+verify_jwt = false
+
+[functions.doc-diag]
+verify_jwt = false

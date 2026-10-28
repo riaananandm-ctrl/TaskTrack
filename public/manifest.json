@@ -1,0 +1,17 @@
+{
+  "name": "TaskTrack",
+  "short_name": "TaskTrack",
+  "description": "Know What's Next — keep your academic tasks, deadlines and reminders in one organised place.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#172554",
+  "icons": [
+    {
+      "src": "/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
