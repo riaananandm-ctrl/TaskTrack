@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
+import { BrandLoading } from '@/components/brand-loading';
 import { XpStreakWidget } from '@/components/xp-streak-widget';
 import {
   XP_RULES,
@@ -229,21 +230,14 @@ export default function StarterPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="flex items-center justify-center rounded-2xl bg-white p-3 shadow-soft dark:bg-slate-900">
-          <Logo size={52} showText={false} />
-        </div>
-        <p className="text-sm text-muted-foreground">Getting started...</p>
-      </div>
-    );
+    return <BrandLoading label="Getting started..." />;
   }
 
   const managebacDone = progress?.step_managebac_connected;
   const aiDone = progress?.step_ai_session_created;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <Logo />
