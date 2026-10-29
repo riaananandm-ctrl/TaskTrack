@@ -180,7 +180,8 @@ export function ReminderDialog({
       const { error: insertError } = await supabase.from('reminders').insert(payloads);
       setLoading(false);
       if (insertError) {
-        setError(insertError.message);
+        console.error('Failed to create reminders', insertError);
+        setError('We could not save these reminders. Please check the details and try again.');
         return;
       }
       onOpenChange(false);
@@ -216,7 +217,8 @@ export function ReminderDialog({
     }
 
     if (result.error) {
-      setError(result.error.message);
+      console.error('Failed to save reminder', result.error);
+      setError('We could not save this reminder. Please check the details and try again.');
       setLoading(false);
       return;
     }

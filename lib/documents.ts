@@ -38,8 +38,10 @@ export class UploadError extends Error {
 }
 
 function safeError(error: { message?: string } | null, fallback: string): UploadError {
-  const message = error?.message || fallback;
-  return new UploadError(message, error?.message ?? fallback);
+  // Never surface raw database or storage text to the student: it leaks table,
+  // column, constraint and policy detail. Keep the detail in the console only.
+  if (error?.message) console.error('Upload error', error.message);
+  return new UploadError(fallback, 'UPLOAD_FAILED');
 }
 
 /** Ask the database for an upload slot. Throws UploadError with a safe message. */
@@ -111,10 +113,11 @@ export async function transferFile(
       else {
         try {
           const body = JSON.parse(xhr.responseText) as { message?: string; error?: string };
-          reject(new UploadError(body.message || body.error || `Upload failed (status ${xhr.status}).`, 'TRANSFER_FAILED'));
+          console.error('Upload transfer failed', xhr.status, body.message || body.error);
         } catch {
-          reject(new UploadError(`Upload failed (status ${xhr.status}).`, 'TRANSFER_FAILED'));
+          // response body was not JSON; nothing further to log
         }
+        reject(new UploadError(`Upload failed (status ${xhr.status}).`, 'TRANSFER_FAILED'));
       }
     };
     xhr.onerror = () => reject(new UploadError('The connection dropped during the upload. Please try again.', 'NETWORK'));

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase/client';
+import { safeHttpUrl } from '@/lib/safe-url';
 import { useAuth } from '@/lib/auth-context';
 import {
   Task,
@@ -102,6 +103,12 @@ export function TaskDialog({
     setError(null);
     setLoading(true);
 
+    if (formData.external_link.trim() && !safeHttpUrl(formData.external_link)) {
+      setError('Links must start with http:// or https://');
+      setLoading(false);
+      return;
+    }
+
     const payload = {
       title: formData.title,
       subject_id: formData.subject_id || null,
@@ -113,7 +120,7 @@ export function TaskDialog({
       status: formData.status,
       estimated_minutes: formData.estimated_minutes ? parseInt(formData.estimated_minutes) : null,
       notes: formData.notes || null,
-      external_link: formData.external_link || null,
+      external_link: safeHttpUrl(formData.external_link),
     };
 
     let result;
@@ -128,7 +135,8 @@ export function TaskDialog({
     }
 
     if (result.error) {
-      setError(result.error.message);
+      console.error('Failed to save task', result.error);
+      setError('We could not save this task. Please check the details and try again.');
       setLoading(false);
       return;
     }

@@ -463,7 +463,8 @@ function SubjectDialog({
     }
 
     if (result.error) {
-      setError(result.error.message);
+      console.error('Failed to save subject', result.error);
+      setError('We could not save this subject. Please check the details and try again.');
       setLoading(false);
       return;
     }

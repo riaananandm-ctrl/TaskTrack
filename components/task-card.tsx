@@ -9,6 +9,7 @@ import { awardXp, upsertOnboardingProgress } from '@/lib/gamification';
 import { CheckCircle2, Circle, Clock, Link as LinkIcon, Bell, MoreVertical, Copy, Archive, Trash2, Pencil, Sparkles, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { safeHttpUrl } from '@/lib/safe-url';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -222,9 +223,9 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
                 {getDueDateLabel(displayTask)}
               </span>
             )}
-            {displayTask.external_link && (
+            {safeHttpUrl(displayTask.external_link) && (
               <a
-                href={displayTask.external_link}
+                href={safeHttpUrl(displayTask.external_link) as string}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-primary hover:underline"
