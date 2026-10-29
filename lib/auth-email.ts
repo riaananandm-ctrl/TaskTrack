@@ -73,6 +73,16 @@ export function safeAuthMessage(message: string | undefined | null): string {
   if (text.includes('one-time token') || text.includes('otp_expired') || text.includes('token not found') || text.includes('already been')) {
     return 'This link has already been used or is no longer valid. Request a new email below.';
   }
+  if (
+    text.includes('unexpected_failure') ||
+    text.includes('smtp') ||
+    text.includes('535') ||
+    text.includes('failed to send') ||
+    text.includes('mail') && text.includes('error')
+  ) {
+    // The server explicitly failed to send the mail. Say so — never pretend it went out.
+    return 'We couldn\u2019t send the email just now — the mail service is temporarily unavailable. Please try again in a few minutes.';
+  }
   if (text.includes('unauthorized') || text.includes('not authorized')) {
     // Supabase's built-in email service refuses non-team addresses; this says nothing
     // about whether the account exists.
