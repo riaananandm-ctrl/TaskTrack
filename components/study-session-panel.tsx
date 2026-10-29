@@ -58,6 +58,7 @@ import {
   scheduleStudySession,
   type ScheduledStudySession,
 } from '@/lib/study-schedule';
+import { saveQuizAttempt, type QuizResult } from '@/lib/quiz-attempts';
 
 interface DisplayMessage {
   id: string;
@@ -512,6 +513,26 @@ export function StudySessionPanel({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
+  /**
+   * Persist a finished quiz so its score and weak topics survive reloads and can
+   * inform revision advice later. Best-effort: the results screen already shows
+   * everything the student needs, so a storage failure only logs quietly.
+   */
+  const saveAttempt = useCallback(
+    async (result: QuizResult) => {
+      try {
+        await saveQuizAttempt({
+          sessionId: session.id,
+          taskId: task?.id ?? null,
+          result,
+        });
+      } catch {
+        // The attempt is not critical to the study flow; skip silently.
+      }
+    },
+    [session.id, task?.id]
+  );
+
   // Latest structured output (quiz, flashcards, plan, slides) to surface as
   // "Current activity" in the workspace's main column.
   const latestStructured =
@@ -624,6 +645,12 @@ export function StudySessionPanel({
                 )}
               </header>
 
+              {/* AI context disclosure — honest about what the assistant receives */}
+              <AiContextDisclosure
+                taskContext={taskContext}
+                attachments={attachments}
+              />
+
               {/* Study tools — compact, well-labelled grid with restrained icons */}
               <section aria-label="Study tools">
                 <h2 className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-3">
@@ -713,7 +740,11 @@ export function StudySessionPanel({
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
                       {modeLabel(latestStructured.mode as StudyMode)}
                     </p>
-                    <StructuredMessage message={latestStructured} />
+                    <StructuredMessage
+                      message={latestStructured}
+                      onQuizFinished={saveAttempt}
+                      deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }}
+                    />
                   </div>
                 ) : messages.length === 0 ? (
                   <p className="text-sm text-muted-foreground leading-relaxed">
@@ -808,7 +839,7 @@ export function StudySessionPanel({
                     {msg.role === 'user' ? (
                       <p>{displayContent(msg.mode, msg.content, Boolean(msg.structured))}</p>
                     ) : (
-                      <StructuredMessage message={msg} />
+                      <StructuredMessage message={msg} onQuizFinished={saveAttempt} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
                     )}
                   </div>
                 </div>
@@ -1127,15 +1158,101 @@ function TaskDetailsPanel({
   );
 }
 
+/**
+ * Honest summary of exactly what the assistant receives with each request: the
+ * task's own fields plus any ready attached documents. Says plainly that
+ * calendar-imported tasks often carry little detail, so the student knows why
+ * answers may be general.
+ */
+function AiContextDisclosure({
+  taskContext,
+  attachments,
+}: {
+  taskContext: StudyTask;
+  attachments: AttachmentChip[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  const taskBits = [
+    taskContext.subject ? `Subject: ${taskContext.subject}` : null,
+    taskContext.category ? CATEGORY_LABELS[taskContext.category as TaskCategory] ?? taskContext.category : null,
+    taskContext.dueDate ? 'Due date' : null,
+    taskContext.estimatedMinutes ? 'Estimated time' : null,
+    taskContext.priority ? 'Priority' : null,
+  ].filter((v): v is string => Boolean(v));
+
+  const readyDocs = attachments.filter((a) => a.status === 'ready' && a.documentId);
+
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Sparkles className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          What the assistant can see
+        </span>
+        <ChevronDown
+          className={cn('w-4 h-4 text-muted-foreground transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && (
+        <div className="px-3.5 pb-3.5 space-y-2 text-xs text-muted-foreground leading-relaxed">
+          <p>
+            TaskTrack AI is sent the details of this task when you message it. Right now that
+            includes:
+          </p>
+          <ul className="list-disc pl-4 space-y-0.5 text-foreground">
+            <li>The task title{taskBits.length > 0 ? `, plus ${taskBits.join(', ').toLowerCase()}` : ' only'}</li>
+            {taskContext.description && <li>The task description you can read above</li>}
+            {readyDocs.length > 0 ? (
+              <li>
+                {readyDocs.length} ready document{readyDocs.length === 1 ? '' : 's'}:{' '}
+                {readyDocs.map((a) => a.name).join(', ')} — quotes are cited with page numbers
+              </li>
+            ) : (
+              <li>No attached documents yet — upload one to give it your real materials</li>
+            )}
+          </ul>
+          <p>
+            Tasks imported from a school calendar often carry only a title and date, so if the task
+            looks thin here the assistant&rsquo;s answers will be general. Add details to the task or
+            attach your class materials for specific help.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Render an assistant message as a structured view when available, else markdown. */
-function StructuredMessage({ message }: { message: DisplayMessage }) {  if (message.structured && message.mode) {
+function StructuredMessage({
+  message,
+  onQuizFinished,
+  deckDefaults,
+}: {
+  message: DisplayMessage;
+  onQuizFinished?: (result: QuizResult) => void;
+  /** Links a saved deck back to this task and session. */
+  deckDefaults?: { taskId: string | null; sessionId: string };
+}) {
+  if (message.structured && message.mode) {
     return (
       <div className="space-y-2 w-full">
         <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
           {modeLabel(message.mode)}
         </p>
-        {message.mode === 'quiz' && <QuizView data={message.structured as QuizData} />}
-        {message.mode === 'flashcards' && <FlashcardsView data={message.structured as FlashcardsData} />}
+        {message.mode === 'quiz' && (
+          <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} />
+        )}
+        {message.mode === 'flashcards' && (
+          <FlashcardsView
+            data={message.structured as FlashcardsData}
+            deckDefaults={deckDefaults}
+          />
+        )}
         {message.mode === 'plan' && <PlanView data={message.structured as StudyPlanData} />}
         {message.mode === 'slides' && <SlidesView data={message.structured as SlidesData} />}
       </div>

@@ -245,6 +245,67 @@ interface SyncResult {
   updated: number;
   unchanged: number;
   sparse: boolean;
+  newChanges: number;
+}
+
+/** Feed fields we track, with student-facing labels for the change inbox. */
+const TRACKED_FIELDS: Array<{ field: keyof ParsedEvent; label: string }> = [
+  { field: 'summary', label: 'Title' },
+  { field: 'description', label: 'Details' },
+  { field: 'dueAt', label: 'Due' },
+  { field: 'startAt', label: 'Starts' },
+  { field: 'endAt', label: 'Ends' },
+  { field: 'location', label: 'Location' },
+];
+
+/** Field-by-field diff between the stored copy and the new feed copy. */
+function diffEvents(
+  previous: Record<string, unknown>,
+  next: ParsedEvent
+): Array<{ field: string; label: string; previous: string | null; next: string | null }> {
+  const changes: Array<{ field: string; label: string; previous: string | null; next: string | null }> = [];
+  for (const { field, label } of TRACKED_FIELDS) {
+    const before = previous[field];
+    const after = next[field];
+    if ((before ?? null) !== (after ?? null)) {
+      changes.push({
+        field,
+        label,
+        previous: typeof before === 'string' ? before : before == null ? null : String(before),
+        next: typeof after === 'string' ? after : after == null ? null : String(after),
+      });
+    }
+  }
+  return changes;
+}
+
+/**
+ * Record a change-inbox row for this detection. Idempotent per (user, uid, kind,
+ * detection time): a retry of the same sync never double-writes. Failure to record
+ * is logged but never blocks the sync itself.
+ */
+async function recordChange(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  connectionId: string,
+  event: ParsedEvent,
+  taskId: string | null,
+  kind: 'new' | 'edited',
+  changes: Array<{ field: string; label: string; previous: string | null; next: string | null }>
+): Promise<boolean> {
+  const { error } = await admin.from('sync_change_inbox').insert({
+    user_id: userId,
+    connection_id: connectionId,
+    external_uid: event.uid,
+    task_id: taskId,
+    change_kind: kind,
+    changes,
+  });
+  if (error) {
+    console.error('change-inbox insert failed:', error.code ?? 'unknown');
+    return false;
+  }
+  return true;
 }
 
 /** Sync one student's connection. Returns counts, or throws with a safe category. */
@@ -286,7 +347,7 @@ async function syncConnection(
   if (!text.includes('BEGIN:VCALENDAR')) throw new Error('MALFORMED');
 
   const events = parseCalendar(text);
-  const result: SyncResult = { imported: 0, updated: 0, unchanged: 0, sparse: false };
+  const result: SyncResult = { imported: 0, updated: 0, unchanged: 0, sparse: false, newChanges: 0 };
   const nowIso = new Date().toISOString();
 
   for (const event of events) {
@@ -295,7 +356,7 @@ async function syncConnection(
 
     const { data: existing } = await admin
       .from('managebac_calendar_events')
-      .select('id, task_id, disposition, content_hash')
+      .select('id, task_id, disposition, content_hash, summary, description, location, start_at, end_at, due_at')
       .eq('user_id', connection.user_id)
       .eq('external_uid', event.uid)
       .maybeSingle();
@@ -327,6 +388,16 @@ async function syncConnection(
         await admin.from('managebac_calendar_events').update({ task_id: taskId }).eq('id', inserted.id);
       }
       await ensureReminder(admin, connection.user_id, event, taskId);
+      const recorded = await recordChange(
+        admin,
+        connection.user_id,
+        connection.id,
+        event,
+        taskId,
+        'new',
+        [{ field: 'summary', label: 'Title', previous: null, next: event.summary }]
+      );
+      if (recorded) result.newChanges += 1;
       result.imported += 1;
       continue;
     }
@@ -336,7 +407,9 @@ async function syncConnection(
       continue;
     }
 
-    // The feed changed for this entry. Refresh the stored copy of the feed fields.
+    // The feed changed for this entry. Diff field-by-field BEFORE overwriting, then
+    // refresh the stored copy of the feed fields.
+    const fieldChanges = diffEvents(existing, event);
     await admin
       .from('managebac_calendar_events')
       .update({
@@ -376,6 +449,16 @@ async function syncConnection(
         await ensureReminder(admin, connection.user_id, event, task.id);
       }
     }
+    const recorded = await recordChange(
+      admin,
+      connection.user_id,
+      connection.id,
+      event,
+      existing.task_id,
+      'edited',
+      fieldChanges
+    );
+    if (recorded) result.newChanges += 1;
     result.updated += 1;
   }
 
@@ -579,6 +662,7 @@ Deno.serve(async (req: Request) => {
         updated: result.updated,
         unchanged: result.unchanged,
         sparse: result.sparse,
+        changesDetected: result.newChanges,
       });
     } catch (err) {
       const message = safeMessageFor(err);

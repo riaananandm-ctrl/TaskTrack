@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { Reminder, Task, UserSettings, REMINDER_TYPE_LABELS, REPEAT_LABELS } from '@/lib/types';
+import { SNOOZE_OPTIONS, snoozeTime } from '@/lib/reminder-utils';
 import { ReminderDialog } from '@/components/reminder-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  Bell, Plus, Clock, CheckCheck, Trash2, Pencil, BellOff, AlertCircle, Loader2, Settings as SettingsIcon, Sparkles,
+  Bell, Plus, Clock, CheckCheck, Trash2, Pencil, BellOff, AlertCircle, Loader2, Settings as SettingsIcon, Sparkles, AlarmClock,
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ export default function NotificationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [snoozeOpenId, setSnoozeOpenId] = useState<string | null>(null);
   const { session: studySession, openForTask, close: closeStudySession, error: studyError } = useStudySessionOpener();
 
   const fetchData = useCallback(async () => {
@@ -86,6 +88,30 @@ export default function NotificationsPage() {
   const toggleEnabled = async (reminder: Reminder) => {
     await supabase.from('reminders').update({ is_enabled: !reminder.is_enabled }).eq('id', reminder.id);
     fetchData();
+  };
+
+  const [snoozingId, setSnoozingId] = useState<string | null>(null);
+
+  /**
+   * Snooze moves the reminder into the future and clears the push claim so the
+   * notification sweep can pick it up again at the new time. In-app sound and
+   * read state are left untouched: snoozing is not dismissing.
+   */
+  const snoozeReminder = async (reminder: Reminder, minutes: number) => {
+    const next = snoozeTime(minutes);
+    if (!next || snoozingId) return;
+    setSnoozingId(reminder.id);
+    const { error } = await supabase
+      .from('reminders')
+      .update({
+        scheduled_for: next.toISOString(),
+        push_sent_at: null,
+        push_claimed_at: null,
+        push_attempts: 0,
+      })
+      .eq('id', reminder.id);
+    setSnoozingId(null);
+    if (!error) fetchData();
   };
 
   const deleteReminder = async (id: string) => {
@@ -221,6 +247,35 @@ export default function NotificationsPage() {
                           <button onClick={() => markAsRead(reminder.id)} className="p-1.5 rounded hover:bg-accent" aria-label="Mark as read">
                             <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
+                        )}
+                        {!isStudySession && reminder.is_enabled && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setSnoozeOpenId(snoozeOpenId === reminder.id ? null : reminder.id)}
+                              className="p-1.5 rounded hover:bg-accent"
+                              aria-label="Snooze reminder"
+                              aria-expanded={snoozeOpenId === reminder.id}
+                              disabled={snoozingId !== null}
+                            >
+                              <AlarmClock className={cn('w-3.5 h-3.5 text-muted-foreground', snoozingId === reminder.id && 'animate-pulse')} />
+                            </button>
+                            {snoozeOpenId === reminder.id && (
+                              <div className="absolute right-0 top-8 z-10 w-36 rounded-lg border border-border bg-popover shadow-lg py-1 animate-scale-in">
+                                {SNOOZE_OPTIONS.map((option) => (
+                                  <button
+                                    key={option.minutes}
+                                    onClick={() => {
+                                      setSnoozeOpenId(null);
+                                      snoozeReminder(reminder, option.minutes);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+                                  >
+                                    {option.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                         <button onClick={() => toggleEnabled(reminder)} className="p-1.5 rounded hover:bg-accent" aria-label="Toggle reminder">
                           {reminder.is_enabled ? <Bell className="w-3.5 h-3.5 text-primary" /> : <BellOff className="w-3.5 h-3.5 text-muted-foreground" />}

@@ -27,6 +27,19 @@ export function validateReminderTime(dateStr: string, timeStr: string, from: Dat
   return null;
 }
 
+export const SNOOZE_OPTIONS = [
+  { minutes: 10, label: '10 minutes' },
+  { minutes: 60, label: '1 hour' },
+  { minutes: 24 * 60, label: 'Tomorrow' },
+] as const;
+
+/** The rescheduled moment for a snooze, or null when the option is invalid. */
+export function snoozeTime(minutes: number, from: Date = new Date()): Date | null {
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  const next = new Date(from.getTime() + minutes * 60 * 1000);
+  return isNaN(next.getTime()) ? null : next;
+}
+
 function toSuggestion(dt: Date): ReminderTimeSuggestion {
   return { date: format(dt, 'yyyy-MM-dd'), time: format(dt, 'HH:mm') };
 }

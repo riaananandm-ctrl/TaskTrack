@@ -37,6 +37,16 @@ export interface ManageBacEvent {
   task_id: string | null;
 }
 
+export interface SyncChange {
+  id: string;
+  external_uid: string;
+  task_id: string | null;
+  change_kind: 'new' | 'edited';
+  changes: Array<{ field: string; label: string; previous: string | null; next: string | null }>;
+  detected_at: string;
+  is_read: boolean;
+}
+
 interface FunctionResult {
   ok: boolean;
   error?: string;
@@ -131,6 +141,7 @@ export async function syncManageBac(): Promise<{
   updated?: number;
   unchanged?: number;
   sparse?: boolean;
+  changesDetected?: number;
 }> {
   const result = await callFunction('sync-managebac-calendar', { action: 'manual' });
   return {
@@ -140,7 +151,53 @@ export async function syncManageBac(): Promise<{
     updated: typeof result.updated === 'number' ? result.updated : undefined,
     unchanged: typeof result.unchanged === 'number' ? result.unchanged : undefined,
     sparse: result.sparse === true,
+    changesDetected: typeof result.changesDetected === 'number' ? result.changesDetected : undefined,
   };
+}
+
+/** Unread sync change count, for a badge. Returns 0 when signed out. */
+export async function getUnreadChangeCount(): Promise<number> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return 0;
+  const { count } = await supabase
+    .from('sync_change_inbox')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', auth.user.id)
+    .eq('is_read', false);
+  return count ?? 0;
+}
+
+/** Recent change-inbox entries, newest first. */
+export async function listSyncChanges(limit = 30): Promise<SyncChange[]> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return [];
+  const { data } = await supabase
+    .from('sync_change_inbox')
+    .select('id, external_uid, task_id, change_kind, changes, detected_at, is_read')
+    .eq('user_id', auth.user.id)
+    .order('detected_at', { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as SyncChange[]).map((row) => ({
+    ...row,
+    change_kind: row.change_kind === 'edited' ? 'edited' : 'new',
+    changes: Array.isArray(row.changes) ? row.changes : [],
+  }));
+}
+
+/** Mark one inbox entry read. */
+export async function markSyncChangeRead(id: string): Promise<void> {
+  await supabase.from('sync_change_inbox').update({ is_read: true }).eq('id', id);
+}
+
+/** Mark every inbox entry read for the signed-in student. */
+export async function markAllSyncChangesRead(): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return;
+  await supabase
+    .from('sync_change_inbox')
+    .update({ is_read: true })
+    .eq('user_id', auth.user.id)
+    .eq('is_read', false);
 }
 
 /** Stop syncing. The link is forgotten; already-imported tasks are kept. */

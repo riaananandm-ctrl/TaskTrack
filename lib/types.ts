@@ -64,6 +64,7 @@ export interface Task {
   priority: Priority;
   status: TaskStatus;
   estimated_minutes: number | null;
+  remaining_minutes: number | null;
   notes: string | null;
   external_link: string | null;
   is_archived: boolean;

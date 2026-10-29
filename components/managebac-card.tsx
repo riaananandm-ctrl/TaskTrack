@@ -19,8 +19,9 @@ import { cn } from '@/lib/utils';
 import {
   getManageBacStatus, connectManageBac, verifyManageBacFeed, syncManageBac, disconnectManageBac,
   deleteManageBacConnection, listManageBacEvents, setEventDisposition,
+  listSyncChanges, markSyncChangeRead, markAllSyncChangesRead,
   MANAGEBAC_SOURCE_LABEL,
-  type ManageBacStatus, type ManageBacEvent, type EventDisposition,
+  type ManageBacStatus, type ManageBacEvent, type EventDisposition, type SyncChange,
 } from '@/lib/managebac';
 import { normalizeFeedUrl, maskFeedUrl, FEED_COPY } from '@/lib/feed-url';
 
@@ -76,14 +77,18 @@ export function ManageBacCard() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [sparse, setSparse] = useState(false);
   const [eventBusy, setEventBusy] = useState<string | null>(null);
+  const [changes, setChanges] = useState<SyncChange[]>([]);
+  const [changesOpen, setChangesOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const next = await getManageBacStatus();
     setStatus(next);
     if (next.connected) {
       setEvents(await listManageBacEvents());
+      setChanges(await listSyncChanges());
     } else {
       setEvents([]);
+      setChanges([]);
     }
     setLoading(false);
   }, []);
@@ -205,12 +210,17 @@ export function ManageBacCard() {
     await refresh();
     setSparse(Boolean(result.sparse));
     const total = (result.imported ?? 0) + (result.updated ?? 0);
+    const changeNote = result.changesDetected
+      ? ` ${result.changesDetected} change${result.changesDetected === 1 ? '' : 's'} recorded in “What changed” below.`
+      : '';
     setFeedback({
       kind: total > 0 ? 'ok' : 'info',
       text:
         total > 0
-          ? `Synced ${result.imported ?? 0} new and ${result.updated ?? 0} updated entr${total === 1 ? 'y' : 'ies'}.`
-          : 'Your ManageBac calendar is up to date. No new entries.',
+          ? `Synced ${result.imported ?? 0} new and ${result.updated ?? 0} updated entr${total === 1 ? 'y' : 'ies'}.${changeNote}`
+          : result.changesDetected
+            ? `Your calendar is up to date.${changeNote}`
+            : 'Your ManageBac calendar is up to date. No new entries.',
     });
     setBusy(null);
   };
@@ -251,6 +261,38 @@ export function ManageBacCard() {
     if (!result.ok) {
       setFeedback({ kind: 'error', text: result.error ?? 'That change could not be applied.' });
     }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    await markSyncChangeRead(id);
+    setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, is_read: true } : c)));
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllSyncChangesRead();
+    setChanges((prev) => prev.map((c) => ({ ...c, is_read: true })));
+  };
+
+  const unreadChanges = changes.filter((c) => !c.is_read).length;
+
+  const changeSummary = (change: SyncChange): string => {
+    if (change.change_kind === 'new') return 'New entry appeared in your calendar feed.';
+    const fields = change.changes.map((c) => c.label).join(', ');
+    return fields ? `Changed: ${fields}.` : 'Content changed in your calendar feed.';
+  };
+
+  const formatChangeValue = (value: string | null): string => {
+    if (!value) return '—';
+    // Due/start/end arrive as ISO instants from the feed; show the date and time part.
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      try {
+        const parsed = parseISO(value);
+        return /\d{2}:\d{2}:\d{2}/.test(value) ? format(parsed, 'd MMM yyyy, HH:mm') : format(parsed, 'd MMM yyyy');
+      } catch {
+        return value;
+      }
+    }
+    return value;
   };
 
   const connected = status?.connected ?? false;
@@ -534,6 +576,76 @@ export function ManageBacCard() {
                 <p className={cn('text-xs', MUTED)}>
                   No entries imported yet. Press Sync now to load your ManageBac calendar.
                 </p>
+              )}
+
+              {/* What changed: change inbox from recent syncs */}
+              {connected && changes.length > 0 && (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setChangesOpen((v) => !v)}
+                    className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                    aria-expanded={changesOpen}
+                  >
+                    <ChevronDown className={cn('w-4 h-4 transition-transform', changesOpen && 'rotate-180')} />
+                    What changed ({unreadChanges > 0 ? `${unreadChanges} new` : 'all read'})
+                  </button>
+                  {changesOpen && (
+                    <div className="space-y-2 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <p className={cn('text-xs', MUTED)}>
+                          Detected automatically during syncs. Your own edits to imported tasks are never overwritten.
+                        </p>
+                        {unreadChanges > 0 && (
+                          <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>Mark all read</Button>
+                        )}
+                      </div>
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {changes.map((change) => (
+                          <div
+                            key={change.id}
+                            className={cn(
+                              'rounded-lg border p-3',
+                              change.is_read ? 'border-border opacity-70' : 'border-primary/40 bg-primary/5'
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium">
+                                  {change.change_kind === 'new' ? 'New' : 'Updated'}
+                                  {' \u00b7 '}
+                                  {changeSummary(change)}
+                                </p>
+                                <p className={cn('text-xs', MUTED, 'mt-0.5')}>
+                                  Detected {format(parseISO(change.detected_at), 'd MMM yyyy, HH:mm')}
+                                </p>
+                              </div>
+                              {!change.is_read && (
+                                <Button variant="ghost" size="sm" onClick={() => handleMarkRead(change.id)}>
+                                  Got it
+                                </Button>
+                              )}
+                            </div>
+                            {change.change_kind === 'edited' && (
+                              <dl className="mt-2 space-y-1 text-xs">
+                                {change.changes.map((entry, i) => (
+                                  <div key={i} className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-2">
+                                    <dt className="font-medium flex-shrink-0">{entry.label}:</dt>
+                                    <dd className={cn('min-w-0', MUTED)}>
+                                      <span className="line-through">{formatChangeValue(entry.previous)}</span>
+                                      {' \u2192 '}
+                                      <span className="text-foreground font-medium">{formatChangeValue(entry.next)}</span>
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               <div className="flex items-start gap-2 pt-1">

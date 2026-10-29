@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { Task, WeeklyPlan } from '@/lib/types';
+import { buildWorkloadDays, buildWorkloadWarnings, remainingMinutesFor, DEFAULT_AVAILABLE_MINUTES, type DayAvailability } from '@/lib/workload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +32,6 @@ import { GraduationCap } from 'lucide-react';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const MAX_DAILY_MINUTES = 360; // 6 hours default available time
 
 export default function PlanningPage() {
   const { user } = useAuth();
@@ -47,6 +47,12 @@ export default function PlanningPage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<WeeklyPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<DayAvailability[]>([]);
+  const [availOpen, setAvailOpen] = useState(false);
+  const [availDraft, setAvailDraft] = useState<Array<{ minutes: number; unavailable: boolean }>>(
+    DAY_NAMES.map(() => ({ minutes: DEFAULT_AVAILABLE_MINUTES, unavailable: false }))
+  );
+  const [availSaving, setAvailSaving] = useState(false);
   const { session: studySession, openForTask, close: closeStudySession, error: studyError } = useStudySessionOpener();
 
   const { onCreated, dialogs } = useReminderPrompt({ subjects: [], tasks });
@@ -54,12 +60,15 @@ export default function PlanningPage() {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const [tasksRes, plansRes] = await Promise.all([
+    const [tasksRes, plansRes, availRes] = await Promise.all([
       supabase.from('tasks').select('*, subject:subjects(*)').eq('is_archived', false).order('due_date', { nullsFirst: false }),
       supabase.from('weekly_plans').select('*, task:tasks(*, subject:subjects(*))').order('planned_date'),
+      supabase.from('weekly_availability').select('weekday, available_minutes, is_unavailable'),
     ]);
     setTasks((tasksRes.data as unknown as Task[]) || []);
     setPlans((plansRes.data as unknown as WeeklyPlan[]) || []);
+    const rows = (availRes.data ?? []) as Array<{ weekday: number; available_minutes: number; is_unavailable: boolean }>;
+    setAvailability(rows.map((r) => ({ weekday: r.weekday, availableMinutes: r.available_minutes, isUnavailable: r.is_unavailable })));
     setLoading(false);
   }, [user]);
 
@@ -84,18 +93,11 @@ export default function PlanningPage() {
     return weekPlans.filter((p) => isSameDay(parseISO(p.planned_date), day));
   };
 
-  const getDayMinutes = (day: Date) => {
-    return getPlansForDay(day).reduce((total, plan) => {
-      if (plan.start_time && plan.end_time) {
-        const [sh, sm] = plan.start_time.split(':').map(Number);
-        const [eh, em] = plan.end_time.split(':').map(Number);
-        return total + (eh * 60 + em) - (sh * 60 + sm);
-      }
-      return total + (plan.task?.estimated_minutes || 30);
-    }, 0);
-  };
-
-  const totalWeekMinutes = weekDays.reduce((total, day) => total + getDayMinutes(day), 0);
+  const toYmd = (d: Date) => format(d, 'yyyy-MM-dd');
+  const workloadDays = buildWorkloadDays(weekStart, weekEnd, tasks, plans, availability);
+  const warnings = buildWorkloadWarnings(workloadDays);
+  const warningByDate = new Map(warnings.map((w) => [w.date, w]));
+  const workloadByDate = new Map(workloadDays.map((d) => [d.date, d]));
 
   const handleOpenPlan = (taskId: string, date?: string) => {
     setEditingPlan(null);
@@ -193,16 +195,52 @@ export default function PlanningPage() {
     setWeekStart((prev) => addDays(prev, direction * 7));
   };
 
+  const openAvailability = () => {
+    const byWeekday = new Map(availability.map((a) => [a.weekday, a]));
+    // Draft is ordered Mon..Sun to match the UI; weekday 0 is Sunday.
+    setAvailDraft(
+      [1, 2, 3, 4, 5, 6, 0].map((weekday) => {
+        const saved = byWeekday.get(weekday);
+        return {
+          minutes: saved && !saved.isUnavailable ? saved.availableMinutes : DEFAULT_AVAILABLE_MINUTES,
+          unavailable: saved?.isUnavailable ?? false,
+        };
+      })
+    );
+    setAvailOpen(true);
+  };
+
+  const saveAvailability = async () => {
+    if (!user) return;
+    setAvailSaving(true);
+    const order = [1, 2, 3, 4, 5, 6, 0]; // Mon..Sun as shown
+    await supabase.from('weekly_availability').upsert(
+      order.map((weekday, i) => ({
+        user_id: user.id,
+        weekday,
+        available_minutes: availDraft[i].unavailable ? 0 : availDraft[i].minutes,
+        is_unavailable: availDraft[i].unavailable,
+      })),
+      { onConflict: 'user_id,weekday' }
+    );
+    setAvailSaving(false);
+    setAvailOpen(false);
+    fetchData();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Plan My Week</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')} · {Math.floor(totalWeekMinutes / 60)}h {totalWeekMinutes % 60}m total
+            {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')}
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={openAvailability}>
+            <Clock className="w-4 h-4 mr-1" /> Availability
+          </Button>
           <Button variant="outline" size="icon" onClick={() => navigateWeek(-1)}><ChevronLeft className="w-4 h-4" /></Button>
           <Button variant="ghost" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>This week</Button>
           <Button variant="outline" size="icon" onClick={() => navigateWeek(1)}><ChevronRight className="w-4 h-4" /></Button>
@@ -218,8 +256,12 @@ export default function PlanningPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2">
               {weekDays.map((day, i) => {
                 const dayPlans = getPlansForDay(day);
-                const dayMinutes = getDayMinutes(day);
-                const isOverloaded = dayMinutes > MAX_DAILY_MINUTES;
+                const dateStr = toYmd(day);
+                const load = workloadByDate.get(dateStr);
+                const dayMinutes = load ? load.plannedMinutes + load.requiredMinutes : 0;
+                const availableMinutes = load?.availableMinutes ?? DEFAULT_AVAILABLE_MINUTES;
+                const isOverloaded = load ? load.slackMinutes < 0 : false;
+                const warning = warningByDate.get(dateStr);
                 const isToday = isSameDay(day, new Date());
 
                 return (
@@ -234,17 +276,22 @@ export default function PlanningPage() {
                     <div className="text-center mb-2 pb-2 border-b border-border">
                       <p className="text-xs text-muted-foreground">{DAY_SHORT[i]}</p>
                       <p className={cn('text-lg font-bold', isToday && 'text-primary')}>{format(day, 'd')}</p>
-                      {dayMinutes > 0 && (
-                        <p className={cn('text-[10px] mt-0.5', isOverloaded ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
-                          {Math.floor(dayMinutes / 60)}h {dayMinutes % 60}m
-                        </p>
-                      )}
+                      <p className={cn('text-[10px] mt-0.5', isOverloaded ? 'text-red-600 font-medium' : 'text-muted-foreground')}>
+                        {dayMinutes > 0 ? `${Math.floor(dayMinutes / 60)}h ${dayMinutes % 60}m` : ''}
+                        {availableMinutes === 0 ? ' of 0m' : ` of ${Math.floor(availableMinutes / 60)}h`}
+                      </p>
                     </div>
 
-                    {isOverloaded && (
-                      <div className="flex items-center gap-1 text-[10px] text-red-600 mb-1 px-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Overloaded
+                    {warning && (
+                      <div
+                        className="flex items-start gap-1 text-[10px] text-red-600 dark:text-red-400 mb-1 px-1"
+                        role="alert"
+                      >
+                        <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                        <span title={warning.message} className="min-w-0">
+                          {availableMinutes === 0 ? 'No time, work due' : 'Overloaded'}
+                          <span className="sr-only"> {warning.message}</span>
+                        </span>
                       </div>
                     )}
 
@@ -433,6 +480,60 @@ export default function PlanningPage() {
         onSaved={fetchData}
         onCreated={onCreated}
       />
+
+      {/* Availability editor */}
+      <Dialog open={availOpen} onOpenChange={setAvailOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Your weekly study time</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Set the study time you realistically have per weekday. Warnings compare your
+            planned work and deadlines against these numbers — they are assumptions, not limits.
+          </p>
+          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+            {DAY_NAMES.map((name, i) => {
+              const draft = availDraft[i];
+              const setDraft = (next: Partial<{ minutes: number; unavailable: boolean }>) =>
+                setAvailDraft((prev) => prev.map((d, j) => (j === i ? { ...d, ...next } : d)));
+              return (
+                <div key={name} className="flex items-center gap-3 rounded-lg border border-border p-2.5">
+                  <span className="text-sm font-medium w-20 flex-shrink-0">{name}</span>
+                  {draft.unavailable ? (
+                    <span className="text-xs text-muted-foreground flex-1">Not available</span>
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={720}
+                      step={15}
+                      value={draft.minutes}
+                      onChange={(e) => setDraft({ minutes: Math.max(0, Math.min(720, Number(e.target.value) || 0)) })}
+                      aria-label={`${name} available minutes`}
+                      className="h-8 w-24"
+                    />
+                  )}
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={draft.unavailable}
+                      onChange={(e) => setDraft({ unavailable: e.target.checked })}
+                      className="accent-[hsl(var(--primary))]"
+                    />
+                    Unavailable
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAvailOpen(false)}>Cancel</Button>
+            <Button onClick={saveAvailability} disabled={availSaving}>
+              {availSaving ? 'Saving…' : 'Save availability'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {dialogs}
 

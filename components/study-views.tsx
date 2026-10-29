@@ -1,19 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, X, Layers, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { saveDeck } from '@/lib/spaced-review';
 import type { QuizData, FlashcardsData, StudyPlanData, SlidesData } from '@/lib/study-modes';
 
 // ---------------------------------------------------------------------------
 // Quiz — one question at a time, immediate feedback, score and weak topics
 // ---------------------------------------------------------------------------
 
-export function QuizView({ data }: { data: QuizData }) {
+interface QuizViewProps {
+  data: QuizData;
+  /** Called once with the full result when the student reaches the results screen. */
+  onFinish?: (result: {
+    score: number;
+    total: number;
+    answers: { question: string; chosen: string; chosenIndex: number; correct: boolean }[];
+    weakTopics: string[];
+  }) => void;
+}
+
+export function QuizView({ data, onFinish }: QuizViewProps) {
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answers, setAnswers] = useState<{ chosen: number; correct: boolean }[]>([]);
   const [finished, setFinished] = useState(false);
+  // Report each finished round exactly once, even if the student retakes the quiz.
+  const reportedRef = useRef(false);
 
   const total = data.questions.length;
   const question = data.questions[index];
@@ -36,11 +50,33 @@ export function QuizView({ data }: { data: QuizData }) {
   };
 
   const restart = () => {
+    reportedRef.current = false;
     setIndex(0);
     setSelected(null);
     setAnswers([]);
     setFinished(false);
   };
+
+  // The results screen is only reached once per round; useEffect keeps the
+  // report out of render so StrictMode double-invocations cannot double-save.
+  useEffect(() => {
+    if (index < total || reportedRef.current || answers.length < total) return;
+    reportedRef.current = true;
+    onFinish?.({
+      score: answers.filter((a) => a.correct).length,
+      total,
+      answers: data.questions.map((q, i) => ({
+        question: q.question,
+        chosen: q.options[answers[i]?.chosen ?? -1] ?? '',
+        chosenIndex: answers[i]?.chosen ?? -1,
+        correct: answers[i]?.correct ?? false,
+      })),
+      weakTopics:
+        data.weakTopics.length > 0
+          ? data.weakTopics
+          : data.questions.filter((_, i) => answers[i] && !answers[i].correct).map((q) => q.question),
+    });
+  }, [index, total, answers, data.questions, data.weakTopics, onFinish]);
 
   if (index >= total) {
     const score = answers.filter((a) => a.correct).length;
@@ -168,11 +204,34 @@ export function QuizView({ data }: { data: QuizData }) {
 // Flashcards — one card at a time with reveal and next
 // ---------------------------------------------------------------------------
 
-export function FlashcardsView({ data }: { data: FlashcardsData }) {
+interface FlashcardsViewProps {
+  data: FlashcardsData;
+  /** When provided, the deck can be saved to the persistent Review queue. */
+  deckDefaults?: { taskId: string | null; sessionId: string };
+}
+
+export function FlashcardsView({ data, deckDefaults }: FlashcardsViewProps) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const total = data.cards.length;
   const card = data.cards[index];
+
+  const saveAsDeck = async () => {
+    if (!deckDefaults || saveState === 'saving' || saveState === 'saved') return;
+    setSaveState('saving');
+    try {
+      await saveDeck({
+        title: data.cards[0]?.front ? `${data.cards[0].front.slice(0, 60)}` : 'Flashcard deck',
+        cards: data.cards,
+        taskId: deckDefaults.taskId,
+        sessionId: deckDefaults.sessionId,
+      });
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+    }
+  };
 
   const go = (delta: number) => {
     setRevealed(false);
@@ -236,6 +295,26 @@ export function FlashcardsView({ data }: { data: FlashcardsData }) {
           Next card
         </button>
       </div>
+
+      {deckDefaults && (
+        <div className="flex items-center justify-end gap-2">
+          {saveState === 'error' && (
+            <span className="text-[11px] text-destructive">Could not save — try again.</span>
+          )}
+          <button
+            onClick={saveAsDeck}
+            disabled={saveState === 'saving' || saveState === 'saved'}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent font-medium transition-colors disabled:opacity-60"
+          >
+            {saveState === 'saving' ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+            ) : (
+              <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
+            {saveState === 'saved' ? 'Saved to Review' : 'Save to Review'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

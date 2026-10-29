@@ -19,6 +19,7 @@ import {
   ChevronRight,
   CalendarClock,
   GraduationCap,
+  Layers,
   Ruler,
   Menu,
   X,
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
   { href: '/app/tools', label: 'Tools', icon: Ruler },
   { href: '/app/planning', label: 'Planning', icon: CalendarClock },
   { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
+  { href: '/app/review', label: 'Review', icon: Layers },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
 ];
 
