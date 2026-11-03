@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase/client';
 import { AuthLayout } from '@/components/auth-layout';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, MailCheck } from 'lucide-react';
-import { safeAuthMessage } from '@/lib/auth-email';
+import { safeAuthMessage, PENDING_CONFIRM_EMAIL_KEY } from '@/lib/auth-email';
 
-const PENDING_EMAIL_KEY = 'tasktrack:pending-email';
+const PENDING_EMAIL_KEY = PENDING_CONFIRM_EMAIL_KEY;
+
 
 type State =
   | { kind: 'working' }

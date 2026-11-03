@@ -16,6 +16,9 @@ export const SIGNUP_GENERIC_NOTICE =
 /** Session-only key so signup can hand the typed email to the login screen. Never holds a password. */
 export const SIGNIN_EMAIL_STORAGE_KEY = 'tasktrack:signin-email';
 
+/** Local key so the confirmation screen can offer a resend for the address just used. Never holds a password. */
+export const PENDING_CONFIRM_EMAIL_KEY = 'tasktrack:pending-email';
+
 export type SignupErrorKind = 'duplicate-account' | 'other';
 
 /**

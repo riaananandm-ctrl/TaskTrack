@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, AlertCircle, MailCheck, Check, Info, ArrowRight } from 'lucide-react';
 import {
   safeAuthMessage, CHECK_EMAIL_HEADLINE, ACCOUNT_EXISTS_MESSAGE, SIGNUP_GENERIC_NOTICE,
-  classifySignupError, SIGNIN_EMAIL_STORAGE_KEY,
+  classifySignupError, SIGNIN_EMAIL_STORAGE_KEY, PENDING_CONFIRM_EMAIL_KEY,
 } from '@/lib/auth-email';
 
 export default function SignupPage() {
@@ -129,6 +129,12 @@ export default function SignupPage() {
     const explicitlyConfirmedExisting = !data.session && !!data.user;
     setSentTo(formData.email);
     setGenericSignup(true);
+    try {
+      // Remember the address locally so the confirmation screen can offer a resend.
+      window.localStorage.setItem(PENDING_CONFIRM_EMAIL_KEY, formData.email);
+    } catch {
+      // Storage may be blocked; the resend button simply won't be offered.
+    }
     setNotice(
       explicitlyConfirmedExisting
         ? ACCOUNT_EXISTS_MESSAGE
