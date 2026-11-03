@@ -31,18 +31,9 @@ export function classifySignupError(
   if (code === 'user_already_exists' || code === 'email_exists') {
     return 'duplicate-account';
   }
-  if (code) {
-    return 'other';
-  }
-  const text = (error?.message ?? '').toLowerCase();
-  if (
-    text.includes('user already registered') ||
-    text.includes('already been registered') ||
-    text.includes('already exists') ||
-    text.includes('email address exists') ||
-    text.includes('email exists') ||
-    text.includes('already in use')
-  ) {
+  // Only Supabase's own structured code may declare an existing account. Message-text
+  // sniffing could state account existence on an error that carries no such guarantee.
+  if (code === 'user_already_exists' || code === 'email_exists') {
     return 'duplicate-account';
   }
   return 'other';
