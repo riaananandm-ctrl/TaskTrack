@@ -16,6 +16,15 @@ import {
   classifySignupError, SIGNIN_EMAIL_STORAGE_KEY, PENDING_CONFIRM_EMAIL_KEY,
 } from '@/lib/auth-email';
 
+/** Removes any address left by a previous signup so a new action is never resent to it. */
+const clearPendingConfirmEmail = () => {
+  try {
+    window.localStorage.removeItem(PENDING_CONFIRM_EMAIL_KEY);
+  } catch {
+    // Storage may be blocked; there is simply nothing to clear.
+  }
+};
+
 export default function SignupPage() {
   const router = useRouter();
   const [sessionUser, setSessionUser] = useState<{ email?: string | null } | null | undefined>(undefined);
@@ -110,16 +119,18 @@ export default function SignupPage() {
           : safeAuthMessage(error.message)
       );
       setDuplicateAccount(isDuplicate);
+      // A failed signup must not leave a previous address saved, or the
+      // confirmation screen could offer a resend to the wrong account.
+      clearPendingConfirmEmail();
       setLoading(false);
       inFlight.current = false;
       return;
     }
 
-    // Supabase deliberately returns a session for an existing, confirmed account when
-    // anti-enumeration is on. Signing in an unknown person that way would bypass the
-    // confirmation gate the login screen enforces, so confirm the session actually
-    // belongs to the address typed here.
+    // A real session for this address means the account is confirmed and signed in;
+    // no confirmation email is pending for it anymore.
     if (data.session && data.user?.email?.toLowerCase() === formData.email.trim().toLowerCase()) {
+      clearPendingConfirmEmail();
       router.push('/starter');
       return;
     }
@@ -163,6 +174,9 @@ export default function SignupPage() {
   };
 
   const resetToForm = () => {
+    // The student is changing the address, so the saved one must not be offered
+    // for a resend of a signup they have abandoned.
+    clearPendingConfirmEmail();
     setSentTo(null);
     setGenericSignup(false);
     setError(null);
