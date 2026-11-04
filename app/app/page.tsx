@@ -106,9 +106,9 @@ export default function DashboardPage() {
 
   const overdue = activeTasks.filter((t) => getDeadlineStatus(t) === 'overdue');
 
-  // Every future deadline, soonest first, for the upcoming deadlines list.
+  // Upcoming = due today or later and not overdue. Overdue tasks live in the red banner above.
   const upcomingDeadlines = activeTasks
-    .filter((t) => t.due_date)
+    .filter((t) => t.due_date && getDeadlineStatus(t) === 'upcoming')
     .sort((a, b) => parseISO(a.due_date!).getTime() - parseISO(b.due_date!).getTime())
     .slice(0, 6);
 

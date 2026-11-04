@@ -64,35 +64,40 @@ function LoginForm() {
     // session is written to the right place from the very first token.
     setRememberDevice(remember);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // Every path — bad password, unconfirmed email, network failure, thrown error —
+    // must end the spinner and show something, or the button appears to hang forever.
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      const msg = safeAuthMessage(error.message);
-      setError(msg);
-      // When the server says the email isn't confirmed, offer a resend link.
-      if (error.message.toLowerCase().includes('email not confirmed')) {
-        setNeedsConfirm(true);
+      if (error) {
+        const msg = safeAuthMessage(error.message);
+        setError(msg);
+        // When the server says the email isn't confirmed, offer a resend link.
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          setNeedsConfirm(true);
+        }
+        return;
       }
+
+      // If the server has confirmation off, the login may have succeeded for an
+      // unconfirmed user. Check the confirmation status before proceeding.
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const confirmed = !!currentUser?.email_confirmed_at || !!currentUser?.confirmed_at;
+      if (!confirmed) {
+        await supabase.auth.signOut();
+        setError(CONFIRM_REQUIRED_MESSAGE);
+        setNeedsConfirm(true);
+        return;
+      }
+
+      const next = searchParams.get('next');
+      router.push(next && next.startsWith('/') ? next : '/app');
+    } catch {
+      setError('We couldn\u2019t reach the server. Please check your connection and try again.');
+    } finally {
       setLoading(false);
       inFlight.current = false;
-      return;
     }
-
-    // If the server has confirmation off, the login may have succeeded for an
-    // unconfirmed user. Check the confirmation status before proceeding.
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    const confirmed = !!currentUser?.email_confirmed_at || !!currentUser?.confirmed_at;
-    if (!confirmed) {
-      await supabase.auth.signOut();
-      setError(CONFIRM_REQUIRED_MESSAGE);
-      setNeedsConfirm(true);
-      setLoading(false);
-      inFlight.current = false;
-      return;
-    }
-
-    const next = searchParams.get('next');
-    router.push(next && next.startsWith('/') ? next : '/app');
   };
 
   return (

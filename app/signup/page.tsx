@@ -135,9 +135,9 @@ export default function SignupPage() {
       return;
     }
 
-    // An explicitly confirmed-existing response, or a generic success that may cover an
-    // existing account, both land here.
-    const explicitlyConfirmedExisting = !data.session && !!data.user;
+    // A no-session response covers both a brand-new account and an existing unconfirmed
+    // one — the screen below uses wording that is accurate for either, without revealing
+    // which (account-enumeration safety).
     setSentTo(formData.email);
     setGenericSignup(true);
     try {
@@ -146,11 +146,7 @@ export default function SignupPage() {
     } catch {
       // Storage may be blocked; the resend button simply won't be offered.
     }
-    setNotice(
-      explicitlyConfirmedExisting
-        ? ACCOUNT_EXISTS_MESSAGE
-        : SIGNUP_GENERIC_NOTICE
-    );
+    setNotice(SIGNUP_GENERIC_NOTICE);
     setLoading(false);
     inFlight.current = false;
   };
@@ -250,8 +246,8 @@ export default function SignupPage() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">{CHECK_EMAIL_HEADLINE}</p>
               <p className="text-sm text-muted-foreground mt-1 break-words">
-                We sent a confirmation link to <span className="font-medium text-foreground">{sentTo}</span>.
-                Open it to finish creating your account.
+                If <span className="font-medium text-foreground">{sentTo}</span> still needs confirming, a confirmation
+                link is on its way to that inbox. Open it to finish setting up your account.
               </p>
             </div>
           </div>
