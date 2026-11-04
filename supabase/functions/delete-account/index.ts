@@ -82,23 +82,36 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Remove the profile row first; everything keyed on user_id cascades from here.
-    const { error: profileError } = await admin.from('profiles').delete().eq('id', userId);
-    if (profileError) {
-      console.error('Account deletion: profile cleanup failed');
-      return json(
-        { ok: false, error: { code: 'DELETE_FAILED', message: 'Your account could not be deleted. Please try again.' } },
-        500
-      );
-    }
-
+    // Delete the Auth user FIRST. Every user-data table (profile, tasks, subjects,
+    // reminders, sessions, documents, gamification, and the rest) references
+    // auth.users with ON DELETE CASCADE (verified against the live database), so this
+    // single call removes the account and all of its data in one step. Deleting the
+    // profile first is avoided deliberately: if the Auth deletion then failed, the
+    // student would be left with a half-deleted account that can no longer sign in
+    // but still exists. If the cascading delete is somehow blocked by a stray table
+    // without a cascade, the orphaned profile is cleaned up here as a fallback.
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
     if (deleteError) {
-      console.error('Account deletion: auth user removal failed');
-      return json(
-        { ok: false, error: { code: 'DELETE_FAILED', message: 'Your account could not be deleted. Please try again.' } },
-        500
-      );
+      // Distinguish a real failure from "already gone": an account deleted moments
+      // earlier (double click, retry after a dropped connection) must report success.
+      if (deleteError.status !== 404 && !/not found/i.test(deleteError.message)) {
+        console.error('Account deletion: auth user removal failed');
+        return json(
+          { ok: false, error: { code: 'DELETE_FAILED', message: 'Your account could not be deleted. Please try again.' } },
+          500
+        );
+      }
+    }
+
+    // Belt-and-braces: remove the profile row if any non-cascading link kept it alive.
+    const { error: profileError } = await admin
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+    if (profileError) {
+      // The auth user is gone either way; only a stray row would remain. Report
+      // success but log for diagnosis rather than telling the student it failed.
+      console.error('Account deletion: post-cleanup profile row removal failed');
     }
 
     return json({ ok: true });

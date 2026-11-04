@@ -3,7 +3,7 @@
   "functions": {
     "delete-account": {
       "hasChanged": false,
-      "hash": "8808735cdd0684481b700b719a4b34aea09d15f71c99e213d447f63cde34c74a"
+      "hash": "102cd5c0ece5bd69a9459f5552f1a2da84cac900bd8d243ef3cfc0651c7b2be5"
     },
     "documents-worker": {
       "hasChanged": false,
