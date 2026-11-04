@@ -395,24 +395,18 @@ Deno.serve(async (req: Request) => {
         return json({ ok: false, error: 'Calendar verification is not configured correctly on our side. Please try again later.' }, 503);
       }
 
-      // Per-user rate limit, stored in the database so it holds across instances. If
-      // the log table is missing (setup problem), fail closed with a setup error
-      // rather than skipping the limit.
-      const windowStart = new Date(Date.now() - 60_000).toISOString();
-      const { count, error: limitError } = await admin
-        .from('managebac_verify_log')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('created_at', windowStart);
+      // Per-user rate limit, enforced atomically in the database: one call inserts the
+      // attempt and returns the 60-second count under an advisory lock, so concurrent
+      // requests cannot race past the cap. Any RPC error is a setup problem — fail
+      // closed rather than skip the limit.
+      const { data: attempts, error: limitError } = await admin.rpc('record_verify_attempt', {
+        p_user_id: userId,
+      });
       if (limitError) {
         return json({ ok: false, error: 'Calendar verification is not configured correctly on our side. Please try again later.' }, 503);
       }
-      if ((count ?? 0) >= 5) {
+      if ((attempts ?? 1) > 5) {
         return json({ ok: false, error: 'Too many verification attempts. Please wait a minute and try again.' }, 429);
-      }
-      const { error: logError } = await admin.from('managebac_verify_log').insert({ user_id: userId });
-      if (logError) {
-        return json({ ok: false, error: 'Calendar verification is not configured correctly on our side. Please try again later.' }, 503);
       }
 
       const raw = typeof body?.feedUrl === 'string' ? body.feedUrl.trim() : '';
