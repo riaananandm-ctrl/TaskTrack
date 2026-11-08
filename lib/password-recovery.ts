@@ -79,6 +79,21 @@ export function clearRecoveryHint(): void {
   }
 }
 
+/**
+ * Deterministic single-owner claim for the redirect to /reset-password. Both the auth
+ * provider (on the PASSWORD_RECOVERY event) and RecoveryLinkGuard (on seeing a recovery
+ * link) may want to navigate; exactly one of them wins the claim, whoever runs first,
+ * and the other does nothing. Module-scoped and in-memory: it coordinates one document,
+ * and after any navigation the claim starts fresh on the new page.
+ */
+let recoveryRedirectClaimed = false;
+
+export function claimRecoveryRedirect(): boolean {
+  if (recoveryRedirectClaimed) return false;
+  recoveryRedirectClaimed = true;
+  return true;
+}
+
 /** Read the recovery markers from the current URL without touching any token value. */
 export function readRecoveryParams(url: string): {
   /** The link's declared purpose, e.g. 'recovery' for a password reset. */

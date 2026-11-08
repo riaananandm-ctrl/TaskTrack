@@ -101,21 +101,23 @@ export default function ResetPasswordPage() {
 
     // Poll for the session. The client parses the URL asynchronously, so the session
     // is often not readable on the very first tick. A session counts as recovery when
-    // the link declared itself a recovery link, or when the auth provider reported a
-    // PASSWORD_RECOVERY event moments ago (the handoff hint — a UI hint, never proof;
-    // the Supabase session itself is still required either way). An ordinary
-    // signed-in session with no such signal is never treated as recovery.
-    const recoverySignal = declared.isRecovery || hasFreshRecoveryHint();
-    if (recoverySignal) {
-      // The hint's purpose is served the moment the recovery framing is kept; clear it
-      // so it cannot leak into a later visit.
-      clearRecoveryHint();
-    }
+    // the link declared itself a recovery link, or when the auth provider has reported
+    // a PASSWORD_RECOVERY event (the handoff hint — a UI hint, never proof; the
+    // Supabase session itself is still required either way). The hint is re-checked on
+    // every tick, so a provider event that lands after mount is still picked up. An
+    // ordinary signed-in session with no such signal is never treated as recovery.
+    const linkDeclaredRecovery = declared.isRecovery;
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts += 1;
       const { data } = await supabase.auth.getSession();
-      if (data.session && recoverySignal) {
+      if (data.session && (linkDeclaredRecovery || hasFreshRecoveryHint())) {
+        // The hint's purpose is served the moment the recovery framing is kept; clear
+        // it so it cannot leak into a later visit. Clearing happens only on accept —
+        // never before we know the outcome — so an effect rerun (for example under
+        // React Strict Mode) still sees a valid recovery session and accepts again
+        // instead of consuming the signal and then rejecting the same link.
+        clearRecoveryHint();
         accept();
         clearInterval(interval);
         return;
@@ -123,8 +125,16 @@ export default function ResetPasswordPage() {
       if (attempts >= 25) {
         clearInterval(interval);
         if (data.session) {
+          // A session exists but nothing ever signalled recovery. That is an ordinary
+          // signed-in visit, not a failed exchange — the hint is deliberately left in
+          // place only when a recovery exchange is genuinely still in flight; here
+          // neither the URL nor the provider ever produced one, so nothing to clear.
           reject(SIGNED_IN_NOT_RECOVERY_MESSAGE, true);
         } else {
+          // No session after the full window: the exchange failed or the link was
+          // expired/used. Drop the hint so a failed establishment can never leave a
+          // reusable signal behind.
+          clearRecoveryHint();
           reject(RESET_LINK_EXPIRED_MESSAGE);
         }
       }
@@ -155,6 +165,15 @@ export default function ResetPasswordPage() {
     updateInFlight.current = true;
     setSubmitting(true);
     try {
+      // A Supabase session is always required before a password can be updated. The
+      // form only renders after a recovery session was accepted, but re-verify here so
+      // no state drift (or stale tab) can ever send an unauthenticated update.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setFormError(RESET_LINK_EXPIRED_MESSAGE);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {

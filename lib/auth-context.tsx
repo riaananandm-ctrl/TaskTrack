@@ -5,7 +5,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { clearPriorityAlert } from '@/lib/session-keys';
-import { markRecoveryHandoff } from '@/lib/password-recovery';
+import { markRecoveryHandoff, clearRecoveryHint, claimRecoveryRedirect } from '@/lib/password-recovery';
 import { isAssessPrepTask, getTaskDeadline } from '@/lib/deadline-status';
 import { cleanupPastAssessPrepTasks } from '@/lib/assessprep-cleanup';
 
@@ -54,8 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // navigation, and the fresh hint is what lets the reset screen stay in its
         // recovery framing after the reload.
         if (event === 'PASSWORD_RECOVERY' && typeof window !== 'undefined') {
+          // Single-owner claim: if the RecoveryLinkGuard got here first, it owns the
+          // navigation and we only persist the handoff hint it will read on the reset
+          // screen. Whoever claims it owns the redirect; the other never navigates.
           markRecoveryHandoff();
-          if (!window.location.pathname.startsWith('/reset-password')) {
+          if (claimRecoveryRedirect() && !window.location.pathname.startsWith('/reset-password')) {
             window.location.replace('/reset-password');
             return;
           }
@@ -86,6 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // SIGNED_OUT: clear everything and finish loading.
         if (event === 'SIGNED_OUT') {
+          // The recovery handoff hint is flow UI state, not session data; drop it
+          // whenever the session ends so it can never outlive its flow.
+          clearRecoveryHint();
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -199,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (user) clearPriorityAlert(user.id);
     await supabase.auth.signOut({ scope: 'local' });
+    clearRecoveryHint();
     setProfile(null);
     setUser(null);
     setSession(null);

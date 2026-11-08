@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { readRecoveryParams, hasFreshRecoveryHint } from '@/lib/password-recovery';
+import { readRecoveryParams, claimRecoveryRedirect } from '@/lib/password-recovery';
 
 /**
  * Catches a password-reset link wherever it lands.
@@ -21,18 +21,18 @@ export function RecoveryLinkGuard() {
 
     const { type } = readRecoveryParams(window.location.href);
     if (type === 'recovery') {
-      // The auth provider also listens for the recovery event and redirects on it.
-      // Give it a beat to take over; if it did (or a navigation is already under way),
-      // it has marked the handoff and we stay put rather than race it. Otherwise this
-      // guard is the fallback that forwards the link itself.
-      window.setTimeout(() => {
-        if (hasFreshRecoveryHint() || window.location.pathname.startsWith('/reset-password')) {
-          return;
-        }
+      // Single-owner claim shared with the auth provider: whichever side claims first
+      // owns the navigation and the other does nothing, regardless of timing. Either
+      // way the hint is already (or about to be) written for the reset screen to read.
+      if (claimRecoveryRedirect()) {
         window.location.replace(
           `/reset-password${window.location.search}${window.location.hash}`
         );
-      }, 150);
+      } else {
+        // The provider claimed it; stay put and let its navigation run. Clearing the
+        // URL here is not our job — the provider's redirect replaces this page.
+        return;
+      }
     }
   }, []);
 
