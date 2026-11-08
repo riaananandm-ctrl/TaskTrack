@@ -46,20 +46,22 @@ export default function ForgotPasswordPage() {
     setError(null);
     setLoading(true);
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-    if (resetError) {
-      setError(safeAuthMessage(resetError.message));
+      if (resetError) {
+        setError(safeAuthMessage(resetError.message));
+      } else {
+        setSentTo(email);
+      }
+    } catch {
+      setError(safeAuthMessage('Network error. Please check your connection and try again.'));
+    } finally {
       setLoading(false);
       inFlight.current = false;
-      return;
     }
-
-    setSentTo(email);
-    setLoading(false);
-    inFlight.current = false;
   };
 
   if (sentTo) {

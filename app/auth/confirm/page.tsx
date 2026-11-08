@@ -138,17 +138,22 @@ export default function ConfirmPage() {
     if (!email) return;
     setResending(true);
     setNotice(null);
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setResending(false);
-    if (error) {
-      setState({ kind: 'error', message: safeAuthMessage(error.message), canResend: true });
-      return;
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) {
+        setState({ kind: 'error', message: safeAuthMessage(error.message), canResend: true });
+      } else {
+        setNotice(`A new confirmation email is on its way to ${email}.`);
+      }
+    } catch {
+      setState({ kind: 'error', message: safeAuthMessage('Network error. Please try again.'), canResend: true });
+    } finally {
+      setResending(false);
     }
-    setNotice(`A new confirmation email is on its way to ${email}.`);
   };
 
   return (

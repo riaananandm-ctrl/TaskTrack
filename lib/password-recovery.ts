@@ -14,6 +14,10 @@
 export const RESET_LINK_EXPIRED_MESSAGE =
   'This password reset link is invalid or has expired. Request a new link.';
 
+/** Shown when the visitor is signed in but arrived without a recovery link. */
+export const SIGNED_IN_NOT_RECOVERY_MESSAGE =
+  'You are already signed in. If you want to change your password, use the reset link from your email, or continue to the app below.';
+
 export const CHECK_EMAIL_FOR_RESET_MESSAGE =
   'Check your email for a password reset link.';
 

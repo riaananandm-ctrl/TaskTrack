@@ -12,7 +12,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, Eye, EyeOff, Check, X as XIcon, MailCheck, RefreshCw,
 } from 'lucide-react';
 import {
-  RESET_LINK_EXPIRED_MESSAGE, MIN_PASSWORD_LENGTH,
+  RESET_LINK_EXPIRED_MESSAGE, SIGNED_IN_NOT_RECOVERY_MESSAGE, MIN_PASSWORD_LENGTH,
   readRecoveryParams, passwordChecks, isPasswordStrong, safeResetMessage,
 } from '@/lib/password-recovery';
 import { safeAuthMessage } from '@/lib/auth-email';
@@ -36,6 +36,7 @@ export default function ResetPasswordPage() {
   const [checking, setChecking] = useState(true);
   const [hasRecovery, setHasRecovery] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [plainSession, setPlainSession] = useState(false);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -62,11 +63,12 @@ export default function ResetPasswordPage() {
     setChecking(false);
   }, []);
 
-  const reject = useCallback((message: string) => {
+  const reject = useCallback((message: string, isPlainSession = false) => {
     if (settled.current) return;
     settled.current = true;
     setLinkError(message);
     setHasRecovery(false);
+    setPlainSession(isPlainSession);
     setChecking(false);
   }, []);
 
@@ -97,20 +99,25 @@ export default function ResetPasswordPage() {
     });
 
     // Poll for the session. The client parses the URL asynchronously, so the session
-    // is often not readable on the very first tick. An existing session counts when the
-    // link declared itself a recovery link; otherwise we wait for one to be established.
+    // is often not readable on the very first tick. A session only counts as recovery
+    // when the link declared itself a recovery link (or PASSWORD_RECOVERY fired above);
+    // an ordinary signed-in session is never evidence of a reset link.
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts += 1;
       const { data } = await supabase.auth.getSession();
-      if (data.session && (declared.isRecovery || attempts > 1)) {
+      if (data.session && declared.isRecovery) {
         accept();
         clearInterval(interval);
         return;
       }
       if (attempts >= 25) {
         clearInterval(interval);
-        reject(RESET_LINK_EXPIRED_MESSAGE);
+        if (data.session) {
+          reject(SIGNED_IN_NOT_RECOVERY_MESSAGE, true);
+        } else {
+          reject(RESET_LINK_EXPIRED_MESSAGE);
+        }
       }
     }, 200);
 
@@ -138,27 +145,31 @@ export default function ResetPasswordPage() {
 
     updateInFlight.current = true;
     setSubmitting(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setFormError(safeResetMessage(error.message));
+      if (error) {
+        setFormError(safeResetMessage(error.message));
+        return;
+      }
+
+      // The password is changed. End the recovery session so the student signs in fresh
+      // with the new password, then send them to the login screen.
+      successRef.current = true;
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Signing out is a courtesy; the password change has already succeeded.
+      }
+
+      setSuccess(true);
+      setTimeout(() => router.push('/login?message=password-updated'), 1600);
+    } catch {
+      setFormError(safeResetMessage('network'));
+    } finally {
       setSubmitting(false);
       updateInFlight.current = false;
-      return;
     }
-
-    // The password is changed. End the recovery session so the student signs in fresh
-    // with the new password, then send them to the login screen.
-    successRef.current = true;
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // Signing out is a courtesy; the password change has already succeeded.
-    }
-
-    setSuccess(true);
-    setSubmitting(false);
-    setTimeout(() => router.push('/login?message=password-updated'), 1600);
   };
 
   const handleResend = async (e: React.FormEvent) => {
@@ -168,17 +179,21 @@ export default function ResetPasswordPage() {
     setResendError(null);
     setResendNotice(null);
     setResending(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(resendEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setResending(false);
-    if (error) {
-      setResendError(safeAuthMessage(error.message));
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resendEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        setResendError(safeAuthMessage(error.message));
+        return;
+      }
+      setResendNotice('Check your email for a password reset link.');
+    } catch {
+      setResendError(safeAuthMessage('Network error. Please try again.'));
+    } finally {
+      setResending(false);
       resendInFlight.current = false;
-      return;
     }
-    setResendNotice('Check your email for a password reset link.');
-    resendInFlight.current = false;
   };
 
   const checks = passwordChecks(password);
@@ -243,6 +258,12 @@ export default function ResetPasswordPage() {
             <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-sm text-destructive">{linkError ?? RESET_LINK_EXPIRED_MESSAGE}</p>
           </div>
+
+          {plainSession && (
+            <Link href="/app" className="block">
+              <Button className="w-full">Continue to your dashboard</Button>
+            </Link>
+          )}
 
           {resendNotice && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-sm">
