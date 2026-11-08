@@ -2,7 +2,7 @@
   "name": "TaskTrack",
   "short_name": "TaskTrack",
   "description": "Know What's Next — keep your academic tasks, deadlines and reminders in one organised place.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#F8FAFC",
   "theme_color": "#172554",

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { rememberLastRoute } from '@/lib/last-route';
 import { AppSidebar, AppTopBar } from '@/components/app-shell';
 import { AccountSheet } from '@/components/account-sheet';
 import { PriorityAlertBanner } from '@/components/priority-alert-banner';
@@ -24,8 +26,16 @@ function readSidebarPref(): boolean {
  * same screen position whether the sidebar is open or closed.
  */
 export function AppChrome({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false); // SSR-safe default; hydrated below
   const [accountOpen, setAccountOpen] = useState(false);
+
+  // Record the last valid in-app route on every navigation, so a reopened tab or a
+  // fresh PWA launch can resume here. Session storage only — path strings, never
+  // tokens or user content.
+  useEffect(() => {
+    rememberLastRoute(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     setCollapsed(readSidebarPref());

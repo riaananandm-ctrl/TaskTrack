@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase/client';
 import { setRememberDevice, REMEMBER_DEVICE_NOTICE } from '@/lib/remember-device';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { peekLastRoute } from '@/lib/last-route';
 import { Loader2, AlertCircle, MailCheck, Eye, EyeOff } from 'lucide-react';
 import { safeAuthMessage, CONFIRM_REQUIRED_MESSAGE, SIGNIN_EMAIL_STORAGE_KEY } from '@/lib/auth-email';
 
@@ -91,7 +92,11 @@ function LoginForm() {
       }
 
       const next = searchParams.get('next');
-      router.push(next && next.startsWith('/') ? next : '/app');
+      // An explicit ?next= wins. Otherwise resume the last in-app route this tab was
+      // on (session-scoped), so a closed-and-reopened tab picks up where it left off
+      // instead of always landing on the dashboard.
+      const resumeRoute = peekLastRoute();
+      router.push(next && next.startsWith('/') ? next : resumeRoute || '/app');
     } catch {
       setError('We couldn\u2019t reach the server. Please check your connection and try again.');
     } finally {
