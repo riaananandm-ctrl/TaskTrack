@@ -80,6 +80,21 @@ export function clearRecoveryHint(): void {
 }
 
 /**
+ * True when a recovery flow is in progress for this tab: either a fresh handoff hint
+ * was just written, or the current URL itself is a recovery link. Used to hold off
+ * unrelated redirects (e.g. last-route resume) until the flow finishes.
+ */
+export function isRecoveryActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (hasFreshRecoveryHint()) return true;
+  try {
+    return readRecoveryParams(window.location.href).isRecovery;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Deterministic single-owner claim for the redirect to /reset-password. Both the auth
  * provider (on the PASSWORD_RECOVERY event) and RecoveryLinkGuard (on seeing a recovery
  * link) may want to navigate; exactly one of them wins the claim, whoever runs first,

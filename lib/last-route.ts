@@ -89,3 +89,45 @@ export function peekLastRoute(): string | null {
     return null;
   }
 }
+
+/**
+ * Pure decision for the tab-resume redirect. Returns the internal path to navigate
+ * to, or null to stay put.
+ *
+ * - Auth must be resolved (loading is false) before any decision.
+ * - Only a signed-in, confirmed user on the landing page "/" (a reopened or
+ *   discarded tab) is redirected.
+ * - Anyone already on a valid /app route is never redirected (loop guard).
+ * - Auth and recovery pages, and any active recovery flow, are never hijacked.
+ * - No stored route, or a stored route failing validation, falls back to /app.
+ */
+export function resolveResumeRoute(options: {
+  pathname: string;
+  authenticated: boolean;
+  emailConfirmed: boolean;
+  loading: boolean;
+  recoveryActive: boolean;
+  stored: string | null;
+}): string | null {
+  const { pathname, authenticated, emailConfirmed, loading, recoveryActive, stored } = options;
+
+  if (loading) return null;
+  if (!authenticated || !emailConfirmed) return null;
+  if (recoveryActive) return null;
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/auth/')
+  ) {
+    return null;
+  }
+  if (pathname.startsWith('/app/')) return null;
+  if (pathname !== '/') return null;
+
+  const target = validateInternalAppRoute(stored);
+  if (!target) return '/app';
+  if (target === pathname) return null;
+  return target;
+}

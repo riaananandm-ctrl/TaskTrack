@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { FontProvider } from '@/lib/font-provider';
 import { RecoveryLinkGuard } from '@/components/recovery-link-guard';
+import { LastRouteResume } from '@/components/last-route-resume';
 import { FONT_VARIABLE_CLASSES } from '@/lib/fonts';
 
 export const metadata: Metadata = {
@@ -52,6 +53,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <AuthProvider>
           <RecoveryLinkGuard />
+          <LastRouteResume />
           <ThemeProvider>
             <FontProvider>{children}</FontProvider>
           </ThemeProvider>
