@@ -5,6 +5,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { clearPriorityAlert } from '@/lib/session-keys';
+import { markRecoveryHandoff } from '@/lib/password-recovery';
 import { isAssessPrepTask, getTaskDeadline } from '@/lib/deadline-status';
 import { cleanupPastAssessPrepTasks } from '@/lib/assessprep-cleanup';
 
@@ -47,8 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // an event that fires between the two calls.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // PASSWORD_RECOVERY: preserve the recovery session so the reset page works.
+        // PASSWORD_RECOVERY: remember (hint only, not proof) that a recovery exchange
+        // just succeeded, then land on the reset screen. On this route the provider
+        // state is preserved with a client-side push; from any other route we do a full
+        // navigation, and the fresh hint is what lets the reset screen stay in its
+        // recovery framing after the reload.
         if (event === 'PASSWORD_RECOVERY' && typeof window !== 'undefined') {
+          markRecoveryHandoff();
           if (!window.location.pathname.startsWith('/reset-password')) {
             window.location.replace('/reset-password');
             return;

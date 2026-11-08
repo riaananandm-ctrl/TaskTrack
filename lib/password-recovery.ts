@@ -44,6 +44,41 @@ export function isPasswordStrong(password: string): boolean {
   return password.length >= MIN_PASSWORD_LENGTH;
 }
 
+/**
+ * A short-lived, non-secret UI hint that a PASSWORD_RECOVERY event was just received,
+ * used only so the reset screen keeps its recovery framing across a navigation that
+ * outlives the auth event. It is never proof of anything: the Supabase session is
+ * always verified independently, and only a timestamp is stored — never a URL or token.
+ */
+const RECOVERY_HINT_KEY = 'tasktrack_recovery_hint';
+const RECOVERY_HINT_TTL_MS = 5 * 60 * 1000;
+
+export function markRecoveryHandoff(): void {
+  try {
+    sessionStorage.setItem(RECOVERY_HINT_KEY, String(Date.now()));
+  } catch {
+    // Storage may be unavailable; the direct-arrival flow still works without the hint.
+  }
+}
+
+export function hasFreshRecoveryHint(): boolean {
+  try {
+    const raw = sessionStorage.getItem(RECOVERY_HINT_KEY);
+    if (!raw) return false;
+    return Date.now() - Number(raw) <= RECOVERY_HINT_TTL_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function clearRecoveryHint(): void {
+  try {
+    sessionStorage.removeItem(RECOVERY_HINT_KEY);
+  } catch {
+    // Nothing to do if storage is unavailable.
+  }
+}
+
 /** Read the recovery markers from the current URL without touching any token value. */
 export function readRecoveryParams(url: string): {
   /** The link's declared purpose, e.g. 'recovery' for a password reset. */

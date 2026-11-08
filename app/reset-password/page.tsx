@@ -14,6 +14,7 @@ import {
 import {
   RESET_LINK_EXPIRED_MESSAGE, SIGNED_IN_NOT_RECOVERY_MESSAGE, MIN_PASSWORD_LENGTH,
   readRecoveryParams, passwordChecks, isPasswordStrong, safeResetMessage,
+  hasFreshRecoveryHint, clearRecoveryHint,
 } from '@/lib/password-recovery';
 import { safeAuthMessage } from '@/lib/auth-email';
 import { cn } from '@/lib/utils';
@@ -99,14 +100,22 @@ export default function ResetPasswordPage() {
     });
 
     // Poll for the session. The client parses the URL asynchronously, so the session
-    // is often not readable on the very first tick. A session only counts as recovery
-    // when the link declared itself a recovery link (or PASSWORD_RECOVERY fired above);
-    // an ordinary signed-in session is never evidence of a reset link.
+    // is often not readable on the very first tick. A session counts as recovery when
+    // the link declared itself a recovery link, or when the auth provider reported a
+    // PASSWORD_RECOVERY event moments ago (the handoff hint — a UI hint, never proof;
+    // the Supabase session itself is still required either way). An ordinary
+    // signed-in session with no such signal is never treated as recovery.
+    const recoverySignal = declared.isRecovery || hasFreshRecoveryHint();
+    if (recoverySignal) {
+      // The hint's purpose is served the moment the recovery framing is kept; clear it
+      // so it cannot leak into a later visit.
+      clearRecoveryHint();
+    }
     let attempts = 0;
     const interval = setInterval(async () => {
       attempts += 1;
       const { data } = await supabase.auth.getSession();
-      if (data.session && declared.isRecovery) {
+      if (data.session && recoverySignal) {
         accept();
         clearInterval(interval);
         return;
@@ -156,6 +165,7 @@ export default function ResetPasswordPage() {
       // The password is changed. End the recovery session so the student signs in fresh
       // with the new password, then send them to the login screen.
       successRef.current = true;
+      clearRecoveryHint();
       try {
         await supabase.auth.signOut();
       } catch {

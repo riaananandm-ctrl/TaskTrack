@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { readRecoveryParams } from '@/lib/password-recovery';
+import { readRecoveryParams, hasFreshRecoveryHint } from '@/lib/password-recovery';
 
 /**
  * Catches a password-reset link wherever it lands.
@@ -21,9 +21,18 @@ export function RecoveryLinkGuard() {
 
     const { type } = readRecoveryParams(window.location.href);
     if (type === 'recovery') {
-      window.location.replace(
-        `/reset-password${window.location.search}${window.location.hash}`
-      );
+      // The auth provider also listens for the recovery event and redirects on it.
+      // Give it a beat to take over; if it did (or a navigation is already under way),
+      // it has marked the handoff and we stay put rather than race it. Otherwise this
+      // guard is the fallback that forwards the link itself.
+      window.setTimeout(() => {
+        if (hasFreshRecoveryHint() || window.location.pathname.startsWith('/reset-password')) {
+          return;
+        }
+        window.location.replace(
+          `/reset-password${window.location.search}${window.location.hash}`
+        );
+      }, 150);
     }
   }, []);
 
