@@ -94,6 +94,15 @@ export default function ConfirmPage() {
       }
 
       if (tokenHash) {
+        // detectSessionInUrl (in the client) may already have consumed this one-time
+        // token while the page loaded. Verifying the same token again always fails
+        // with "One-time token not found" — an existing valid session means the
+        // exchange already happened, so treat it as success instead of re-verifying.
+        const { data: existing } = await supabase.auth.getSession();
+        if (existing.session) {
+          finish({ kind: 'success' });
+          return;
+        }
         const { error } = await supabase.auth.verifyOtp({
           type: (type as 'signup' | 'email' | 'recovery' | 'email_change' | 'invite') || 'signup',
           token_hash: tokenHash,
