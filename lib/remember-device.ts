@@ -1,9 +1,10 @@
 /**
  * "Remember this device" preference flag.
  *
- * This is a UI preference only. Supabase session persistence is always enabled
- * via localStorage, so the user stays signed in regardless of this flag.
- * The flag is kept for the settings page UI and future use.
+ * Read by lib/auth-storage.ts at sign-in time: checked ("1" or absent) sends the
+ * Supabase session to localStorage and starts a 30-day clock; unchecked ("0") sends
+ * it to sessionStorage, which the browser clears when the tab closes.
+ * forgetting the device (clearRememberDevice) also ends the stored session.
  */
 export const REMEMBER_DEVICE_KEY = 'tasktrack:remember-device';
 

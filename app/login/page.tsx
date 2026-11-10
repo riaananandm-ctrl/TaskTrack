@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/lib/supabase/client';
 import { setRememberDevice, REMEMBER_DEVICE_NOTICE } from '@/lib/remember-device';
+import { markPersistentLogin, clearPersistentLogin, persistentLoginExpired } from '@/lib/auth-storage';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { peekLastRoute } from '@/lib/last-route';
@@ -95,6 +96,7 @@ function LoginForm() {
       // An explicit ?next= wins. Otherwise resume the last in-app route this tab was
       // on (session-scoped), so a closed-and-reopened tab picks up where it left off
       // instead of always landing on the dashboard.
+      if (remember) markPersistentLogin();
       const resumeRoute = peekLastRoute();
       router.push(next && next.startsWith('/') ? next : resumeRoute || '/app');
     } catch {

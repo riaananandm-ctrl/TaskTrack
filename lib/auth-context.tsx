@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { clearPriorityAlert } from '@/lib/session-keys';
 import { markRecoveryHandoff, clearRecoveryHint, claimRecoveryRedirect } from '@/lib/password-recovery';
+import { clearPersistentLogin, persistentLoginExpired } from '@/lib/auth-storage';
 import { isAssessPrepTask, getTaskDeadline } from '@/lib/deadline-status';
 import { cleanupPastAssessPrepTasks } from '@/lib/assessprep-cleanup';
 
@@ -135,6 +136,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
 
+      // The "stay logged in" promise ends at 30 days. If the persistent login has
+      // aged out, end the session cleanly instead of silently extending it.
+      if (session && persistentLoginExpired()) {
+        await supabase.auth.signOut({ scope: 'local' });
+        if (!mounted) return;
+        clearPersistentLogin();
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setEmailConfirmed(false);
+        setLoading(false);
+        return;
+      }
+
       // If the access token is expired, try one refresh before giving up.
       if (session?.expires_at && session.expires_at * 1000 < Date.now()) {
         const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
@@ -142,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // The refresh token is also invalid. Sign out locally only.
           await supabase.auth.signOut({ scope: 'local' });
           if (!mounted) return;
+          clearPersistentLogin();
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -162,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (session?.user && !confirmed) {
         await supabase.auth.signOut({ scope: 'local' });
         if (!mounted) return;
+        clearPersistentLogin();
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -206,6 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) clearPriorityAlert(user.id);
     await supabase.auth.signOut({ scope: 'local' });
     clearRecoveryHint();
+    clearPersistentLogin();
     setProfile(null);
     setUser(null);
     setSession(null);
