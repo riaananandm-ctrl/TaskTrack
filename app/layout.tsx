@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   },
   themeColor: '#172554',
   icons: {
-    icon: '/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png',
-    apple: '/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png',
+    icon: '/assets/images/1.png',
+    apple: '/assets/images/1.png',
   },
   appleWebApp: {
     capable: true,

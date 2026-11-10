@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-const LOGO_SRC = '/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png';
+const LOGO_SRC = '/assets/images/1.png';
 
 interface LogoProps {
   className?: string;
