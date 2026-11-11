@@ -14,7 +14,6 @@ import {
 } from 'date-fns';
 import {
   Plus,
-  ListTodo,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -181,9 +180,9 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
   })();
 
   const summaryCards = [
-    { label: 'Due today', value: dueToday.length, icon: Clock, accent: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30', href: '/app/tasks' },
-    { label: 'Next 7 days', value: upcomingWeek.length, icon: ListTodo, accent: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30', href: '/app/calendar' },
-    { label: 'Done this week', value: completedThisWeek, icon: CheckCircle2, accent: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30', href: '/app/tasks' },
+    { label: 'Due today', value: dueToday.length, emoji: '⏰', href: '/app/tasks' },
+    { label: 'Next 7 days', value: upcomingWeek.length, emoji: '🗓️', href: '/app/calendar' },
+    { label: 'Done this week', value: completedThisWeek, emoji: '✅', href: '/app/tasks' },
   ];
 
   return (
@@ -228,9 +227,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
       {!managebacConnected && !bannerDismissed && (
         <Card className="p-4 border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center flex-shrink-0">
-              <CalendarIcon className="w-5 h-5 text-blue-600" aria-hidden />
-            </div>
+            <span className="text-2xl leading-none flex-shrink-0" role="img" aria-hidden>📅</span>
             <div className="flex-1 min-w-[12rem]">
               <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
                 You haven&rsquo;t connected ManageBac yet.
@@ -259,9 +256,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
       {overdue.length > 0 && (
         <Card className="p-4 border-red-200 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950/50 flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-5 h-5 text-red-600" aria-hidden />
-            </div>
+            <span className="text-2xl leading-none flex-shrink-0" role="img" aria-hidden>⚠️</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-red-800 dark:text-red-300">
                 {overdue.length} {overdue.length === 1 ? 'task is' : 'tasks are'} overdue
@@ -284,9 +279,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
           <Link key={stat.label} href={stat.href} className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Card className="p-4 h-full transition-all group-hover:shadow-card group-hover:-translate-y-0.5">
               <div className="flex items-center gap-3">
-                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0', stat.bg)}>
-                  <stat.icon className={cn('w-5 h-5', stat.accent)} aria-hidden />
-                </div>
+                <span className="text-2xl leading-none flex-shrink-0" role="img" aria-hidden>{stat.emoji}</span>
                 <div className="min-w-0">
                   <p className="text-2xl font-bold leading-tight tabular-nums">{stat.value}</p>
                   <p className="text-xs text-muted-foreground leading-snug">{stat.label}</p>
@@ -299,9 +292,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
         <Link href="/app/study-sessions" className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Card className="p-4 h-full transition-all group-hover:shadow-card group-hover:-translate-y-0.5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/30 flex items-center justify-center flex-shrink-0">
-                <GraduationCap className="w-5 h-5 text-sky-600 dark:text-sky-400" aria-hidden />
-              </div>
+              <span className="text-2xl leading-none flex-shrink-0" role="img" aria-hidden>📚</span>
               <div className="min-w-0">
                 <p className="text-sm font-bold leading-tight truncate">
                   {nextStudySession ? dayLabel(parseISO(nextStudySession.scheduled_for)) : 'Not scheduled'}

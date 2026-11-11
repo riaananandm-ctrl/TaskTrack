@@ -51,16 +51,16 @@ export interface FontOption {
 
 export const FONT_OPTIONS: FontOption[] = [
   {
-    id: 'plus-jakarta-sans',
-    label: 'Plus Jakarta Sans',
-    description: 'The TaskTrack default — balanced and friendly.',
-    variable: plusJakartaSans.variable,
-  },
-  {
     id: 'inter',
     label: 'Inter',
-    description: 'Neutral and highly legible on screens.',
+    description: 'The TaskTrack default — neutral and highly legible on screens.',
     variable: inter.variable,
+  },
+  {
+    id: 'plus-jakarta-sans',
+    label: 'Plus Jakarta Sans',
+    description: 'Geometric and friendly.',
+    variable: plusJakartaSans.variable,
   },
   {
     id: 'dm-sans',
@@ -82,7 +82,7 @@ export const FONT_OPTIONS: FontOption[] = [
   },
 ];
 
-export const DEFAULT_FONT_ID = 'plus-jakarta-sans';
+export const DEFAULT_FONT_ID = 'inter';
 
 /** All font CSS-variable class names, applied once on the <html> element. */
 export const FONT_VARIABLE_CLASSES = FONT_OPTIONS.map((f) => f.variable).join(' ');

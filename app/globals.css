@@ -82,8 +82,11 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'rlig' 1, 'calt' 1;
-    font-family: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     transition: font-family 0.15s ease;
+  }
+  html[data-font='plus-jakarta-sans'] body {
+    font-family: var(--font-plus-jakarta-sans), ui-sans-serif, system-ui, sans-serif;
   }
 
   /* Chosen reading font. Icons are SVG (currentColor, unaffected) and code blocks
