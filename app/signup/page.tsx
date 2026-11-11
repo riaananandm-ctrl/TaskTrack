@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AuthLayout } from '@/components/auth-layout';
+import { GoogleSignInButton, AuthDivider } from '@/components/google-sign-in-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -323,6 +324,8 @@ export default function SignupPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <GoogleSignInButton label="Sign up with Google" next={null} onError={setError} />
+        <AuthDivider />
         {error && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />

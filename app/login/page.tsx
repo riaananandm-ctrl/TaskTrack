@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, Suspense } from 'react';
 import { BrandLoading } from '@/components/brand-loading';
 import { AuthLayout } from '@/components/auth-layout';
+import { GoogleSignInButton, AuthDivider } from '@/components/google-sign-in-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,6 +122,8 @@ function LoginForm() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <GoogleSignInButton label="Continue with Google" next={searchParams.get('next')} onError={setError} />
+        <AuthDivider />
         {info && (
           <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 text-foreground text-sm border border-primary/15">
             <MailCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
