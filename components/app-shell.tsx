@@ -261,8 +261,9 @@ export function AppSidebar({
       aria-label="Sidebar"
       aria-hidden={collapsed}
       className={cn(
-        'hidden lg:flex flex-col w-60 bg-gradient-to-b from-navy-800 to-navy-900 border-r border-white/5 h-screen sticky top-0 flex-shrink-0',
-        collapsed && 'hidden'
+        // `lg:flex` would override a plain `hidden`, so only add it while expanded.
+        'flex-col w-60 bg-gradient-to-b from-navy-800 to-navy-900 border-r border-white/5 h-screen sticky top-0 flex-shrink-0',
+        collapsed ? 'hidden' : 'hidden lg:flex'
       )}
     >
       <SidebarBody pathname={pathname} unreadCount={unreadCount} />
@@ -346,7 +347,12 @@ export function AppTopBar({
       {/* Mobile top bar: brand + notifications + account, with hamburger at the left */}
       <div className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/70 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {desktopToggle}
+          <HamburgerButton
+            expanded={drawerOpen}
+            onToggle={() => setDrawerOpen((open) => !open)}
+            label={drawerOpen ? 'Close menu' : 'Open menu'}
+            ariaControls="app-mobile-drawer"
+          />
           <Link href="/app" className="flex items-center">
             <Logo size={28} />
           </Link>
@@ -382,6 +388,7 @@ export function AppTopBar({
       {/* Mobile drawer: closed by default, full sidebar content, keyboard dismissible */}
       {drawerOpen && (
         <div
+          id="app-mobile-drawer"
           className="lg:hidden fixed inset-0 z-50 flex"
           role="dialog"
           aria-modal="true"
