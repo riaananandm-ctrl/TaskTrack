@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Card } from '@/components/ui/card';
 import { levelForXp, xpForNextLevel, GamificationStats } from '@/lib/gamification';
 import { cn } from '@/lib/utils';
+import { LevelIcon, StreakIcon, BadgeIcon } from '@/components/brand-icons';
 
 export function XpStreakWidget({ className, compact }: { className?: string; compact?: boolean }) {
   const [stats, setStats] = useState<GamificationStats | null>(null);
@@ -41,7 +42,7 @@ export function XpStreakWidget({ className, compact }: { className?: string; com
     return (
       <Card className={cn('p-3', className)}>
         <div className="flex items-center gap-3">
-          <span className="text-xl leading-none flex-shrink-0" role="img" aria-hidden>⚡</span>
+          <LevelIcon size={26} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold">Lv {level}</span>
@@ -49,13 +50,13 @@ export function XpStreakWidget({ className, compact }: { className?: string; com
             </div>
             <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-1">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-[#3B6FF0] via-[#14B8A6] to-[#62CC6A] transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-sm leading-none" role="img" aria-hidden>🔥</span>
+            <StreakIcon size={18} />
             <span className="text-xs font-bold">{stats?.currentStreak ?? 0}</span>
           </div>
         </div>
@@ -67,7 +68,7 @@ export function XpStreakWidget({ className, compact }: { className?: string; com
     <Card className={cn('p-4', className)}>
       <div className="flex items-center gap-4">
         <div className="flex flex-col items-center">
-          <span className="text-3xl leading-none" role="img" aria-hidden>⚡</span>
+          <LevelIcon size={36} />
           <p className="text-xs font-medium text-muted-foreground mt-1">Level</p>
           <p className="text-lg font-bold">{level}</p>
         </div>
@@ -79,21 +80,21 @@ export function XpStreakWidget({ className, compact }: { className?: string; com
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-[#3B6FF0] via-[#14B8A6] to-[#62CC6A] transition-all duration-500"
               style={{ width: `${progressPct}%` }}
             />
           </div>
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="text-3xl leading-none" role="img" aria-hidden>🔥</span>
+          <StreakIcon size={36} />
           <p className="text-xs font-medium text-muted-foreground mt-1">Streak</p>
           <p className="text-lg font-bold">{stats?.currentStreak ?? 0}</p>
         </div>
 
         {stats && stats.badges.length > 0 && (
           <div className="flex flex-col items-center">
-            <span className="text-3xl leading-none" role="img" aria-hidden>🏆</span>
+            <BadgeIcon size={36} />
             <p className="text-xs font-medium text-muted-foreground mt-1">Badges</p>
             <p className="text-lg font-bold">{stats.badges.length}</p>
           </div>
