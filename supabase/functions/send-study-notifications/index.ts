@@ -11,6 +11,16 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
  *  - Test (`{ action: "test" }`): called from Settings with the student's own token.
  *    It sends one notification to that student's own devices only.
  *
+ * "Due tomorrow" reminders (reminder_type 'task_due_tomorrow', created by a database
+ * trigger the day before a task is due) are also emailed when email is configured:
+ *  - RESEND_API_KEY       Resend API key (Edge Function secret)
+ *  - REMINDER_EMAIL_FROM  e.g. "TaskTrack <reminders@your-domain.com>"
+ *  - APP_URL              optional, e.g. "https://tasktrack.netlify.app", for links
+ * Without them, email is skipped and push still works.
+ *
+ * Push payloads are encrypted (RFC 8291, aes128gcm). Push services drop unencrypted
+ * payloads, which made every notification fall back to the generic service-worker text.
+ *
  * Security:
  *  - The VAPID private key and the cron secret live in the `push_config` table, readable
  *    only by the service role. They are never returned to a browser and never logged.
@@ -65,6 +75,15 @@ interface ClaimedReminder {
 
 /** Compose the reminder notification exactly as the student should read it. */
 function buildMessage(row: ClaimedReminder): { title: string; body: string; tag: string } {
+  if (row.reminder_type === 'task_due_tomorrow') {
+    const name = (row.task_title || row.title.replace(/^Due tomorrow:\s*/, '') || 'A task').trim();
+    return {
+      title: `Due tomorrow: ${name}`,
+      body: `"${name}" is due tomorrow. Tap to open it in TaskTrack.`,
+      tag: `due-tomorrow-${row.task_id ?? row.reminder_id}`,
+    };
+  }
+
   const title = 'TaskTrack study reminder';
 
   // "Math Test on Logarithms — Review logarithm laws · 30 minutes"
@@ -178,6 +197,64 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// ---- Web Push payload encryption (RFC 8291 / RFC 8188, aes128gcm) ----
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const p of parts) {
+    out.set(p, offset);
+    offset += p.length;
+  }
+  return out;
+}
+
+async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, length * 8);
+  return new Uint8Array(bits);
+}
+
+/** Encrypt a payload for one subscription. Returns the complete aes128gcm body. */
+export async function encryptPayload(
+  plaintext: Uint8Array,
+  p256dhB64Url: string,
+  authB64Url: string
+): Promise<Uint8Array> {
+  const enc = new TextEncoder();
+  const uaPublic = base64UrlToBytes(p256dhB64Url);
+  const authSecret = base64UrlToBytes(authB64Url);
+
+  // One-off sender key pair, as the spec requires a fresh key per message.
+  const asKeys = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+    'deriveBits',
+  ])) as CryptoKeyPair;
+  const asPublic = new Uint8Array(await crypto.subtle.exportKey('raw', asKeys.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', uaPublic, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const ecdhSecret = new Uint8Array(
+    await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, asKeys.privateKey, 256)
+  );
+
+  const keyInfo = concatBytes(enc.encode('WebPush: info\0'), uaPublic, asPublic);
+  const ikm = await hkdf(authSecret, ecdhSecret, keyInfo, 32);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hkdf(salt, ikm, enc.encode('Content-Encoding: aes128gcm\0'), 16);
+  const nonce = await hkdf(salt, ikm, enc.encode('Content-Encoding: nonce\0'), 12);
+
+  // Single record: payload followed by the 0x02 "last record" delimiter.
+  const padded = concatBytes(plaintext, new Uint8Array([2]));
+  const aesKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, aesKey, padded));
+
+  // Header: salt (16) | record size (uint32, 4096) | key id length (1) | sender public key.
+  const header = new Uint8Array(16 + 4 + 1 + asPublic.length);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096);
+  header[20] = asPublic.length;
+  header.set(asPublic, 21);
+  return concatBytes(header, ciphertext);
+}
+
 /** Send one Web Push message and translate the response into a delivery outcome. */
 async function sendPush(
   config: PushConfig,
@@ -189,15 +266,21 @@ async function sendPush(
 
   let res: Response;
   try {
+    const body = await encryptPayload(
+      new TextEncoder().encode(JSON.stringify(payload)),
+      sub.p256dh,
+      sub.auth
+    );
     res = await fetch(sub.endpoint, {
       method: 'POST',
       headers: {
         Authorization: authorization,
-        'Content-Type': 'application/json',
-        TTL: '3600',
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        TTL: '86400',
         Urgency: 'high',
       },
-      body: JSON.stringify(payload),
+      body,
     });
   } catch {
     return { ok: false, gone: false };
@@ -206,6 +289,95 @@ async function sendPush(
   // 404/410 mean the subscription no longer exists and should be retired.
   if (res.status === 404 || res.status === 410) return { ok: false, gone: true };
   return { ok: res.ok, gone: false };
+}
+
+// ---- "Due tomorrow" email ----
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Email a "due tomorrow" reminder once. Skipped silently when email is not configured,
+ * the student turned email off, there is no address, or it was already sent.
+ */
+async function sendDueTomorrowEmail(
+  admin: ReturnType<typeof createClient>,
+  row: ClaimedReminder
+): Promise<boolean> {
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  const from = Deno.env.get('REMINDER_EMAIL_FROM');
+  if (!apiKey || !from) return false;
+
+  const [{ data: reminder }, { data: profile }, { data: settings }, { data: task }] = await Promise.all([
+    admin.from('reminders').select('email_sent_at, is_enabled').eq('id', row.reminder_id).maybeSingle(),
+    admin.from('profiles').select('email, full_name').eq('id', row.user_id).maybeSingle(),
+    admin.from('user_settings').select('email_reminders_enabled').eq('user_id', row.user_id).limit(1).maybeSingle(),
+    row.task_id
+      ? admin.from('tasks').select('title, due_date, due_time, status, subject:subjects(name)').eq('id', row.task_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  if (!reminder || reminder.email_sent_at || !reminder.is_enabled) return false;
+  if (settings && settings.email_reminders_enabled === false) return false;
+  const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
+  if (!to) return false;
+  if (task && task.status === 'completed') return false;
+
+  const name = (task?.title || row.task_title || row.title.replace(/^Due tomorrow:\s*/, '') || 'A task').trim();
+  const subject = (task?.subject as { name?: string } | null)?.name ?? null;
+  let when = 'tomorrow';
+  if (task?.due_date) {
+    const d = new Date(`${task.due_date}T00:00:00Z`);
+    when = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+    if (task.due_time) when += ` at ${String(task.due_time).slice(0, 5)}`;
+  }
+  const firstName = typeof profile?.full_name === 'string' ? profile.full_name.split(' ')[0] : '';
+  const appUrl = (Deno.env.get('APP_URL') || '').replace(/\/+$/, '');
+  const taskLink = appUrl && row.task_id ? `${appUrl}/app/tasks?task=${encodeURIComponent(row.task_id)}` : appUrl ? `${appUrl}/app` : '';
+  const settingsLink = appUrl ? `${appUrl}/app/settings` : '';
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f6f5f1;font-family:Arial,Helvetica,sans-serif;color:#202a3b">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e3e6eb">
+<tr><td style="background:#17264b;padding:20px 24px;color:#ffffff;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:bold">TaskTrack reminder</td></tr>
+<tr><td style="padding:24px">
+<p style="margin:0 0 8px;font-size:15px">${firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi,'}</p>
+<p style="margin:0 0 16px;font-size:15px;line-height:1.5">This is due <strong>tomorrow</strong>:</p>
+<div style="border-left:4px solid #315edb;background:#f0f4ff;border-radius:8px;padding:14px 16px;margin:0 0 20px">
+<div style="font-size:17px;font-weight:bold;margin:0 0 4px">${escapeHtml(name)}</div>
+<div style="font-size:13px;color:#647084">${subject ? `${escapeHtml(subject)} &middot; ` : ''}Due ${escapeHtml(when)}</div>
+</div>
+${taskLink ? `<a href="${escapeHtml(taskLink)}" style="display:inline-block;background:#315edb;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:10px">Open in TaskTrack</a>` : ''}
+</td></tr>
+<tr><td style="padding:16px 24px;border-top:1px solid #e3e6eb;font-size:12px;color:#647084;line-height:1.5">
+You are getting this because you have a task due tomorrow in TaskTrack.${settingsLink ? ` <a href="${escapeHtml(settingsLink)}" style="color:#647084">Turn off reminder emails</a> in Settings.` : ' You can turn off reminder emails in Settings.'}
+</td></tr></table></td></tr></table></body></html>`;
+
+  const text = `${firstName ? `Hi ${firstName},\n\n` : ''}Due tomorrow: ${name}${subject ? ` (${subject})` : ''}\nDue ${when}\n${taskLink ? `\nOpen it in TaskTrack: ${taskLink}\n` : ''}\nYou can turn off reminder emails in TaskTrack Settings.`;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject: `Due tomorrow: ${name}`, html, text }),
+    });
+    if (!res.ok) {
+      console.error('Reminder email failed with status', res.status);
+      return false;
+    }
+  } catch {
+    console.error('Reminder email request failed');
+    return false;
+  }
+
+  await admin.from('reminders').update({ email_sent_at: new Date().toISOString() }).eq('id', row.reminder_id);
+  return true;
 }
 
 Deno.serve(async (req: Request) => {
@@ -302,8 +474,17 @@ Deno.serve(async (req: Request) => {
     const rows = (claimed ?? []) as ClaimedReminder[];
     let sent = 0;
     let skipped = 0;
+    let emailed = 0;
+    const emailHandled = new Set<string>();
 
     for (const row of rows) {
+      // Email is independent of push: a student with no device registered still gets it.
+      // One claimed row exists per device, so each reminder is emailed only once.
+      if (row.reminder_type === 'task_due_tomorrow' && !emailHandled.has(row.reminder_id)) {
+        emailHandled.add(row.reminder_id);
+        if (await sendDueTomorrowEmail(admin, row)) emailed += 1;
+      }
+
       // Nothing to do when the student has notifications off or no live device.
       if (!row.push_enabled || !row.endpoint || !row.p256dh || !row.sub_auth) {
         await admin
@@ -354,7 +535,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ ok: true, sent, skipped, claimed: rows.length });
+    return json({ ok: true, sent, skipped, emailed, claimed: rows.length });
   } catch (err) {
     console.error('Study notification sweep failed:', err instanceof Error ? err.message : 'unknown');
     return json({ ok: false, error: 'The study notification sweep failed.' }, 500);

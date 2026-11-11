@@ -3,9 +3,9 @@
 import { supabase } from '@/lib/supabase/client';
 
 /**
- * Browser push support is entirely opt-in. Nothing in this file runs on page load,
- * login, signup, dashboard mount, or when a Study Session opens — every entry point
- * is a button the student presses in Settings. The VAPID private key and the cron
+ * Browser push support is entirely opt-in. The browser permission dialog only opens
+ * from a button the student presses (in Settings or the in-app NotificationPrompt);
+ * on page load the prompt only reads the current status via getPushStatus(). The VAPID private key and the cron
  * secret live only in the database and are never fetched here; the browser reads the
  * public key alone.
  */

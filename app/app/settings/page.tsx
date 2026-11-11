@@ -81,6 +81,9 @@ export default function SettingsPage() {
     preferred_reminder_time: '08:00',
     compact_view: false,
   });
+  // The "email me the day before" preference. Kept out of settingsForm and only saved
+  // when the database has the column, so Settings keeps saving before that migration runs.
+  const [emailReminders, setEmailReminders] = useState<boolean | null>(null);
 
   const fetchSettings = useCallback(async () => {
     if (!user) return;
@@ -97,6 +100,8 @@ export default function SettingsPage() {
         preferred_reminder_time: data.preferred_reminder_time,
         compact_view: data.compact_view,
       });
+      const emailPref = (data as { email_reminders_enabled?: boolean }).email_reminders_enabled;
+      setEmailReminders(typeof emailPref === 'boolean' ? emailPref : null);
     }
     setLoading(false);
   }, [user]);
@@ -149,7 +154,11 @@ export default function SettingsPage() {
     if (!user) return;
     setSavingSettings(true);
     await supabase.from('user_settings').upsert(
-      { ...settingsForm, user_id: user.id },
+      {
+        ...settingsForm,
+        ...(emailReminders === null ? {} : { email_reminders_enabled: emailReminders }),
+        user_id: user.id,
+      },
       { onConflict: 'user_id' }
     );
     setSavingSettings(false);
@@ -449,7 +458,7 @@ export default function SettingsPage() {
           <Card className="p-6 space-y-4">
             <h3 className="font-semibold">Reminder preferences</h3>
             {[
-              { key: 'task_reminders_enabled', label: 'Task reminders', desc: 'Get reminded when tasks are due' },
+              { key: 'task_reminders_enabled', label: 'Task reminders', desc: 'A reminder the day before each task is due' },
               { key: 'overdue_reminders_enabled', label: 'Overdue reminders', desc: 'Get notified about overdue tasks' },
               { key: 'daily_summary_enabled', label: 'Daily summary', desc: 'A daily overview of what is due' },
               { key: 'weekly_summary_enabled', label: 'Weekly summary', desc: 'A weekly planning reminder' },
@@ -465,6 +474,20 @@ export default function SettingsPage() {
                 />
               </div>
             ))}
+            {emailReminders !== null && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div>
+                  <p className="text-sm font-medium">Email reminders</p>
+                  <p className="text-xs text-muted-foreground">Also email me the day before a task is due</p>
+                </div>
+                <Switch
+                  checked={emailReminders}
+                  disabled={!settingsForm.task_reminders_enabled}
+                  onCheckedChange={(v) => setEmailReminders(v)}
+                  aria-label="Email reminders"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="quiet_start">Quiet hours start</Label>
@@ -478,6 +501,7 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="preferred_time">Default reminder time</Label>
               <Input id="preferred_time" type="time" value={settingsForm.preferred_reminder_time} onChange={(e) => setSettingsForm({ ...settingsForm, preferred_reminder_time: e.target.value })} />
+              <p className="text-xs text-muted-foreground">&ldquo;Due tomorrow&rdquo; reminders arrive at this time the day before.</p>
             </div>
             <Button onClick={saveSettings} disabled={savingSettings}>
               {savingSettings ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : savedSettings ? <Check className="w-4 h-4 mr-2" /> : null}
