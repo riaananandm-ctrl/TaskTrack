@@ -25,12 +25,28 @@ function LoginForm() {
   const [info, setInfo] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
+  // Staying signed in is the default; untick it on a shared computer.
+  const [remember, setRemember] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendNotice, setResendNotice] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const inFlight = useRef(false);
+
+  // Already signed in: skip the form and go straight into the app.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      const confirmed = !!user?.email_confirmed_at || !!user?.confirmed_at;
+      if (user && confirmed && !persistentLoginExpired()) {
+        const next = searchParams.get('next');
+        router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : peekLastRoute() || '/app');
+      } else {
+        setCheckingSession(false);
+      }
+    });
+  }, [router, searchParams]);
 
   useEffect(() => {
     try {
@@ -97,7 +113,10 @@ function LoginForm() {
       // An explicit ?next= wins. Otherwise resume the last in-app route this tab was
       // on (session-scoped), so a closed-and-reopened tab picks up where it left off
       // instead of always landing on the dashboard.
+      // Start the 30-day clock for a remembered device; a tab-only login must not
+      // inherit an older persistent login's start time.
       if (remember) markPersistentLogin();
+      else clearPersistentLogin();
       const resumeRoute = peekLastRoute();
       router.push(next && next.startsWith('/') ? next : resumeRoute || '/app');
     } catch {
@@ -107,6 +126,8 @@ function LoginForm() {
       inFlight.current = false;
     }
   };
+
+  if (checkingSession) return <BrandLoading />;
 
   return (
     <AuthLayout

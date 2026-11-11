@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AuthLayout } from '@/components/auth-layout';
+import { BrandLoading } from '@/components/brand-loading';
+import { peekLastRoute } from '@/lib/last-route';
 import { GoogleSignInButton, AuthDivider } from '@/components/google-sign-in-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +13,7 @@ import { supabase } from '@/lib/supabase/client';
 import { YEAR_GROUPS } from '@/lib/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, AlertCircle, MailCheck, Check, Info, ArrowRight } from 'lucide-react';
+import { Loader2, AlertCircle, MailCheck, Check, Info } from 'lucide-react';
 import {
   safeAuthMessage, CHECK_EMAIL_HEADLINE, ACCOUNT_EXISTS_MESSAGE, SIGNUP_GENERIC_NOTICE,
   classifySignupError, SIGNIN_EMAIL_STORAGE_KEY, PENDING_CONFIRM_EMAIL_KEY,
@@ -29,7 +31,6 @@ const clearPendingConfirmEmail = () => {
 export default function SignupPage() {
   const router = useRouter();
   const [sessionUser, setSessionUser] = useState<{ email?: string | null } | null | undefined>(undefined);
-  const [signingOut, setSigningOut] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,10 +49,18 @@ export default function SignupPage() {
   const inFlight = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setSessionUser(data.user ?? null);
+    supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      const confirmed = !!user?.email_confirmed_at || !!user?.confirmed_at;
+      if (user && confirmed) {
+        // A signed-in student has nothing to do here: take them straight in.
+        setSessionUser(user);
+        router.replace(peekLastRoute() || '/app');
+      } else {
+        setSessionUser(null);
+      }
     });
-  }, []);
+  }, [router]);
 
   const goToLogin = () => {
     try {
@@ -69,13 +78,6 @@ export default function SignupPage() {
       // Storage may be blocked; the recovery screen will simply not prefill.
     }
     router.push('/forgot-password');
-  };
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    await supabase.auth.signOut();
-    setSessionUser(null);
-    setSigningOut(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -208,48 +210,10 @@ export default function SignupPage() {
     setNotice(null);
   };
 
-  if (sessionUser !== null && sessionUser !== undefined) {
-    return (
-      <AuthLayout
-        title="You're already signed in"
-        subtitle={sessionUser.email ?? 'You already have an active session.'}
-        footer={
-          <>
-            Not you?{' '}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={signingOut}
-              className="text-primary font-medium hover:underline disabled:opacity-60"
-            >
-              {signingOut ? 'Signing out\u2026' : 'Sign out first'}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-5">
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-primary/5 border border-primary/15">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <ArrowRight className="w-5 h-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">Continue to TaskTrack</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                You already have an active session on this device.
-              </p>
-            </div>
-          </div>
-
-          <Button className="w-full" onClick={() => router.push('/app')} disabled={signingOut}>
-            Continue to TaskTrack
-          </Button>
-
-          <p className="text-xs text-muted-foreground text-center">
-            Want to use a different account? Sign out first, then come back to sign up or log in.
-          </p>
-        </div>
-      </AuthLayout>
-    );
+  // Already signed in (or still checking): never show the form or an
+  // "already signed in" screen. The effect above sends them into the app.
+  if (sessionUser === undefined || sessionUser !== null) {
+    return <BrandLoading />;
   }
 
   // Confirmation screen shown after the account is created.

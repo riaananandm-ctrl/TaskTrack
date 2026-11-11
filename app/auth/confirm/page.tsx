@@ -8,6 +8,8 @@ import { AuthLayout } from '@/components/auth-layout';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle2, MailCheck } from 'lucide-react';
 import { safeAuthMessage, PENDING_CONFIRM_EMAIL_KEY } from '@/lib/auth-email';
+import { markPersistentLogin } from '@/lib/auth-storage';
+import { isRememberDevice } from '@/lib/remember-device';
 
 const PENDING_EMAIL_KEY = PENDING_CONFIRM_EMAIL_KEY;
 
@@ -36,6 +38,8 @@ export default function ConfirmPage() {
     const finish = (next: State) => {
       if (!done) {
         done = true;
+        // Confirming signs the student in; on a remembered device, start the 30-day clock.
+        if (next.kind === 'success' && isRememberDevice()) markPersistentLogin();
         setState(next);
       }
     };
