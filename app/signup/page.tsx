@@ -98,18 +98,28 @@ export default function SignupPage() {
     inFlight.current = true;
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-        data: {
-          full_name: formData.fullName,
-          year_group: formData.yearGroup,
-          school_name: formData.schoolName,
+    let result;
+    try {
+      result = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: formData.fullName,
+            year_group: formData.yearGroup,
+            school_name: formData.schoolName,
+          },
         },
-      },
-    });
+      });
+    } catch {
+      clearPendingConfirmEmail();
+      setError(safeAuthMessage('network'));
+      setLoading(false);
+      inFlight.current = false;
+      return;
+    }
+    const { data, error } = result;
 
     if (error) {
       const isDuplicate = classifySignupError(error) === 'duplicate-account';
@@ -122,6 +132,24 @@ export default function SignupPage() {
       // A failed signup must not leave a previous address saved, or the
       // confirmation screen could offer a resend to the wrong account.
       clearPendingConfirmEmail();
+      setLoading(false);
+      inFlight.current = false;
+      return;
+    }
+
+    if (!data.user) {
+      clearPendingConfirmEmail();
+      setError('We couldn\u2019t create your account just now. Please try again.');
+      setLoading(false);
+      inFlight.current = false;
+      return;
+    }
+
+    // Supabase returns an empty identities list for an address that is already registered.
+    if (data.user.identities?.length === 0) {
+      clearPendingConfirmEmail();
+      setError(ACCOUNT_EXISTS_MESSAGE);
+      setDuplicateAccount(true);
       setLoading(false);
       inFlight.current = false;
       return;
