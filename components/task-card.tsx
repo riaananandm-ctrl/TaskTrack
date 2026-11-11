@@ -122,25 +122,31 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
   return (
     <div
       className={cn(
-        'group rounded-xl border bg-card p-4 transition-all hover:shadow-soft',
-        overdue ? 'border-red-200 dark:border-red-900' : dueToday ? 'border-orange-200 dark:border-orange-900' : 'border-border'
+        'group relative overflow-hidden rounded-xl border bg-card p-4 pl-5 shadow-soft transition-all duration-200 hover:-translate-y-px hover:shadow-card',
+        overdue ? 'border-red-200 dark:border-red-900/70' : dueToday ? 'border-orange-200 dark:border-orange-900/70' : 'border-border/80',
+        isCompleted && 'opacity-70'
       )}
     >
+      {/* Subject colour stripe */}
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: subjectColour }} aria-hidden />
       <div className="flex items-start gap-3">
         {/* Complete button */}
         <button
           type="button"
           onClick={toggleComplete}
           disabled={updating}
-          className="mt-0.5 flex-shrink-0"
+          className="group/check mt-0.5 flex-shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           aria-label={isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
         >
           {updating ? (
             <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
           ) : isCompleted ? (
-            <CheckCircle2 className="w-5 h-5 text-green-500" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-scale-in" />
           ) : (
-            <Circle className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+            <span className="relative block w-5 h-5">
+              <Circle className="absolute inset-0 w-5 h-5 text-muted-foreground/60 transition-colors group-hover/check:text-emerald-500" />
+              <CheckCircle2 className="absolute inset-0 w-5 h-5 text-emerald-500 opacity-0 transition-opacity group-hover/check:opacity-40" />
+            </span>
           )}
         </button>
 
@@ -148,7 +154,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <p className={cn('text-sm font-medium', isCompleted && 'line-through text-muted-foreground')}>
+              <p className={cn('text-sm font-semibold leading-snug', isCompleted && 'line-through text-muted-foreground font-medium')}>
                 {displayTask.title}
               </p>
               {!compact && displayTask.description && (
@@ -159,7 +165,10 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
             {/* Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-accent transition-all">
+                <button
+                  className="p-1 rounded-md hover:bg-accent transition-all focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+                  aria-label={`More actions for ${displayTask.title}`}
+                >
                   <MoreVertical className="w-4 h-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
@@ -199,7 +208,8 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
               {CATEGORY_LABELS[displayTask.category]}
             </span>
-            <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', getPriorityBadgeClass(displayTask.priority))}>
+            <span className={cn('inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold', getPriorityBadgeClass(displayTask.priority))}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" aria-hidden />
               {PRIORITY_LABELS[displayTask.priority]}
             </span>
             {displayTask.external_source === MANAGEBAC_SOURCE && (
@@ -236,7 +246,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
             <button
               onClick={openStudySession}
               disabled={starting}
-              className="flex items-center gap-1 text-xs text-navy-600 hover:text-navy-700 font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 text-xs text-navy-600 dark:text-sky-300 hover:bg-primary/10 font-semibold transition-colors disabled:opacity-50"
             >
               {starting ? (
                 <Loader2 className="w-3 h-3 animate-spin" />

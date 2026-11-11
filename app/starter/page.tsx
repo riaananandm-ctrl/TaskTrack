@@ -274,7 +274,7 @@ export default function StarterPage() {
                   className="text-white hover:bg-white/20 border border-white/30"
                   onClick={() => document.getElementById('manual-fallback')?.scrollIntoView({ behavior: 'smooth' })}
                 >
-                  I'll add tasks manually for now
+                  I&apos;ll add tasks manually for now
                 </Button>
               </div>
 
@@ -522,7 +522,7 @@ export default function StarterPage() {
                 disabled={saving || !!aiDone}
               >
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                I'll try it later
+                I&apos;ll try it later
               </Button>
               <Button
                 onClick={() => {
@@ -546,7 +546,7 @@ export default function StarterPage() {
           </div>
           <Card className="p-6">
             <p className="text-sm text-muted-foreground mb-6">
-              Earn XP for real work — adding tasks, completing them, and studying with focus sessions. Your streak shows how consistently you're studying.
+              Earn XP for real work — adding tasks, completing them, and studying with focus sessions. Your streak shows how consistently you&apos;re studying.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
               <RewardCard icon={Zap} label="Task added" xp={XP_RULES.task_added} />

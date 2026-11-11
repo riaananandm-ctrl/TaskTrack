@@ -148,12 +148,15 @@ ALTER TABLE public.push_config ENABLE ROW LEVEL SECURITY;
 -- Deliberately no policies: RLS denies every anon/authenticated request. Only the
 -- service role (used by the sender Edge Function) can read these values.
 
+-- Secrets are never written into source control. The live project already has its
+-- row (ON CONFLICT keeps it). For a NEW project, generate a VAPID key pair
+-- (e.g. `npx web-push generate-vapid-keys`) and update this row with real values.
 INSERT INTO public.push_config (id, vapid_public, vapid_private, cron_secret, subject)
 VALUES (
   1,
-  'BG-E84TSDloK7E2I-6rMGlMGTElPvsij8YvUQGRcLpNJNrZrjsLmJu507fwVR7mpup3H0omrPvaWIxkmiuxl-yk',
-  'WohzAZx9sGEUN9iJXzjnTFy3JI4uukxifLk-VKlQMoE',
-  'ab88f9dddff7916de84b55b1ffee5fa0c9a08fd510d2b4d2d05b621fb21ddc64',
+  'REPLACE_WITH_VAPID_PUBLIC_KEY',
+  'REPLACE_WITH_VAPID_PRIVATE_KEY',
+  encode(gen_random_bytes(32), 'hex'),
   'mailto:notifications@tasktrack.app'
 )
 ON CONFLICT (id) DO NOTHING;

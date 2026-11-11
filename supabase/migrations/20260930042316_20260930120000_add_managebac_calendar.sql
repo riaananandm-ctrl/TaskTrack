@@ -93,11 +93,13 @@ ALTER TABLE public.integration_secrets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.integration_secrets FROM anon;
 REVOKE ALL ON public.integration_secrets FROM authenticated;
 
+-- Secrets are generated inside the database, never written into source control.
+-- (The live project already has its row; ON CONFLICT keeps those values untouched.)
 INSERT INTO public.integration_secrets (id, enc_key, sync_cron_secret)
 VALUES (
   1,
-  'fx5LePJTN9Gdj/z4eCaCpwRrEO/QPMkfYBG/89C7tGM=',
-  '1ab0fdc8ecc9d4edfcc8be95cbce1fc2e5cc3e0ccc486d4f1220c25371b145b3'
+  encode(gen_random_bytes(32), 'base64'),
+  encode(gen_random_bytes(32), 'hex')
 )
 ON CONFLICT (id) DO NOTHING;
 

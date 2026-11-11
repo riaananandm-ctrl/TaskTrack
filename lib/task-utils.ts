@@ -52,10 +52,10 @@ export function formatDueDate(dateStr: string | null, timeStr: string | null): s
 
 export function getPriorityBadgeClass(priority: Priority): string {
   switch (priority) {
-    case 'urgent': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-    case 'high': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
-    case 'medium': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-    case 'low': return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+    case 'urgent': return 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/40 dark:text-red-300 dark:ring-red-900';
+    case 'high': return 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:ring-orange-900';
+    case 'medium': return 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200/70 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900';
+    case 'low': return 'bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-800/60 dark:text-slate-400 dark:ring-slate-700';
   }
 }
 

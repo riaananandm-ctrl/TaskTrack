@@ -24,7 +24,7 @@ export function AuthLayout({
         <div className="relative flex flex-col justify-between p-12 text-white w-full">
           <Link href="/">
             <div className="inline-flex items-center justify-center rounded-xl bg-white p-2 shadow-soft">
-              <Logo size={28} showText={false} />
+              <Logo size={28} tone="dark" />
             </div>
           </Link>
           <div className="space-y-6">

@@ -21,6 +21,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+// Keyword priority rules. KEEP IN SYNC with lib/auto-priority.ts in the web app.
+// Highest match wins: Summative -> urgent, Formative -> high, "Task 3" -> medium.
+function autoPriority(title: string | null | undefined): 'urgent' | 'high' | 'medium' {
+  const t = title ?? '';
+  if (/\bsummative\b/i.test(t)) return 'urgent';
+  if (/\bformative\b/i.test(t)) return 'high';
+  return 'medium'; // "Task 3" and everything else.
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -345,7 +354,7 @@ Deno.serve(async (req: Request) => {
             description: event.description ?? null,
             due_date: (event.due_at ?? event.start_at)?.slice(0, 10) ?? null,
             category: 'other',
-            priority: 'medium',
+            priority: autoPriority(event.summary),
             status: 'not_started',
             external_source: 'managebac_calendar',
             external_uid: uid,

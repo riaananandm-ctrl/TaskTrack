@@ -27,6 +27,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+// Keyword priority rules. KEEP IN SYNC with lib/auto-priority.ts in the web app.
+// Highest match wins: Summative -> urgent, Formative -> high, "Task 3" -> medium.
+function autoPriority(title: string | null | undefined): 'urgent' | 'high' | 'medium' {
+  const t = title ?? '';
+  if (/\bsummative\b/i.test(t)) return 'urgent';
+  if (/\bformative\b/i.test(t)) return 'high';
+  return 'medium'; // "Task 3" and everything else.
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -479,10 +488,10 @@ async function createImportedTask(
       description: event.description,
       due_date: event.dueAt ? event.dueAt.slice(0, 10) : null,
       due_time: event.dueHasTime && event.dueAt ? event.dueAt.slice(11, 16) : null,
-      // The feed carries no category or priority, so the app's neutral defaults are used
-      // rather than inventing detail. Subject and estimated duration stay genuinely blank.
+      // The feed carries no category or priority. Priority comes from title keywords
+      // (Summative / Formative / Task 3); subject and estimated duration stay blank.
       category: 'other',
-      priority: 'medium',
+      priority: autoPriority(event.summary),
       status: 'not_started',
       external_source: 'managebac_calendar',
       external_uid: event.uid,

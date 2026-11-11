@@ -34,16 +34,26 @@ const SIDEBAR_PREF_KEY = 'tasktrack.sidebar.collapsed';
  * Sidebar destinations. Settings and Integrations are deliberately not here: they live
  * in the profile box at the bottom, which is where people look for them.
  */
-const NAV_ITEMS = [
-  { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/app/tasks', label: 'My Tasks', icon: ListTodo },
-  { href: '/app/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/app/subjects', label: 'Subjects', icon: BookOpen },
-  { href: '/app/tools', label: 'Tools', icon: Ruler },
-  { href: '/app/planning', label: 'Planning', icon: CalendarClock },
-  { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
-  { href: '/app/review', label: 'Review', icon: Layers },
-  { href: '/app/notifications', label: 'Notifications', icon: Bell },
+const NAV_GROUPS = [
+  {
+    label: 'Workspace',
+    items: [
+      { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/app/tasks', label: 'My Tasks', icon: ListTodo },
+      { href: '/app/calendar', label: 'Calendar', icon: Calendar },
+      { href: '/app/subjects', label: 'Subjects', icon: BookOpen },
+      { href: '/app/notifications', label: 'Notifications', icon: Bell },
+    ],
+  },
+  {
+    label: 'Study',
+    items: [
+      { href: '/app/planning', label: 'Planning', icon: CalendarClock },
+      { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
+      { href: '/app/review', label: 'Review', icon: Layers },
+      { href: '/app/tools', label: 'Tools', icon: Ruler },
+    ],
+  },
 ];
 
 /** Count unread, enabled reminders for the current student. Shared by both navs. */
@@ -97,50 +107,63 @@ function SidebarBody({
 
   return (
     <>
-      <div className="p-5 border-b border-white/10">
-        <Link href="/app" onClick={onNavigate}>
-          <Logo />
+      <div className="px-5 pt-5 pb-4">
+        <Link href="/app" onClick={onNavigate} className="inline-block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+          <Logo tone="light" size={34} />
         </Link>
       </div>
 
-      <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
-        {NAV_ITEMS.map((item) => {
-          const isActive = item.href === '/app' ? pathname === '/app' : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={isActive ? 'page' : undefined}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-white/10 text-white'
-                  : 'text-slate-300 hover:bg-white/5 hover:text-white'
-              )}
-            >
-              <item.icon className={cn('w-4 h-4', isActive ? 'text-sky-300' : 'text-slate-400')} />
-              <span className="flex-1">{item.label}</span>
-              {item.label === 'Notifications' && unreadCount > 0 && (
-                <span className="bg-sky-400 text-navy-800 text-xs font-semibold px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-md">
-                  {unreadCount}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 pb-3 space-y-5 overflow-y-auto" aria-label="Main navigation">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400/80">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = item.href === '/app' ? pathname === '/app' : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/60',
+                      isActive
+                        ? 'bg-white/[0.12] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]'
+                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    )}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sky-300" aria-hidden />
+                    )}
+                    <item.icon className={cn('w-4 h-4 transition-colors', isActive ? 'text-sky-300' : 'text-slate-400')} />
+                    <span className="flex-1">{item.label}</span>
+                    {item.label === 'Notifications' && unreadCount > 0 && (
+                      <span className="bg-sky-400 text-navy-900 text-[11px] font-bold px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Premium card */}
       <div className="p-3">
-        <Link href="/app/premium" onClick={onNavigate}>
-          <div className="rounded-lg border border-white/15 bg-white/5 p-3.5 cursor-pointer hover:bg-white/10 transition-colors">
-            <div className="flex items-center gap-2 mb-1">
+        <Link href="/app/premium" onClick={onNavigate} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+          <div className="relative overflow-hidden rounded-xl border border-white/15 bg-gradient-to-br from-sky-400/20 via-white/5 to-blue-500/10 p-3.5 transition-colors hover:border-white/25">
+            <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-sky-300/20 blur-2xl" aria-hidden />
+            <div className="relative flex items-center gap-2 mb-1">
               <Sparkles className="w-3.5 h-3.5 text-sky-300" />
               <span className="text-xs font-semibold text-white">Upgrade to Premium</span>
             </div>
-            <p className="text-xs font-bold text-sky-200 mb-0.5">₹699 for 3 months</p>
-            <div className="flex items-center text-[11px] text-slate-300 font-medium">
+            <p className="relative text-xs font-bold text-sky-200 mb-0.5">₹699 for 3 months</p>
+            <div className="relative flex items-center text-[11px] text-slate-300 font-medium">
               Coming soon <ChevronRight className="w-3 h-3" />
             </div>
           </div>
@@ -150,8 +173,8 @@ function SidebarBody({
       {/* Profile box: settings and sign out live here */}
       <div className="p-3 border-t border-white/10">
         <div className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-white/5 transition-colors">
-          <Avatar className="w-8 h-8 flex-shrink-0">
-            <AvatarFallback className="bg-sky-400 text-navy-800 text-xs font-semibold">
+          <Avatar className="w-8 h-8 flex-shrink-0 ring-2 ring-white/15">
+            <AvatarFallback className="bg-gradient-to-br from-sky-300 to-blue-500 text-navy-900 text-xs font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -210,7 +233,7 @@ function HamburgerButton({
       aria-controls={ariaControls}
       aria-label={label}
       title={label}
-      className="p-2 rounded-md border border-border bg-card text-foreground hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="p-2 rounded-lg border border-border/80 bg-card text-foreground shadow-soft hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <Menu className="w-5 h-5" aria-hidden="true" />
     </button>
@@ -238,7 +261,7 @@ export function AppSidebar({
       aria-label="Sidebar"
       aria-hidden={collapsed}
       className={cn(
-        'hidden lg:flex flex-col w-56 bg-navy-800 dark:bg-navy-800 h-screen sticky top-0 flex-shrink-0',
+        'hidden lg:flex flex-col w-60 bg-gradient-to-b from-navy-800 to-navy-900 border-r border-white/5 h-screen sticky top-0 flex-shrink-0',
         collapsed && 'hidden'
       )}
     >
@@ -303,7 +326,7 @@ export function AppTopBar({
   return (
     <>
       {/* Desktop top bar: hamburger pinned at top-left over the page, content reserves space via layout */}
-      <div className="hidden lg:flex sticky top-0 z-30 h-12 items-center gap-3 px-4 bg-background border-b border-border">
+      <div className="hidden lg:flex sticky top-0 z-30 h-14 items-center gap-3 px-4 bg-background/75 backdrop-blur-md border-b border-border/70">
         <div className="w-14 flex justify-center flex-shrink-0">{desktopToggle}</div>
         <div className="flex-1" />
         {unreadCount > 0 && (
@@ -321,7 +344,7 @@ export function AppTopBar({
       </div>
 
       {/* Mobile top bar: brand + notifications + account, with hamburger at the left */}
-      <div className="lg:hidden sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-border px-4 h-14 flex items-center justify-between">
+      <div className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/70 px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {desktopToggle}
           <Link href="/app" className="flex items-center">
@@ -364,10 +387,10 @@ export function AppTopBar({
           aria-modal="true"
           aria-label="Navigation menu"
         >
-          <div className="absolute inset-0 bg-black/50" onClick={closeDrawer} aria-hidden="true" />
+          <div className="absolute inset-0 bg-navy-900/50 backdrop-blur-[2px] animate-fade-in" onClick={closeDrawer} aria-hidden="true" />
           <div
             ref={drawerRef}
-            className="relative w-72 max-w-[85%] h-full bg-navy-800 dark:bg-navy-800 flex flex-col overflow-y-auto animate-slide-up"
+            className="relative w-72 max-w-[85%] h-full bg-gradient-to-b from-navy-800 to-navy-900 flex flex-col overflow-y-auto shadow-2xl animate-in slide-in-from-left duration-200"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
               <span className="text-sm font-semibold text-white">Menu</span>

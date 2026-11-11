@@ -27,6 +27,7 @@ import {
   STATUS_LABELS,
 } from '@/lib/types';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { autoPriority, matchAutoPriority } from '@/lib/auto-priority';
 
 interface TaskDialogProps {
   open: boolean;
@@ -50,6 +51,8 @@ export function TaskDialog({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Once the student picks a priority themselves, the title keywords stop changing it.
+  const [priorityTouched, setPriorityTouched] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     subject_id: '',
@@ -95,7 +98,20 @@ export function TaskDialog({
       });
     }
     setError(null);
+    setPriorityTouched(false);
   }, [task, open, defaultDueDate]);
+
+  // New tasks only: existing tasks keep whatever priority they already have.
+  const autoPriorityActive = !task && !priorityTouched;
+  const autoRule = autoPriorityActive ? matchAutoPriority(formData.title) : null;
+
+  const handleTitleChange = (title: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      title,
+      priority: autoPriorityActive ? autoPriority(title) : prev.priority,
+    }));
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -182,7 +198,7 @@ export function TaskDialog({
               required
               placeholder="e.g. Complete chapter 5 exercises"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => handleTitleChange(e.target.value)}
             />
           </div>
 
@@ -253,9 +269,12 @@ export function TaskDialog({
               <Label htmlFor="priority">Priority</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(v) => setFormData({ ...formData, priority: v as Priority })}
+                onValueChange={(v) => {
+                  setPriorityTouched(true);
+                  setFormData({ ...formData, priority: v as Priority });
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="priority">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,6 +283,11 @@ export function TaskDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {autoRule && (
+                <p className="text-xs text-muted-foreground">
+                  Set automatically: title mentions &ldquo;{autoRule.keyword}&rdquo;
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>

@@ -378,7 +378,7 @@ export default function SubjectsPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="archive">Archive subject (keep tasks)</SelectItem>
-                  <SelectItem value="delete">Delete subject (move tasks to "No subject")</SelectItem>
+                  <SelectItem value="delete">Delete subject (move tasks to &ldquo;No subject&rdquo;)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

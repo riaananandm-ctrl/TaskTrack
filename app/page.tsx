@@ -65,7 +65,7 @@ export default function LandingPage() {
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#243B64]">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" aria-label="TaskTrack home"><Logo size={36} /></Link>
+          <Link href="/" aria-label="TaskTrack home"><Logo size={36} tone="light" /></Link>
           <div className="hidden items-center gap-7 md:flex">
             {navLinks.map((l) => (
               <a key={l.href} href={l.href} className="text-sm font-medium text-blue-100 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">

@@ -555,7 +555,7 @@ export function StudySessionPanel({
                 title="TaskTrack"
                 className="w-8 h-8 rounded-md bg-white/95 flex items-center justify-center flex-shrink-0"
               >
-                <Logo size={18} showText={false} />
+                <Logo size={18} tone="dark" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate">{session.title}</p>

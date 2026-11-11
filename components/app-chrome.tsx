@@ -56,7 +56,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ReminderSoundWatcher />
-      <div className="min-h-screen flex bg-background">
+      <div className="min-h-screen flex bg-background app-backdrop">
         <AppSidebar collapsed={collapsed} onToggle={toggleSidebar} />
         <div className="flex-1 flex flex-col min-w-0">
           <AppTopBar
