@@ -24,7 +24,9 @@ import {
   Ruler,
   Menu,
   X,
+  Inbox,
 } from 'lucide-react';
+import { useNewTaskCount } from '@/lib/new-tasks';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -40,6 +42,7 @@ const NAV_GROUPS = [
     label: 'Workspace',
     items: [
       { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/app/new', label: 'New Tasks', icon: Inbox },
       { href: '/app/tasks', label: 'My Tasks', icon: ListTodo },
       { href: '/app/calendar', label: 'Calendar', icon: Calendar },
       { href: '/app/subjects', label: 'Subjects', icon: BookOpen },
@@ -105,6 +108,7 @@ function SidebarBody({
   onNavigate?: () => void;
 }) {
   const { user, profile, signOut } = useAuth();
+  const newTaskCount = useNewTaskCount();
   const initials = initialsOf(profile?.full_name, user?.email);
 
   return (
@@ -145,6 +149,11 @@ function SidebarBody({
                     {item.label === 'Notifications' && unreadCount > 0 && (
                       <span className="bg-sky-400 text-navy-900 text-[11px] font-bold px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full">
                         {unreadCount}
+                      </span>
+                    )}
+                    {item.href === '/app/new' && newTaskCount > 0 && (
+                      <span className="bg-[#5FD3C0] text-[#17264B] text-[11px] font-bold px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full">
+                        {newTaskCount > 99 ? '99+' : newTaskCount}
                       </span>
                     )}
                   </Link>

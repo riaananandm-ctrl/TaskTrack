@@ -28,6 +28,7 @@ import {
 } from '@/lib/types';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { autoPriority, matchAutoPriority } from '@/lib/auto-priority';
+import { markTasksSeen } from '@/lib/new-tasks';
 
 interface TaskDialogProps {
   open: boolean;
@@ -66,6 +67,11 @@ export function TaskDialog({
     notes: '',
     external_link: '',
   });
+
+  // Opening a task counts as having seen it, so it leaves the New Tasks list.
+  useEffect(() => {
+    if (open && task && !task.seen_at) void markTasksSeen([task.id]);
+  }, [open, task]);
 
   useEffect(() => {
     if (task) {

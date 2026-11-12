@@ -71,6 +71,8 @@ export interface Task {
   completed_at: string | null;
   external_source: string | null;
   external_uid: string | null;
+  /** When the student first opened this task. NULL means it is new to them. */
+  seen_at?: string | null;
   created_at: string;
   updated_at: string;
   subject?: Subject | null;
