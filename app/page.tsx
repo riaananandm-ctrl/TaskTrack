@@ -6,13 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import {
+  UpcomingIcon,
+  CalendarCheckIcon,
+  StudyIcon,
+  ReminderIcon,
+  SlidesIcon,
+} from '@/components/brand-icons';
+import {
   ArrowRight,
-  Bell,
   BookOpen,
-  CalendarDays,
   Check,
   Clock3,
-  Layers3,
   ListTodo,
   Menu,
   X,
@@ -27,22 +31,22 @@ const navLinks = [
 
 const featureCards = [
   {
-    icon: ListTodo,
+    icon: UpcomingIcon,
     title: 'Tasks',
     description: 'Every assignment and due date in one list, organised by subject.',
   },
   {
-    icon: Layers3,
+    icon: CalendarCheckIcon,
     title: 'ManageBac',
     description: 'Subscribe to your ManageBac calendar and its deadlines import into TaskTrack.',
   },
   {
-    icon: BookOpen,
+    icon: StudyIcon,
     title: 'Study tools',
     description: 'Turn a task into explanations, quizzes, flashcards, and a study plan.',
   },
   {
-    icon: Bell,
+    icon: ReminderIcon,
     title: 'Reminders',
     description: 'Get a notification before a deadline sneaks up on you.',
   },
@@ -63,9 +67,12 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F6F5F1] text-slate-800 [font-family:var(--font-inter),ui-sans-serif,system-ui,sans-serif]">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#243B64]">
+      <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#243B64]/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" aria-label="TaskTrack home"><Logo size={36} tone="light" /></Link>
+          <Link href="/" aria-label="TaskTrack home" className="flex items-center gap-2.5">
+            <Logo size={34} />
+            <span className="text-lg font-bold tracking-tight text-white">TaskTrack</span>
+          </Link>
           <div className="hidden items-center gap-7 md:flex">
             {navLinks.map((l) => (
               <a key={l.href} href={l.href} className="text-sm font-medium text-blue-100 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
@@ -103,10 +110,18 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="bg-[#243B64] pb-16 pt-12 lg:pb-24 lg:pt-16">
-          <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
+        <section className="relative overflow-hidden bg-[#243B64] pb-16 pt-12 lg:pb-24 lg:pt-16">
+          <div
+            className="pointer-events-none absolute inset-0"
+            aria-hidden
+            style={{
+              background:
+                'radial-gradient(48rem 30rem at 100% 0%, rgba(49,94,219,0.55), transparent 65%), radial-gradient(40rem 28rem at 0% 110%, rgba(34,178,158,0.30), transparent 65%)',
+            }}
+          />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
-              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. Be ready for it.</h1>
+              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">Bring school deadlines, study plans, and timely reminders into one clear workspace.</p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href="/signup"><Button size="lg" className="w-full bg-[#315EDB] text-base text-white hover:bg-[#274DBE] sm:w-auto">Get started free <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
@@ -116,13 +131,13 @@ export default function LandingPage() {
             </div>
 
             {/* Example workspace — synthetic, illustrative data */}
-            <div className="rounded-2xl border border-slate-200 bg-[#FDFCF9] p-4 shadow-xl shadow-[#1a2d4d]/30 sm:p-5" aria-label="Example TaskTrack workspace">
+            <div className="rounded-2xl border border-white/60 bg-[#FDFCF9] p-4 shadow-2xl shadow-[#0b1530]/40 ring-1 ring-white/10 sm:p-5 lg:rotate-[0.6deg]" aria-label="Example TaskTrack workspace">
               <div className="flex items-center justify-between border-b border-slate-200 pb-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Example workspace</p>
                   <p className="mt-1 text-lg font-semibold text-[#243B64]">This week at a glance</p>
                 </div>
-                <div className="rounded-lg border border-slate-200 bg-white p-2 text-[#315EDB]"><CalendarDays className="h-5 w-5" /></div>
+                <CalendarCheckIcon size={34} />
               </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -181,8 +196,8 @@ export default function LandingPage() {
               {featureCards.map((feature) => {
                 const Icon = feature.icon;
                 return (
-                  <div key={feature.title} className="rounded-xl border border-slate-200 bg-white p-6 transition-colors hover:border-[#315EDB]/40">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#315EDB]/10 text-[#315EDB]"><Icon className="h-5 w-5" /></div>
+                  <div key={feature.title} className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)] transition-all duration-200 hover:-translate-y-1 hover:border-[#315EDB]/30 hover:shadow-[0_2px_4px_-1px_rgba(23,38,75,0.05),0_12px_28px_-6px_rgba(23,38,75,0.14)]">
+                    <Icon size={44} />
                     <h3 className="mt-5 text-lg font-semibold text-[#243B64]">{feature.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
                   </div>
@@ -219,9 +234,9 @@ export default function LandingPage() {
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Works with what your school uses.</h2>
             </div>
             <div className="mt-10 grid gap-5 md:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#315EDB]/10 text-[#315EDB]"><Layers3 className="h-5 w-5" /></div>
+                  <CalendarCheckIcon size={40} />
                   <div>
                     <p className="font-semibold text-[#243B64]">ManageBac</p>
                     <p className="text-xs font-medium text-emerald-700">Available</p>
@@ -229,9 +244,9 @@ export default function LandingPage() {
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-600">Paste your ManageBac calendar link once. Deadlines import automatically and stay up to date each time your calendar syncs.</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><CalendarDays className="h-5 w-5" /></div>
+                  <CalendarCheckIcon size={40} className="opacity-45 grayscale" />
                   <div>
                     <p className="font-semibold text-[#243B64]">Google Classroom</p>
                     <p className="text-xs font-medium text-amber-700">Coming soon</p>
@@ -239,9 +254,9 @@ export default function LandingPage() {
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-600">Keeping Classroom schoolwork together in TaskTrack is planned but not available yet.</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
+              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><BookOpen className="h-5 w-5" /></div>
+                  <SlidesIcon size={40} className="opacity-45 grayscale" />
                   <div>
                     <p className="font-semibold text-[#243B64]">Google Slides &amp; uploads</p>
                     <p className="text-xs font-medium text-amber-700">Coming soon</p>
@@ -359,7 +374,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="grid gap-10 md:grid-cols-[1fr_1fr_1.2fr]">
             <div>
-              <Link href="/" aria-label="TaskTrack home"><Logo size={36} /></Link>
+              <Link href="/" aria-label="TaskTrack home" className="inline-flex items-center gap-2.5">
+                <Logo size={34} />
+                <span className="text-lg font-bold tracking-tight text-[#243B64]">TaskTrack</span>
+              </Link>
               <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">Deadlines, study plans, and reminders in one clear workspace.</p>
             </div>
             <div>

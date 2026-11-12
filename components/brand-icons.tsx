@@ -194,3 +194,36 @@ export function OverdueIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Reminders: a bell with a small notification dot. */
+export function ReminderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {(g) => (
+        <>
+          <path
+            d="M12 3.2a5.900 5.900 0 0 0-5.900 5.900v3.300c0 .700-.250 1.400-.700 1.950l-1.050 1.300a.800.800 0 0 0 .620 1.300h14.060a.800.800 0 0 0 .620-1.300l-1.050-1.300a3.100 3.100 0 0 1-.700-1.950V9.100A5.900 5.900 0 0 0 12 3.200Z"
+            fill={g}
+          />
+          <path d="M9.700 19.300a2.400 2.400 0 0 0 4.600 0" stroke={g} strokeWidth="1.900" strokeLinecap="round" />
+          <circle cx="18" cy="5.600" r="2.400" fill="#62CC6A" stroke="#fff" strokeWidth="1.200" />
+        </>
+      )}
+    </Svg>
+  );
+}
+
+/** Slides / document: stacked pages. */
+export function SlidesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {(g) => (
+        <>
+          <rect x="6" y="3" width="13" height="16" rx="3" fill={g} opacity="0.3" />
+          <rect x="3.500" y="5.500" width="13" height="15.500" rx="3" fill={g} />
+          <path d="M7 11h6M7 14.500h4" stroke="#fff" strokeWidth="1.700" strokeLinecap="round" />
+        </>
+      )}
+    </Svg>
+  );
+}

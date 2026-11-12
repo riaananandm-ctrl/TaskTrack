@@ -16,20 +16,25 @@ export function AuthLayout({
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 gradient-navy relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-64 h-64 bg-sky-400 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-80 h-80 bg-blue-500 rounded-full blur-3xl" />
-        </div>
+      <div className="hidden lg:flex lg:w-1/2 bg-[#243B64] relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden
+          style={{
+            background:
+              'radial-gradient(38rem 28rem at 100% 0%, rgba(49,94,219,0.6), transparent 65%), radial-gradient(34rem 26rem at 0% 105%, rgba(34,178,158,0.32), transparent 65%), linear-gradient(170deg,#243B64 0%,#172648 100%)',
+          }}
+        />
         <div className="relative flex flex-col justify-between p-12 text-white w-full">
-          <Link href="/">
-            <div className="inline-flex items-center justify-center rounded-xl bg-white p-2 shadow-soft">
-              <Logo size={28} tone="dark" />
-            </div>
+          <Link href="/" className="inline-flex items-center gap-3 self-start">
+            <Logo size={40} className="shadow-lg shadow-black/20" />
+            <span className="text-xl font-bold tracking-tight">TaskTrack</span>
           </Link>
           <div className="space-y-6">
-            <h2 className="text-4xl font-bold leading-tight">
-              Know What&rsquo;s Next.
+            <h2 className="text-5xl font-bold leading-[1.08] tracking-tight">
+              Know what&rsquo;s due.
+              <br />
+              <span className="text-[#5FD3C0]">Be ready for it.</span>
             </h2>
             <p className="text-lg text-blue-200 leading-relaxed max-w-md">
               Keep all your academic tasks, deadlines and reminders in one organised place.
@@ -37,8 +42,10 @@ export function AuthLayout({
             <div className="space-y-3 pt-4">
               {['Organise tasks by subject', 'Set reminders for exact times', 'Plan your week with confidence'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-sky-400/20 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-sky-400" />
+                  <div className="w-6 h-6 rounded-full bg-[#22B29E]/20 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="#5FD3C0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="m5 12.5 4.500 4.500L19 7.500" />
+                    </svg>
                   </div>
                   <span className="text-sm text-blue-100">{item}</span>
                 </div>
@@ -55,8 +62,9 @@ export function AuthLayout({
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
         <div className="w-full max-w-md">
           <div className="lg:hidden mb-8">
-            <Link href="/">
-              <Logo />
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              <Logo size={34} />
+              <span className="text-lg font-bold tracking-tight">TaskTrack</span>
             </Link>
           </div>
           <div className="mb-8">
