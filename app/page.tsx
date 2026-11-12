@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
+import { Reveal, ScrollProgress } from '@/components/landing/reveal';
+import { ManageBacShowcase } from '@/components/landing/managebac-showcase';
+import { StudyShowcase } from '@/components/landing/study-showcase';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import {
   UpcomingIcon,
@@ -23,8 +26,9 @@ import {
 } from 'lucide-react';
 
 const navLinks = [
+  { label: 'ManageBac', href: '#managebac' },
+  { label: 'AI study', href: '#study' },
   { label: 'Features', href: '#features' },
-  { label: 'How it works', href: '#how-it-works' },
   { label: 'Plans', href: '#plans' },
   { label: 'Contact', href: '#contact' },
 ];
@@ -66,6 +70,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F6F5F1] text-slate-800 [font-family:var(--font-inter),ui-sans-serif,system-ui,sans-serif]">
+      <ScrollProgress />
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#243B64]/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -122,10 +127,21 @@ export default function LandingPage() {
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
               <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">Bring school deadlines, study plans, and timely reminders into one clear workspace.</p>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac deadlines into one list, then helps you study for each one with AI explanations, quizzes and flashcards.</p>
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                <a href="#managebac" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> ManageBac sync
+                </a>
+                <a href="#study" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> AI study sessions
+                </a>
+                <a href="#features" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> Day-before reminders
+                </a>
+              </div>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href="/signup"><Button size="lg" className="w-full bg-[#315EDB] text-base text-white hover:bg-[#274DBE] sm:w-auto">Get started free <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
-                <a href="#how-it-works"><Button size="lg" variant="outline" className="w-full border-white/25 bg-transparent text-base text-white hover:bg-white/10 sm:w-auto">See how it works</Button></a>
+                <a href="#managebac"><Button size="lg" variant="outline" className="w-full border-white/25 bg-transparent text-base text-white hover:bg-white/10 sm:w-auto">See how it works</Button></a>
               </div>
               <p className="mt-5 text-sm text-blue-200">Free to start. No card required.</p>
             </div>
@@ -185,6 +201,9 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <ManageBacShowcase />
+        <StudyShowcase />
+
         {/* Features */}
         <section id="features" className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -193,14 +212,16 @@ export default function LandingPage() {
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Everything in one place.</h2>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {featureCards.map((feature) => {
+              {featureCards.map((feature, i) => {
                 const Icon = feature.icon;
                 return (
-                  <div key={feature.title} className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)] transition-all duration-200 hover:-translate-y-1 hover:border-[#315EDB]/30 hover:shadow-[0_2px_4px_-1px_rgba(23,38,75,0.05),0_12px_28px_-6px_rgba(23,38,75,0.14)]">
+                  <Reveal key={feature.title} delay={i * 90} className="h-full">
+                  <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)] transition-all duration-200 hover:-translate-y-1 hover:border-[#315EDB]/30 hover:shadow-[0_2px_4px_-1px_rgba(23,38,75,0.05),0_12px_28px_-6px_rgba(23,38,75,0.14)]">
                     <Icon size={44} />
                     <h3 className="mt-5 text-lg font-semibold text-[#243B64]">{feature.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
                   </div>
+                  </Reveal>
                 );
               })}
             </div>
@@ -215,12 +236,14 @@ export default function LandingPage() {
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Three steps to a clearer week.</h2>
             </div>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
-              {workflow.map((step) => (
-                <div key={step.number} className="border-t-2 border-[#315EDB]/40 pt-5">
+              {workflow.map((step, i) => (
+                <Reveal key={step.number} delay={i * 120}>
+                <div className="border-t-2 border-[#315EDB]/40 pt-5">
                   <p className="text-sm font-semibold text-[#315EDB]">{step.number}</p>
                   <h3 className="mt-4 text-xl font-semibold text-[#243B64]">{step.title}</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
                 </div>
+                </Reveal>
               ))}
             </div>
           </div>
