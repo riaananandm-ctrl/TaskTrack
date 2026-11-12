@@ -243,3 +243,20 @@ export function GraderIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** Group study: two people sharing one speech bubble. */
+export function GroupIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {(g) => (
+        <>
+          <rect x="2.500" y="2.800" width="19" height="13" rx="4" fill={g} opacity="0.22" />
+          <circle cx="8.600" cy="11" r="3" fill={g} />
+          <path d="M3.200 21c0-3 2.400-5.200 5.400-5.200S14 18 14 21z" fill={g} />
+          <circle cx="16.400" cy="12" r="2.400" fill={g} opacity="0.7" />
+          <path d="M15.300 16.200c3-.4 5.600 1.600 5.600 4.800h-5.200" fill={g} opacity="0.7" />
+        </>
+      )}
+    </Svg>
+  );
+}

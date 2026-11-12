@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   Inbox,
+  Users,
 } from 'lucide-react';
 import { useNewTaskCount } from '@/lib/new-tasks';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -54,6 +55,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/app/planning', label: 'Planning', icon: CalendarClock },
       { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
+      { href: '/app/group', label: 'Group Study', icon: Users },
       { href: '/app/grader', label: 'AI Grader', icon: ClipboardCheck },
       { href: '/app/review', label: 'Review', icon: Layers },
       { href: '/app/tools', label: 'Tools', icon: Ruler },

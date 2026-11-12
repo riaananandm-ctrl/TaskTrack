@@ -156,3 +156,13 @@ export function isSubmissionTask(task: { title?: string | null; description?: st
   if (NOT_SUBMISSION.test(task.title)) return false;
   return SUBMISSION_CATEGORIES.includes(task.category as TaskCategory) && task.category !== 'homework';
 }
+
+// ---- Group study ----
+
+/** Ask the AI to answer the latest question in a group study room. Uses one AI message. */
+export async function askGroupAi(groupId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { status, data } = await callAiTools({ action: 'group_ask', groupId });
+  if (status === 404 && !data.error) return { ok: false, error: 'The group AI isn’t switched on yet. Please try again later.' };
+  if (!data.ok) return { ok: false, error: text(data.error) || 'The AI could not answer. Please try again.' };
+  return { ok: true };
+}
