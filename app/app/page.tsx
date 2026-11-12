@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { TASKS_SORTED_EVENT } from '@/lib/ai-tools';
 import { supabase } from '@/lib/supabase/client';
 import { Task, Subject, Reminder } from '@/lib/types';
 import { listUpcomingStudySessions, ScheduledStudySession } from '@/lib/study-schedule';
@@ -48,6 +49,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Imported tasks were just sorted into subjects: show the result without a reload.
+  useEffect(() => {
+    const refresh = () => fetchData();
+    window.addEventListener(TASKS_SORTED_EVENT, refresh);
+    return () => window.removeEventListener(TASKS_SORTED_EVENT, refresh);
   }, [fetchData]);
 
   const retry = () => {

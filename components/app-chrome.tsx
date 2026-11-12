@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { rememberLastRoute } from '@/lib/last-route';
 import { AppSidebar, AppTopBar } from '@/components/app-shell';
 import { AccountSheet } from '@/components/account-sheet';
+import { AutoSortTasks } from '@/components/auto-sort-tasks';
 import { PriorityAlertBanner } from '@/components/priority-alert-banner';
 import { ReminderSoundWatcher } from '@/components/reminder-sound-watcher';
 import { NotificationPrompt } from '@/components/notification-prompt';
@@ -67,6 +68,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             onToggleSidebar={toggleSidebar}
             onOpenAccount={() => setAccountOpen(true)}
           />
+          <AutoSortTasks />
           <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 max-w-7xl mx-auto w-full">
             <PriorityAlertBanner />
             <NotificationPrompt />

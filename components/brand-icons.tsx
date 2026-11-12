@@ -227,3 +227,19 @@ export function SlidesIcon(props: IconProps) {
     </Svg>
   );
 }
+
+/** AI Grader: a marked page with a check badge. */
+export function GraderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      {(g) => (
+        <>
+          <rect x="4" y="2.800" width="13.500" height="18" rx="3" fill={g} opacity="0.22" />
+          <path d="M7.500 8h6.500M7.500 11.500h6.500M7.500 15h3.200" stroke={g} strokeWidth="1.800" strokeLinecap="round" />
+          <circle cx="16.800" cy="16.800" r="5" fill={g} />
+          <path d="m14.600 16.900 1.600 1.600 2.900-3.100" stroke="#fff" strokeWidth="1.700" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+    </Svg>
+  );
+}

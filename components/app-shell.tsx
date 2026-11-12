@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronRight,
   CalendarClock,
+  ClipboardCheck,
   GraduationCap,
   Layers,
   Ruler,
@@ -50,6 +51,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/app/planning', label: 'Planning', icon: CalendarClock },
       { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
+      { href: '/app/grader', label: 'AI Grader', icon: ClipboardCheck },
       { href: '/app/review', label: 'Review', icon: Layers },
       { href: '/app/tools', label: 'Tools', icon: Ruler },
     ],

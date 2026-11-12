@@ -1,5 +1,8 @@
 'use client';
 
+import Link from 'next/link';
+import { isSubmissionTask } from '@/lib/ai-tools';
+import { GraderIcon } from '@/components/brand-icons';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   X, Send, Loader2, AlertCircle, Lock, CheckCircle2, RotateCcw,
@@ -644,6 +647,21 @@ export function StudySessionPanel({
                   </p>
                 )}
               </header>
+
+              {/* Submission tasks: offer feedback on a finished draft */}
+              {task && isSubmissionTask(task) && (
+                <Link
+                  href={`/app/grader?task=${encodeURIComponent(task.id)}`}
+                  className="group flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 transition-colors hover:bg-primary/10"
+                >
+                  <GraderIcon size={36} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">Got a draft? Want it graded?</span>
+                    <span className="block text-xs text-muted-foreground">Check it against the criteria before you hand it in.</span>
+                  </span>
+                  <span className="flex-shrink-0 text-sm font-semibold text-primary group-hover:underline">Grade my work</span>
+                </Link>
+              )}
 
               {/* AI context disclosure — honest about what the assistant receives */}
               <AiContextDisclosure
