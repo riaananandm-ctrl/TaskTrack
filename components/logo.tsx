@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils';
 
-const LOGO_SRC = '/assets/images/1.png';
+// Small copy of the logo: shown at 34-56px and still sharp on retina screens, at a
+// fraction of the original's size (the badge has no transparency, so JPEG is fine).
+const LOGO_SRC = '/assets/images/logo-256.jpg';
 
 interface LogoProps {
   className?: string;

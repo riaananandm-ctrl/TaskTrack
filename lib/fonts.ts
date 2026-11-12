@@ -15,6 +15,8 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-plus-jakarta-sans',
+  // Only the default font (Inter) is preloaded; the rest load when chosen in Settings.
+  preload: false,
 });
 
 const inter = Inter({
@@ -27,12 +29,16 @@ const dmSans = DM_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-dm-sans',
+  // Only the default font (Inter) is preloaded; the rest load when chosen in Settings.
+  preload: false,
 });
 
 const nunitoSans = Nunito_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-nunito-sans',
+  // Only the default font (Inter) is preloaded; the rest load when chosen in Settings.
+  preload: false,
 });
 
 const atkinsonHyperlegible = Atkinson_Hyperlegible({
@@ -40,6 +46,8 @@ const atkinsonHyperlegible = Atkinson_Hyperlegible({
   weight: ['400', '700'],
   display: 'swap',
   variable: '--font-atkinson-hyperlegible',
+  // Only the default font (Inter) is preloaded; the rest load when chosen in Settings.
+  preload: false,
 });
 
 export interface FontOption {
