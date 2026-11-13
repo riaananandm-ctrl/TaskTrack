@@ -38,6 +38,8 @@ const ERRORS: Record<string, string> = {
   too_many_groups: 'You already host 5 active groups. End one before starting another.',
   name_required: 'Give your group a name.',
   not_signed_in: 'Please sign in again and retry.',
+  parent_consent_required: 'A parent or guardian needs to OK Group Study first. Make a link for them at the top of this page.',
+  consent_required: 'Please accept the Terms of Service first, then try again.',
 };
 
 function friendly(message: string | undefined, fallback: string): string {
@@ -103,4 +105,26 @@ export async function sendMessage(groupId: string, userId: string, displayName: 
     .from('study_group_messages')
     .insert({ group_id: groupId, user_id: userId, display_name: displayName, kind: 'user', content: content.slice(0, MAX_MESSAGE_CHARS) });
   return !error;
+}
+
+export type ReportReason = 'bullying' | 'inappropriate' | 'personal_info' | 'spam' | 'other';
+
+export const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: 'bullying', label: 'Bullying or mean' },
+  { value: 'inappropriate', label: 'Inappropriate or rude' },
+  { value: 'personal_info', label: 'Sharing personal info' },
+  { value: 'spam', label: 'Spam' },
+  { value: 'other', label: 'Something else' },
+];
+
+/** Report someone else's message. Reports are private and reviewed by the TaskTrack team. */
+export async function reportMessage(messageId: string, reason: ReportReason, details?: string): Promise<string | null> {
+  const { error } = await supabase.rpc('report_study_message', {
+    p_message: messageId,
+    p_reason: reason,
+    p_details: details ?? null,
+  });
+  if (!error) return null;
+  if (error.message.includes('own_message')) return 'You can’t report your own message.';
+  return 'We couldn’t send the report. Please try again.';
 }

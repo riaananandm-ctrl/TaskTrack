@@ -3,7 +3,7 @@
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
-import { AlertCircle, ArrowLeft, Check, Copy, Crown, Loader2, LogOut, Send, Sparkles, Users } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, Copy, Crown, Flag, Loader2, LogOut, Send, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { askGroupAi } from '@/lib/ai-tools';
@@ -16,6 +16,9 @@ import {
   listMyGroups,
   loadRoom,
   sendMessage,
+  reportMessage,
+  REPORT_REASONS,
+  type ReportReason,
   MAX_GROUP_MEMBERS,
   MAX_MESSAGE_CHARS,
   type GroupMember,
@@ -23,6 +26,8 @@ import {
   type StudyGroup,
 } from '@/lib/group-study';
 import { GroupIcon } from '@/components/brand-icons';
+import { ParentConsentCard } from '@/components/consent-gate';
+import { needsParent, useConsent } from '@/lib/consent';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -120,6 +125,8 @@ function Lobby() {
       </div>
 
       {listError && <ErrorNote>{listError}</ErrorNote>}
+
+      <GroupSafety />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5 sm:p-6">
@@ -460,6 +467,72 @@ function Room({ groupId }: { groupId: string }) {
   );
 }
 
+/** Safety notes for the lobby, plus the parent link for students under 18. */
+function GroupSafety() {
+  const { consent } = useConsent();
+  if (needsParent(consent)) return <ParentConsentCard />;
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#22B29E]" />
+      <p>
+        Be kind. Swear words are filtered automatically, and you can report any message with the flag icon. Only share
+        codes with people you know.
+      </p>
+    </div>
+  );
+}
+
+function ReportButton({ messageId }: { messageId: string }) {
+  const [open, setOpen] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async (reason: ReportReason) => {
+    setBusy(true);
+    setError(null);
+    const problem = await reportMessage(messageId, reason);
+    if (problem) setError(problem);
+    else {
+      setSent(true);
+      setOpen(false);
+    }
+    setBusy(false);
+  };
+
+  if (sent) return <span className="text-[11px] text-muted-foreground">Reported. Thanks.</span>;
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="rounded p-0.5 text-muted-foreground/70 hover:bg-muted hover:text-destructive"
+        aria-label="Report this message"
+        title="Report this message"
+      >
+        <Flag className="h-3 w-3" />
+      </button>
+      {open && (
+        <span className="absolute left-0 top-5 z-20 flex w-52 flex-col rounded-xl border border-border bg-popover p-1.5 shadow-lg">
+          <span className="px-2 py-1 text-[11px] font-semibold text-muted-foreground">Why are you reporting this?</span>
+          {REPORT_REASONS.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              disabled={busy}
+              onClick={() => send(r.value)}
+              className="rounded-lg px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              {r.label}
+            </button>
+          ))}
+          {error && <span className="px-2 py-1 text-[11px] text-destructive">{error}</span>}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function MessageRow({ message, mine }: { message: GroupMessage; mine: boolean }) {
   if (message.kind === 'system') {
     return <p className="text-center text-xs text-muted-foreground">{message.content}</p>;
@@ -472,6 +545,7 @@ function MessageRow({ message, mine }: { message: GroupMessage; mine: boolean })
         {isAi && <Sparkles className="h-3 w-3 text-[#22B29E]" />}
         <span className={cn('font-semibold', isAi && 'text-[#17806F] dark:text-[#5FD3C0]')}>{mine ? 'You' : message.display_name}</span>
         <span>{time}</span>
+        {!mine && <ReportButton messageId={message.id} />}
       </span>
       <div
         className={cn(

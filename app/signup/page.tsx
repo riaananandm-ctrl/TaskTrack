@@ -385,6 +385,12 @@ export default function SignupPage() {
           {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Create account
         </Button>
+        <p className="text-center text-xs leading-5 text-muted-foreground">
+          By creating an account you agree to our{' '}
+          <Link href="/terms" className="underline">Terms of Service</Link> and{' '}
+          <Link href="/privacy" className="underline">Privacy Policy</Link>. Under 18? A parent or guardian will need to OK
+          Group Study.
+        </p>
         <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15 text-sm">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
           <p className="text-muted-foreground">{SIGNUP_GENERIC_NOTICE}</p>

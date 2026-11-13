@@ -423,7 +423,13 @@ export default function LandingPage() {
               <p className="mt-4 max-w-sm text-xs leading-5 text-slate-500">Please do not send passwords, ManageBac API tokens, reset links, or private student information.</p>
             </div>
           </div>
-          <div className="mt-12 border-t border-slate-200 pt-6 text-xs text-slate-500">&copy; {new Date().getFullYear()} TaskTrack. All rights reserved.</div>
+          <div className="mt-12 space-y-2 border-t border-slate-200 pt-6 text-xs leading-5 text-slate-500">
+            <p>&copy; {new Date().getFullYear()} TaskTrack. All rights reserved.</p>
+            <p>
+              TaskTrack is an independent student project, not affiliated with or endorsed by the International
+              Baccalaureate Organization (IB) or ManageBac. AI grade estimates are not official IB grades.
+            </p>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,13 +1,106 @@
 import Link from 'next/link';
-import { Logo } from '@/components/logo';
+import { CONTACT, LegalPage, Section } from '@/components/legal-page';
+
+export const metadata = { title: 'Terms of Service | TaskTrack' };
 
 export default function TermsPage() {
   return (
-    <main className="min-h-screen gradient-navy text-slate-100">
-      <header className="border-b border-white/10">
-        <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4 sm:px-6"><Link href="/" aria-label="TaskTrack home"><Logo size={34} tone="light" /></Link><Link href="/" className="text-sm text-slate-300 hover:text-white">Back to home</Link></div>
-      </header>
-      <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:py-24"><p className="text-sm font-semibold uppercase tracking-[0.18em] text-sky-300">TaskTrack</p><h1 className="mt-4 text-4xl font-semibold tracking-tight text-white">Terms of Service</h1><p className="mt-4 text-sm text-slate-400">These are working placeholders for review before public launch.</p><div className="mt-12 space-y-10 text-slate-300"><section><h2 className="text-xl font-semibold text-white">Acceptable use</h2><p className="mt-3 leading-7">Use TaskTrack for lawful academic planning and learning. Do not misuse the service, interfere with its operation, or use it to access information that does not belong to you.</p></section><section><h2 className="text-xl font-semibold text-white">Account responsibility</h2><p className="mt-3 leading-7">You are responsible for keeping your account access secure and for activity performed through your account. Contact TaskTrack if you believe your account has been accessed without permission.</p></section><section><h2 className="text-xl font-semibold text-white">Educational-use disclaimer</h2><p className="mt-3 leading-7">TaskTrack is a planning and study support tool. It does not replace teacher guidance, school policies, or your own judgment about academic work.</p></section><section><h2 className="text-xl font-semibold text-white">Third-party integrations</h2><p className="mt-3 leading-7">Features that connect to services such as ManageBac depend on those services and your permission to use them. Their terms and availability may apply separately.</p></section><section><h2 className="text-xl font-semibold text-white">AI-generated content</h2><p className="mt-3 leading-7">AI-generated explanations, plans, questions, and summaries may contain mistakes. Review them before relying on them for schoolwork or decisions.</p></section><section><h2 className="text-xl font-semibold text-white">Account termination</h2><p className="mt-3 leading-7">Accounts may be suspended or closed when necessary to protect the service, its users, or the rights of others. Account deletion options are available in settings.</p></section><section><h2 className="text-xl font-semibold text-white">Contact</h2><p className="mt-3 leading-7">For questions about these terms, contact the TaskTrack support contacts listed on the homepage.</p></section></div><p className="mt-14 border-l-2 border-amber-400/60 pl-4 text-sm leading-6 text-amber-100/80">These pages require final review by the responsible school or legal authority before public launch.</p></article>
-    </main>
+    <LegalPage
+      title="Terms of Service"
+      updated="13 November 2026"
+      intro={
+        <p>
+          These are the rules for using TaskTrack. By using it you agree to them and to our{' '}
+          <Link href="/privacy" className="text-sky-300 underline">
+            Privacy Policy
+          </Link>
+          . If you are under 18, please read them with a parent or guardian.
+        </p>
+      }
+    >
+      <Section title="1. Who can use TaskTrack">
+        <ul>
+          <li>TaskTrack is for school students and anyone planning their studies.</li>
+          <li>
+            If you are under 18, a parent or guardian must agree before you use Group Study. You can use the rest of
+            TaskTrack while you wait.
+          </li>
+          <li>Please give your real name and age. You are responsible for keeping your account secure.</li>
+        </ul>
+      </Section>
+
+      <Section title="2. Group Study rules">
+        <p>Group Study rooms are for studying together. In every room:</p>
+        <ul>
+          <li>Be kind. No bullying, threats, hate, or harassment.</li>
+          <li>No swearing, sexual content, or anything that isn’t OK at school. Swear words are filtered automatically.</li>
+          <li>Don’t share other people’s personal information, and think carefully before sharing your own.</li>
+          <li>Only share room codes with people you know. Don’t pretend to be someone else.</li>
+          <li>Use the flag icon to report anything that makes you uncomfortable, and tell a trusted adult.</li>
+        </ul>
+        <p>
+          We review reports and may delete messages, end rooms, or suspend accounts that break these rules. If
+          something may put a child in danger, we may share information with parents, the school, or the police.
+        </p>
+      </Section>
+
+      <Section title="3. AI tools and academic honesty">
+        <ul>
+          <li>
+            The AI tools (study sessions, the AI Grader and the Group Study AI) are for <strong>learning</strong>:
+            explaining topics, practising, and getting feedback on your own work.
+          </li>
+          <li>
+            Don’t submit AI-written work as your own. Schools and the IB treat that as academic misconduct. Follow your
+            school’s and the IB’s academic integrity policy, and cite AI when your teacher asks you to.
+          </li>
+          <li>
+            The AI Grader gives an <strong>estimate</strong> of an IB band. It is not an official IB grade, not
+            moderated by the IB, and can be wrong. Your teacher’s assessment always comes first.
+          </li>
+          <li>AI can make mistakes. Check important facts with your notes, textbook or teacher.</li>
+        </ul>
+      </Section>
+
+      <Section title="4. ManageBac">
+        <p>
+          You can connect the private calendar link your school’s ManageBac gives you. You confirm you’re allowed to
+          use that link. TaskTrack only reads the deadlines in it. If your school changes or turns off the feed, your
+          imported deadlines may stop updating. Always check ManageBac for official instructions.
+        </p>
+      </Section>
+
+      <Section title="5. Your content">
+        <p>
+          Your tasks, notes, documents and messages belong to you. You give us permission to store and process them
+          only to run TaskTrack for you, as described in the Privacy Policy. Don’t upload anything you don’t have the
+          right to share.
+        </p>
+      </Section>
+
+      <Section title="6. The service">
+        <ul>
+          <li>TaskTrack is free and provided “as is”. We work hard to keep it running, but we can’t promise it will
+            always be available, error-free, or that reminders will always arrive on time.</li>
+          <li>You are responsible for your own deadlines. Keep checking your school’s official systems.</li>
+          <li>We may change, pause or remove features. If we ever add paid plans, we’ll explain the price before you pay.</li>
+          <li>As far as the law allows, we are not responsible for missed deadlines, grades, or other losses from using TaskTrack.</li>
+        </ul>
+      </Section>
+
+      <Section title="7. Ending your account">
+        <p>
+          You can delete your account at any time in Settings → Delete account. We may suspend or close accounts that
+          break these terms or put other students at risk.
+        </p>
+      </Section>
+
+      <Section title="8. Changes, law and contact">
+        <p>
+          If we change these terms in a meaningful way, we’ll update the date above and ask you to accept the new
+          version in the app. These terms are governed by the laws of India. Questions or complaints: {CONTACT}.
+        </p>
+      </Section>
+    </LegalPage>
   );
 }
