@@ -11,20 +11,33 @@ const GROQ_MODELS_URL = `${GROQ_API_BASE}/models`;
 // consulted first, so a retired model here is simply skipped and never breaks the
 // assistant. Quota is per model, so the next entry is tried before giving up.
 const PREFERRED_MODELS = [
-  'llama-3.3-70b-versatile',
   'openai/gpt-oss-120b',
+  'llama-3.3-70b-versatile',
+  'moonshotai/kimi-k2-instruct-0905',
+  'moonshotai/kimi-k2-instruct',
   'openai/gpt-oss-20b',
   'meta-llama/llama-4-maverick-17b-128e-instruct',
   'meta-llama/llama-4-scout-17b-16e-instruct',
-  'moonshotai/kimi-k2-instruct',
   'qwen/qwen3-32b',
   'llama-3.1-8b-instant',
-  'gemma2-9b-it',
-  'deepseek-r1-distill-llama-70b',
 ];
 
 // Bound the number of models tried so a request cannot hang indefinitely.
-const MAX_MODEL_ATTEMPTS = 6;
+const MAX_MODEL_ATTEMPTS = 4;
+// One slow model must not hold the student up: give up on it and try the next.
+const MODEL_TIMEOUT_MS = 25_000;
+
+/**
+ * Speed settings per model family. gpt-oss models "think" before answering; at the
+ * default effort that thinking is slow and can use up the whole token budget, which
+ * leaves an empty reply. Low effort keeps answers fast, and the reasoning text is
+ * not sent back because the student never sees it. Qwen 3 likewise skips thinking.
+ */
+function speedOptions(model: string): Record<string, unknown> {
+  if (model.startsWith('openai/gpt-oss')) return { reasoning_effort: 'low', include_reasoning: false };
+  if (model.startsWith('qwen/qwen3')) return { reasoning_effort: 'none' };
+  return {};
+}
 
 // Model families that are not plain text chat and must never be selected.
 const NON_CHAT_MARKERS = [
@@ -711,15 +724,17 @@ async function generateWithModel(
   messages: Array<{ role: string; content: string }>,
   jsonMode: boolean
 ): Promise<GenerateResult> {
+  let useSpeed = true;
   const attempt = async (useJson: boolean, capTokens: boolean): Promise<GenerateResult> => {
     const payload: Record<string, unknown> = {
       model,
       messages,
       temperature: 0.6,
+      ...(useSpeed ? speedOptions(model) : {}),
     };
     // Generous ceiling so a full deck or quiz is never cut off mid-JSON, which is
     // the most common cause of an unparseable structured reply.
-    if (capTokens) payload.max_completion_tokens = 8192;
+    if (capTokens) payload.max_completion_tokens = useJson ? 8192 : 4096;
     if (useJson) payload.response_format = { type: 'json_object' };
 
     const res = await fetch(GROQ_CHAT_URL, {
@@ -729,6 +744,7 @@ async function generateWithModel(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
     });
 
     const raw = await res.text();
@@ -762,6 +778,12 @@ async function generateWithModel(
     // Some models reject the token cap or the JSON response format. Retry once with
     // that option dropped rather than abandoning the model entirely.
     if (err instanceof UpstreamError && [400, 422].includes(err.status)) {
+      // A model that does not accept the speed settings is retried without them.
+      if (useSpeed && /reasoning|include_reasoning/i.test(err.body || '')) {
+        console.error(`Retrying ${model} without speed options`);
+        useSpeed = false;
+        return await attempt(jsonMode, true);
+      }
       const mentionsOption = /max_completion_tokens|max_tokens|response_format|json/i.test(
         err.body || ''
       );

@@ -36,11 +36,21 @@ function json(body: unknown, status = 200): Response {
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 // Tried in order; quota is per model, so the next one is used when one is busy or retired.
 const MODELS = [
-  'llama-3.3-70b-versatile',
   'openai/gpt-oss-120b',
+  'llama-3.3-70b-versatile',
   'openai/gpt-oss-20b',
   'llama-3.1-8b-instant',
 ];
+// One slow model must not hold the student up: give up on it and try the next.
+const MODEL_TIMEOUT_MS = 30_000;
+
+/**
+ * gpt-oss models "think" before answering. At the default effort that is slow and can
+ * use the whole token budget, leaving no answer, so it is kept low and not returned.
+ */
+function speedOptions(model: string): Record<string, unknown> {
+  return model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low', include_reasoning: false } : {};
+}
 
 const MAX_WORK_CHARS = 14_000;
 const MAX_CRITERIA_CHARS = 4_000;
@@ -53,20 +63,33 @@ const PRIORITIES: Priority[] = ['low', 'medium', 'high', 'urgent'];
 async function askJson(apiKey: string, system: string, user: string, maxTokens: number): Promise<unknown | null> {
   for (const model of MODELS) {
     try {
-      const res = await fetch(GROQ_CHAT_URL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model,
-          temperature: 0.2,
-          max_tokens: maxTokens,
-          response_format: { type: 'json_object' },
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-        }),
-      });
+      const send = (speed: boolean) =>
+        fetch(GROQ_CHAT_URL, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            // Reasoning models spend some tokens thinking, so leave room for the answer.
+            max_tokens: model.startsWith('openai/gpt-oss') ? maxTokens + 1500 : maxTokens,
+            response_format: { type: 'json_object' },
+            ...(speed ? speedOptions(model) : {}),
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: user },
+            ],
+          }),
+          signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+        });
+      let res = await send(true);
+      if (res.status === 400 && Object.keys(speedOptions(model)).length > 0) {
+        const body = await res.text();
+        if (/reasoning/i.test(body)) res = await send(false);
+        else {
+          console.error(`ai-tools: ${model} failed with status 400`);
+          continue;
+        }
+      }
       if (!res.ok) {
         console.error(`ai-tools: ${model} failed with status`, res.status);
         continue;
@@ -196,7 +219,7 @@ ${criteria || '(none provided)'}
 ${work}
 --- END OF STUDENT WORK ---`;
 
-  const result = await askJson(apiKey, system, user, 1800);
+  const result = await askJson(apiKey, system, user, 3000);
   if (!result || typeof result !== 'object') {
     await supabase.rpc('refund_ai_request');
     return json({ ok: false, error: 'The AI grader could not finish this time. You were not charged a message. Please try again.' }, 502);

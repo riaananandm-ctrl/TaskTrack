@@ -30,9 +30,24 @@ import { PushNotificationsCard } from '@/components/push-notifications-card';
 import { IntegrationsPanel } from '@/components/integrations-panel';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { downloadTasksCsv } from '@/lib/export-tasks';
 
 export default function SettingsPage() {
   const { user, profile, signOut, forgetDevice, refreshProfile } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const exportTasks = async () => {
+    setExporting(true);
+    setExportNote(null);
+    try {
+      const count = await downloadTasksCsv();
+      setExportNote(count === 0 ? 'You have no tasks to export yet.' : `Downloaded ${count} task${count === 1 ? '' : 's'}.`);
+    } catch (e) {
+      setExportNote(e instanceof Error ? e.message : 'Download failed. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   const router = useRouter();
   const { fontId, setFont, resetFont } = useFont();
   const { theme, setTheme } = useTheme();
@@ -520,10 +535,15 @@ export default function SettingsPage() {
                   <Download className="w-4 h-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium">Export tasks</p>
-                    <p className="text-xs text-muted-foreground">Download your task data</p>
+                    <p className="text-xs text-muted-foreground">
+                      {exportNote ?? 'Download all your tasks as a spreadsheet (CSV)'}
+                    </p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" disabled>Coming soon</Button>
+                <Button variant="outline" size="sm" onClick={exportTasks} disabled={exporting}>
+                  {exporting ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                  Download
+                </Button>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg border border-border">
                 <div className="flex items-center gap-3">
