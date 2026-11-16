@@ -7,6 +7,7 @@ import { Logo } from '@/components/logo';
 import { Reveal, ScrollProgress } from '@/components/landing/reveal';
 import { ManageBacShowcase } from '@/components/landing/managebac-showcase';
 import { StudyShowcase } from '@/components/landing/study-showcase';
+import { GraderGroupShowcase } from '@/components/landing/grader-group-showcase';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import {
   UpcomingIcon,
@@ -14,6 +15,8 @@ import {
   StudyIcon,
   ReminderIcon,
   SlidesIcon,
+  GraderIcon,
+  GroupIcon,
 } from '@/components/brand-icons';
 import {
   ArrowRight,
@@ -28,6 +31,7 @@ import {
 const navLinks = [
   { label: 'ManageBac', href: '#managebac' },
   { label: 'AI study', href: '#study' },
+  { label: 'Grader', href: '#grader' },
   { label: 'Features', href: '#features' },
   { label: 'Plans', href: '#plans' },
   { label: 'Contact', href: '#contact' },
@@ -50,6 +54,16 @@ const featureCards = [
     description: 'Turn a task into explanations, quizzes, flashcards, and a study plan.',
   },
   {
+    icon: GraderIcon,
+    title: 'AI Grader',
+    description: 'Paste a draft and get an estimated IB level for each criterion, plus what to fix.',
+  },
+  {
+    icon: GroupIcon,
+    title: 'Group Study',
+    description: 'Private study rooms with a share code, where the AI can help the whole group.',
+  },
+  {
     icon: ReminderIcon,
     title: 'Reminders',
     description: 'Get a notification before a deadline sneaks up on you.',
@@ -59,7 +73,7 @@ const featureCards = [
 const workflow = [
   { number: '01', title: 'Add your work', description: 'Create subjects and tasks, or connect ManageBac to import deadlines.' },
   { number: '02', title: 'Set reminders', description: 'TaskTrack suggests reminder times before each due date.' },
-  { number: '03', title: 'Study and finish', description: 'Open a study session, review with quizzes and flashcards, then tick it off.' },
+  { number: '03', title: 'Study and finish', description: 'Revise with quizzes and flashcards, check your draft with the AI Grader, or study with friends, then tick it off.' },
 ];
 
 export default function LandingPage() {
@@ -127,7 +141,7 @@ export default function LandingPage() {
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
               <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac deadlines into one list, then helps you study for each one with AI explanations, quizzes and flashcards.</p>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac deadlines into one list, helps you study for each one with AI, checks your drafts against the IB criteria, and lets you revise with friends.</p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <a href="#managebac" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
                   <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> ManageBac sync
@@ -137,6 +151,12 @@ export default function LandingPage() {
                 </a>
                 <a href="#features" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
                   <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> Day-before reminders
+                </a>
+                <a href="#grader" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> AI Grader
+                </a>
+                <a href="#grader" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> Group Study
                 </a>
               </div>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -203,6 +223,7 @@ export default function LandingPage() {
 
         <ManageBacShowcase />
         <StudyShowcase />
+        <GraderGroupShowcase />
 
         {/* Features */}
         <section id="features" className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
@@ -211,7 +232,7 @@ export default function LandingPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315EDB]">Features</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Everything in one place.</h2>
             </div>
-            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {featureCards.map((feature, i) => {
                 const Icon = feature.icon;
                 return (
@@ -401,7 +422,7 @@ export default function LandingPage() {
                 <Logo size={34} />
                 <span className="text-lg font-bold tracking-tight text-[#243B64]">TaskTrack</span>
               </Link>
-              <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">Deadlines, study plans, and reminders in one clear workspace.</p>
+              <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">Deadlines, AI study tools, grade checks and group study in one clear workspace.</p>
             </div>
             <div>
               <h2 className="text-sm font-semibold text-[#243B64]">Explore</h2>

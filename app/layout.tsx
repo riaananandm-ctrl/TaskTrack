@@ -7,10 +7,13 @@ import { RecoveryLinkGuard } from '@/components/recovery-link-guard';
 import { LastRouteResume } from '@/components/last-route-resume';
 import { FONT_VARIABLE_CLASSES } from '@/lib/fonts';
 
+const DESCRIPTION =
+  'The free study planner for IB students: sync your ManageBac deadlines, study with AI quizzes and flashcards, check drafts against the IB criteria, and revise with friends.';
+
 export const metadata: Metadata = {
   title: 'TaskTrack — Know What\u2019s Next.',
-  description:
-    'TaskTrack keeps your academic tasks, deadlines and reminders in one organised place.',
+  metadataBase: new URL('https://tasktrackbm.vercel.app'),
+  description: DESCRIPTION,
   manifest: '/manifest.json',
   viewport: {
     width: 'device-width',
@@ -30,9 +33,15 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'TaskTrack — Know What\u2019s Next.',
-    description:
-      'TaskTrack keeps your academic tasks, deadlines and reminders in one organised place.',
+    description: DESCRIPTION,
     type: 'website',
+    url: '/',
+    siteName: 'TaskTrack',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TaskTrack — Know What\u2019s Next.',
+    description: DESCRIPTION,
   },
 };
 
