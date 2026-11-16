@@ -12,11 +12,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
  *    It sends one notification to that student's own devices only.
  *
  * "Due tomorrow" reminders (reminder_type 'task_due_tomorrow', created by a database
- * trigger the day before a task is due) are also emailed when email is configured:
- *  - RESEND_API_KEY       Resend API key (Edge Function secret)
- *  - REMINDER_EMAIL_FROM  e.g. "TaskTrack <reminders@your-domain.com>"
- *  - APP_URL              optional, e.g. "https://tasktrack.netlify.app", for links
- * Without them, email is skipped and push still works.
+ * trigger the day before a task is due) are also emailed. Set ONE provider as Edge
+ * Function secrets:
+ *  - Brevo (free, no domain needed): BREVO_API_KEY + REMINDER_EMAIL_FROM, where the
+ *    from address is a sender verified in Brevo, e.g. "TaskTrack <you@gmail.com>".
+ *  - Resend (needs your own domain): RESEND_API_KEY + REMINDER_EMAIL_FROM.
+ *  - APP_URL is optional; links default to https://tasktrackbm.vercel.app.
+ * Without a provider, email is skipped (and logged once per sweep) and push still works.
  *
  * Push payloads are encrypted (RFC 8291, aes128gcm). Push services drop unencrypted
  * payloads, which made every notification fall back to the generic service-worker text.
@@ -293,6 +295,79 @@ async function sendPush(
 
 // ---- "Due tomorrow" email ----
 
+const DEFAULT_APP_URL = 'https://tasktrackbm.vercel.app';
+
+interface EmailProvider {
+  kind: 'brevo' | 'resend';
+  apiKey: string;
+  fromName: string;
+  fromEmail: string;
+}
+
+/** The configured email service, or null. Brevo is preferred because it needs no domain. */
+function emailProvider(): EmailProvider | null {
+  const from = (Deno.env.get('REMINDER_EMAIL_FROM') || '').trim();
+  if (!from) return null;
+  // Accept "Name <email>" or a bare email address.
+  const match = from.match(/^\s*(.*?)\s*<\s*([^>\s]+@[^>\s]+)\s*>\s*$/);
+  const fromEmail = match ? match[2] : from;
+  const fromName = (match && match[1].replace(/^"|"$/g, '')) || 'TaskTrack';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fromEmail)) return null;
+  const brevo = Deno.env.get('BREVO_API_KEY');
+  if (brevo) return { kind: 'brevo', apiKey: brevo, fromName, fromEmail };
+  const resend = Deno.env.get('RESEND_API_KEY');
+  if (resend) return { kind: 'resend', apiKey: resend, fromName, fromEmail };
+  return null;
+}
+
+/** Send one email through the configured provider. Never logs the key or the address. */
+async function deliverEmail(
+  provider: EmailProvider,
+  to: string,
+  toName: string,
+  subject: string,
+  html: string,
+  text: string
+): Promise<boolean> {
+  try {
+    const res =
+      provider.kind === 'brevo'
+        ? await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'api-key': provider.apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              sender: { name: provider.fromName, email: provider.fromEmail },
+              to: [toName ? { email: to, name: toName } : { email: to }],
+              subject,
+              htmlContent: html,
+              textContent: text,
+            }),
+            signal: AbortSignal.timeout(15_000),
+          })
+        : await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${provider.apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: `${provider.fromName} <${provider.fromEmail}>`,
+              to: [to],
+              subject,
+              html,
+              text,
+            }),
+            signal: AbortSignal.timeout(15_000),
+          });
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 200).replace(/[^\s@]+@[^\s@]+/g, '[email]');
+      console.error(`Reminder email failed (${provider.kind}) with status`, res.status, detail);
+      return false;
+    }
+    return true;
+  } catch {
+    console.error(`Reminder email request failed (${provider.kind})`);
+    return false;
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -310,9 +385,8 @@ async function sendDueTomorrowEmail(
   admin: ReturnType<typeof createClient>,
   row: ClaimedReminder
 ): Promise<boolean> {
-  const apiKey = Deno.env.get('RESEND_API_KEY');
-  const from = Deno.env.get('REMINDER_EMAIL_FROM');
-  if (!apiKey || !from) return false;
+  const provider = emailProvider();
+  if (!provider) return false;
 
   const [{ data: reminder }, { data: profile }, { data: settings }, { data: task }] = await Promise.all([
     admin.from('reminders').select('email_sent_at, is_enabled').eq('id', row.reminder_id).maybeSingle(),
@@ -338,7 +412,7 @@ async function sendDueTomorrowEmail(
     if (task.due_time) when += ` at ${String(task.due_time).slice(0, 5)}`;
   }
   const firstName = typeof profile?.full_name === 'string' ? profile.full_name.split(' ')[0] : '';
-  const appUrl = (Deno.env.get('APP_URL') || '').replace(/\/+$/, '');
+  const appUrl = (Deno.env.get('APP_URL') || DEFAULT_APP_URL).replace(/\/+$/, '');
   const taskLink = appUrl && row.task_id ? `${appUrl}/app/tasks?task=${encodeURIComponent(row.task_id)}` : appUrl ? `${appUrl}/app` : '';
   const settingsLink = appUrl ? `${appUrl}/app/settings` : '';
 
@@ -361,20 +435,8 @@ You are getting this because you have a task due tomorrow in TaskTrack.${setting
 
   const text = `${firstName ? `Hi ${firstName},\n\n` : ''}Due tomorrow: ${name}${subject ? ` (${subject})` : ''}\nDue ${when}\n${taskLink ? `\nOpen it in TaskTrack: ${taskLink}\n` : ''}\nYou can turn off reminder emails in TaskTrack Settings.`;
 
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], subject: `Due tomorrow: ${name}`, html, text }),
-    });
-    if (!res.ok) {
-      console.error('Reminder email failed with status', res.status);
-      return false;
-    }
-  } catch {
-    console.error('Reminder email request failed');
-    return false;
-  }
+  const emailSubject = `Due tomorrow: ${name}`;
+  if (!(await deliverEmail(provider, to, firstName, emailSubject, html, text))) return false;
 
   await admin.from('reminders').update({ email_sent_at: new Date().toISOString() }).eq('id', row.reminder_id);
   return true;
@@ -476,6 +538,9 @@ Deno.serve(async (req: Request) => {
     let skipped = 0;
     let emailed = 0;
     const emailHandled = new Set<string>();
+    if (!emailProvider() && rows.some((r) => r.reminder_type === 'task_due_tomorrow')) {
+      console.error('Reminder emails are off: set BREVO_API_KEY (or RESEND_API_KEY) and REMINDER_EMAIL_FROM.');
+    }
 
     for (const row of rows) {
       // Email is independent of push: a student with no device registered still gets it.
