@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Gift, Instagram, CheckCircle2, Loader2 } from 'lucide-react';
 import { redeemCode } from '@/lib/tool-unlocks';
 
-const TOOL_NAMES: Record<string, string> = { polish: 'Polish my writing' };
+const TOOL_NAMES: Record<string, string> = { polish: 'Polish my writing', detector: 'AI Detector' };
 
 export function RedeemCodeTool({ unlocked, onOpenTool }: { unlocked: string[]; onOpenTool: (tool: string) => void }) {
   const [code, setCode] = useState('');
