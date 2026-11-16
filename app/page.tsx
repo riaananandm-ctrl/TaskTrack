@@ -300,13 +300,13 @@ export default function LandingPage() {
               </div>
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
-                  <SlidesIcon size={40} className="opacity-45 grayscale" />
+                  <SlidesIcon size={40} />
                   <div>
                     <p className="font-semibold text-[#243B64]">Google Slides &amp; uploads</p>
-                    <p className="text-xs font-medium text-amber-700">Coming soon</p>
+                    <p className="text-xs font-medium text-emerald-700">Available</p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">Slide export and document uploads are planned but not available yet.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">Upload your notes, PDFs, Word or PowerPoint files and the AI studies from them. Turn any topic into study slides and download them for Google Slides or PowerPoint.</p>
               </div>
             </div>
           </div>

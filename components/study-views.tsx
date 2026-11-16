@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, X, Layers, Loader2 } from 'lucide-react';
+import { Check, X, Layers, Loader2, Download } from 'lucide-react';
+import { downloadSlidesPptx } from '@/lib/export-slides';
 import { cn } from '@/lib/utils';
 import { saveDeck } from '@/lib/spaced-review';
 import type { QuizData, FlashcardsData, StudyPlanData, SlidesData } from '@/lib/study-modes';
@@ -372,16 +373,40 @@ export function PlanView({ data }: { data: StudyPlanData }) {
 // ---------------------------------------------------------------------------
 
 export function SlidesView({ data }: { data: SlidesData }) {
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const download = async () => {
+    setSaving(true);
+    setFailed(false);
+    try {
+      await downloadSlidesPptx(data);
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <div className="space-y-3">
-      {(data.title || data.subtitle) && (
-        <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           {data.title && <p className="text-sm font-semibold">{data.title}</p>}
           {data.subtitle && (
             <p className="text-xs text-muted-foreground mt-0.5">{data.subtitle}</p>
           )}
         </div>
-      )}
+        <button
+          type="button"
+          onClick={download}
+          disabled={saving}
+          title="Download as PowerPoint. Opens in Google Slides, PowerPoint and Keynote."
+          className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          Download slides
+        </button>
+      </div>
+      {failed && <p className="text-xs text-destructive">The download didn’t work. Please try again.</p>}
       {data.slides.map((slide, i) => (
         <div key={i} className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="px-4 py-2.5 bg-navy-900 text-white flex items-center gap-2">
