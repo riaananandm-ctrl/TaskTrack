@@ -111,7 +111,7 @@ export function GoogleClassroomCard() {
           </div>
           <p className="text-sm text-muted-foreground mb-3">
             Import Classroom assignments with due dates as tasks. TaskTrack checks for new work every
-            30 minutes and ticks a task off when you turn it in on Classroom.
+            10 minutes and ticks a task off when you turn it in on Classroom.
           </p>
 
           {status === null ? (

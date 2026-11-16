@@ -15,7 +15,7 @@
     last imported so a later sync only changes fields the student has not edited, and
     never re-creates a task the student deleted.
 
-  A cron job syncs every connected student every 30 minutes.
+  A cron job syncs every connected student every 10 minutes.
   Additive and idempotent.
 */
 
@@ -76,7 +76,7 @@ REVOKE ALL ON public.google_classroom_items FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON public.google_classroom_items FROM authenticated;
 CREATE INDEX IF NOT EXISTS idx_classroom_items_user ON public.google_classroom_items (user_id);
 
--- Sync every connected student every 30 minutes.
+-- Sync every connected student every 10 minutes.
 DO $$
 BEGIN
   PERFORM cron.unschedule('tasktrack-classroom-sync');
@@ -86,7 +86,7 @@ END $$;
 
 SELECT cron.schedule(
   'tasktrack-classroom-sync',
-  '*/30 * * * *',
+  '*/10 * * * *',
   $job$
   SELECT net.http_post(
     url := 'https://pjhaomrgjiusgfasmkcy.supabase.co/functions/v1/google-classroom',
