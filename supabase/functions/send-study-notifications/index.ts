@@ -313,7 +313,11 @@ function emailProvider(): EmailProvider | null {
   const fromEmail = match ? match[2] : from;
   const fromName = (match && match[1].replace(/^"|"$/g, '')) || 'TaskTrack';
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fromEmail)) return null;
-  const brevo = Deno.env.get('BREVO_API_KEY');
+  // BREVO_API_KEY is the documented name; a secret saved under another Brevo-ish name
+  // (for example "Brevo API") is accepted too, so a naming slip doesn't stop emails.
+  const brevo =
+    Deno.env.get('BREVO_API_KEY') ||
+    Object.entries(Deno.env.toObject()).find(([k, v]) => /brevo/i.test(k) && v.startsWith('xkeysib-'))?.[1];
   if (brevo) return { kind: 'brevo', apiKey: brevo, fromName, fromEmail };
   const resend = Deno.env.get('RESEND_API_KEY');
   if (resend) return { kind: 'resend', apiKey: resend, fromName, fromEmail };
