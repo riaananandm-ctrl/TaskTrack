@@ -443,7 +443,9 @@ async function handleCallback(admin: Admin, encKey: string, url: URL): Promise<R
     return redirect('failed');
   }
   const granted = String(tokens.scope || '');
-  if (!granted.includes('classroom.coursework.me.readonly') || !granted.includes('classroom.courses.readonly')) {
+  // Google reports coursework.me.readonly under its newer alias student-submissions.me.readonly.
+  const hasCoursework = /classroom\.(coursework|student-submissions)\.me\.readonly/.test(granted);
+  if (!hasCoursework || !granted.includes('classroom.courses.readonly')) {
     return redirect('scopes');
   }
 
