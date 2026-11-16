@@ -68,7 +68,15 @@ export default function SettingsPage() {
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteTasksOpen, setDeleteTasksOpen] = useState(false);
   const [planNotice, setPlanNotice] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('profile');
+  // Open a tab straight from a link such as /app/settings?tab=integrations (used when
+  // Google sends a student back after connecting Classroom).
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'profile';
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    return tab && ['profile', 'appearance', 'notifications', 'data', 'privacy', 'integrations', 'plan'].includes(tab)
+      ? tab
+      : 'profile';
+  });
   const [accountOpen, setAccountOpen] = useState(false);
 
   const entitlements = getProfileEntitlements(profile);

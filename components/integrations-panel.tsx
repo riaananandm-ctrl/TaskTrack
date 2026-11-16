@@ -2,11 +2,12 @@
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Lock, Presentation, Sparkles } from 'lucide-react';
+import { Lock, Presentation, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Logo } from '@/components/logo';
 import { ProFeatureGate } from '@/components/pro-feature-gate';
 import { ManageBacCard } from '@/components/managebac-card';
+import { GoogleClassroomCard } from '@/components/google-classroom-card';
 
 /**
  * The integrations content, shown as a tab inside Settings. It has no page of its own
@@ -19,27 +20,7 @@ export function IntegrationsPanel() {
       <ManageBacCard />
 
       {/* Google Classroom */}
-      <Card className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl bg-green-50 dark:bg-green-950/30 flex items-center justify-center flex-shrink-0">
-            <Calendar className="w-6 h-6 text-green-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h2 className="text-lg font-semibold">Google Classroom</h2>
-              <Badge variant="secondary" className="text-xs">Coming soon</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Import assignments from Google Classroom into TaskTrack automatically.
-              Integration will be added in a future update.
-            </p>
-            <Button disabled size="sm">
-              <Lock className="w-3.5 h-3.5 mr-1" /> Connect Google Classroom
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2">Not connected.</p>
-          </div>
-        </div>
-      </Card>
+      <GoogleClassroomCard />
 
       {/* TaskTrack AI */}
       <Card className="p-6">
