@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { CalculatorTool } from '@/components/calculator-tool';
 import { SpreadsheetTool } from '@/components/spreadsheet-tool';
 import { WhiteboardErrorBoundary } from '@/components/whiteboard-error-boundary';
 import { cn } from '@/lib/utils';
-import { Calculator, Table, PenTool } from 'lucide-react';
+import { Calculator, Table, PenTool, Gift, Wand2 } from 'lucide-react';
+import { RedeemCodeTool } from '@/components/redeem-code-tool';
+import { PolishWritingTool } from '@/components/polish-writing-tool';
+import { EMPTY_ACCESS, TOOL_ACCESS_EVENT, getToolAccess, type ToolAccess } from '@/lib/tool-unlocks';
 
-type Tool = 'calculator' | 'spreadsheet' | 'whiteboard';
+type Tool = 'calculator' | 'spreadsheet' | 'whiteboard' | 'redeem' | 'polish';
 
 const WhiteboardTool = dynamic(
   () => import('@/components/whiteboard-tool').then((m) => m.WhiteboardTool),
@@ -27,14 +30,29 @@ const TOOLS: Array<{ id: Tool; label: string; icon: typeof Calculator; descripti
   { id: 'spreadsheet', label: 'Spreadsheet', icon: Table, description: 'Formulas, SUM, CSV export' },
   { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw, shapes, AI tutor' },
 ];
+const POLISH_TAB = { id: 'polish' as Tool, label: 'Polish my writing', icon: Wand2, description: 'Unlocked · Premium' };
+const REDEEM_TAB = { id: 'redeem' as Tool, label: 'Redeem Code', icon: Gift, description: 'Find codes on @task.track' };
 
 export default function ToolsPage() {
   const [active, setActive] = useState<Tool>('calculator');
   const [whiteboardKey, setWhiteboardKey] = useState(0);
 
+  const [access, setAccess] = useState<ToolAccess>(EMPTY_ACCESS);
+
   const resetWhiteboard = useCallback(() => {
     setWhiteboardKey((k) => k + 1);
   }, []);
+
+  const loadAccess = useCallback(() => {
+    getToolAccess().then(setAccess).catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadAccess();
+    window.addEventListener(TOOL_ACCESS_EVENT, loadAccess);
+    return () => window.removeEventListener(TOOL_ACCESS_EVENT, loadAccess);
+  }, [loadAccess]);
+
+  const tabs = [...TOOLS, ...(access.unlocked.includes('polish') ? [POLISH_TAB] : []), REDEEM_TAB];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -45,7 +63,7 @@ export default function ToolsPage() {
 
       {/* Tool tabs */}
       <div className="flex flex-wrap gap-2">
-        {TOOLS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActive(t.id)}
@@ -69,6 +87,10 @@ export default function ToolsPage() {
       <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
         {active === 'calculator' && <CalculatorTool />}
         {active === 'spreadsheet' && <SpreadsheetTool />}
+        {active === 'redeem' && (
+          <RedeemCodeTool unlocked={access.unlocked} onOpenTool={(tool) => tool === 'polish' && setActive('polish')} />
+        )}
+        {active === 'polish' && <PolishWritingTool access={access} onUsed={loadAccess} />}
         {active === 'whiteboard' && (
           <WhiteboardErrorBoundary onReset={resetWhiteboard}>
             <WhiteboardTool key={whiteboardKey} />
