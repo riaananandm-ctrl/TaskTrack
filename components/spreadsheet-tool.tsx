@@ -232,6 +232,8 @@ export function SpreadsheetTool() {
                         onMouseDown={(e) => {
                           if (editing && isActive) return;
                           e.preventDefault();
+                          // Tapping the already-selected cell starts editing (handy on phones).
+                          if (isActive) { startEdit(); return; }
                           if (editing) commit();
                           setActive(key);
                           gridRef.current?.focus();
