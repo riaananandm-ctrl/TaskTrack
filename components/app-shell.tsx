@@ -28,6 +28,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useNewTaskCount } from '@/lib/new-tasks';
+import { hasUnseenRelease } from '@/lib/whats-new';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
       { href: '/app/calendar', label: 'Calendar', icon: Calendar },
       { href: '/app/subjects', label: 'Subjects', icon: BookOpen },
       { href: '/app/notifications', label: 'Notifications', icon: Bell },
+      { href: '/app/whats-new', label: "What's new", icon: Sparkles },
     ],
   },
   {
@@ -112,6 +114,14 @@ function SidebarBody({
   const { user, profile, signOut } = useAuth();
   const newTaskCount = useNewTaskCount();
   const initials = initialsOf(profile?.full_name, user?.email);
+  // Read after mount so server and client render the same markup.
+  const [unseenRelease, setUnseenRelease] = useState(false);
+  useEffect(() => {
+    const update = () => setUnseenRelease(hasUnseenRelease());
+    update();
+    window.addEventListener('tasktrack:whatsnew-seen', update);
+    return () => window.removeEventListener('tasktrack:whatsnew-seen', update);
+  }, []);
 
   return (
     <>
@@ -156,6 +166,11 @@ function SidebarBody({
                     {item.href === '/app/new' && newTaskCount > 0 && (
                       <span className="bg-[#5FD3C0] text-[#17264B] text-[11px] font-bold px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full">
                         {newTaskCount > 99 ? '99+' : newTaskCount}
+                      </span>
+                    )}
+                    {item.href === '/app/whats-new' && unseenRelease && (
+                      <span className="bg-[#5FD3C0] text-[#17264B] text-[10px] font-bold uppercase px-1.5 h-5 flex items-center justify-center rounded-full">
+                        New
                       </span>
                     )}
                   </Link>

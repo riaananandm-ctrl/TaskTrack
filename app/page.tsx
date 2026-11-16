@@ -9,6 +9,7 @@ import { ManageBacShowcase } from '@/components/landing/managebac-showcase';
 import { StudyShowcase } from '@/components/landing/study-showcase';
 import { GraderGroupShowcase } from '@/components/landing/grader-group-showcase';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
+import { RELEASES } from '@/lib/whats-new';
 import {
   UpcomingIcon,
   CalendarCheckIcon,
@@ -32,6 +33,7 @@ const navLinks = [
   { label: 'ManageBac', href: '#managebac' },
   { label: 'AI study', href: '#study' },
   { label: 'Grader', href: '#grader' },
+  { label: "What's new", href: '#whats-new' },
   { label: 'Features', href: '#features' },
   { label: 'Plans', href: '#plans' },
   { label: 'Contact', href: '#contact' },
@@ -65,14 +67,29 @@ const featureCards = [
   },
   {
     icon: ReminderIcon,
-    title: 'Reminders',
-    description: 'Get a notification before a deadline sneaks up on you.',
+    title: 'Day-before reminders',
+    description: 'Every task gets a reminder the day before it is due, at the time you choose.',
+  },
+  {
+    icon: CalendarCheckIcon,
+    title: 'Google Classroom',
+    description: 'Classroom assignments with due dates import as tasks and tick off when you turn them in.',
+  },
+  {
+    icon: UpcomingIcon,
+    title: 'New Tasks',
+    description: 'See what just arrived and what is due today on one page, then sort it in seconds.',
+  },
+  {
+    icon: SlidesIcon,
+    title: 'Study slides',
+    description: 'Turn any topic into a slide deck with speaker notes and download it for Google Slides or PowerPoint.',
   },
 ];
 
 const workflow = [
-  { number: '01', title: 'Add your work', description: 'Create subjects and tasks, or connect ManageBac to import deadlines.' },
-  { number: '02', title: 'Set reminders', description: 'TaskTrack suggests reminder times before each due date.' },
+  { number: '01', title: 'Add your work', description: 'Create subjects and tasks, or connect ManageBac and Google Classroom to import deadlines automatically.' },
+  { number: '02', title: 'Get reminded', description: 'Every task gets a reminder the day before it is due. Add your own reminders whenever you want more.' },
   { number: '03', title: 'Study and finish', description: 'Revise with quizzes and flashcards, check your draft with the AI Grader, or study with friends, then tick it off.' },
 ];
 
@@ -141,10 +158,13 @@ export default function LandingPage() {
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
               <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
-              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac deadlines into one list, helps you study for each one with AI, checks your drafts against the IB criteria, and lets you revise with friends.</p>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac and Google Classroom deadlines into one list, helps you study for each one with AI, checks your drafts against the IB criteria, and lets you revise with friends.</p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <a href="#managebac" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
                   <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> ManageBac sync
+                </a>
+                <a href="#integrations" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+                  <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> Google Classroom
                 </a>
                 <a href="#study" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
                   <span className="h-2 w-2 rounded-full bg-[#5FD3C0]" /> AI study sessions
@@ -225,6 +245,30 @@ export default function LandingPage() {
         <StudyShowcase />
         <GraderGroupShowcase />
 
+        {/* Recently added */}
+        <section id="whats-new" className="border-b border-slate-200 bg-white py-16 lg:py-20">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315EDB]">Recently added</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">New in TaskTrack.</h2>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {RELEASES.flatMap((r) => r.items).slice(0, 6).map((item, i) => (
+                <Reveal key={item.title} delay={i * 70} className="h-full">
+                  <div className="h-full rounded-2xl border border-slate-200/80 bg-[#F6F5F1] p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[#5FD3C0]/25 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#17604F]">New</span>
+                      {item.tag && <span className="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-600">{item.tag}</span>}
+                    </div>
+                    <h3 className="mt-3 font-semibold text-[#243B64]">{item.title}</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-600">{item.description}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Features */}
         <section id="features" className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -271,7 +315,7 @@ export default function LandingPage() {
         </section>
 
         {/* Integrations */}
-        <section className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
+        <section id="integrations" className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315EDB]">Integrations</p>
@@ -333,7 +377,7 @@ export default function LandingPage() {
                     'Calendar and reminders',
                     '100 AI credits a month',
                     'Quizzes (5 questions) and flashcards (5 cards)',
-                    'ManageBac connection',
+                    'ManageBac and Google Classroom connections',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />{item}</li>
                   ))}
@@ -380,12 +424,16 @@ export default function LandingPage() {
                   a: 'No. TaskTrack works on its own. If your school uses ManageBac, paste your calendar link once and its deadlines import into TaskTrack.',
                 },
                 {
+                  q: 'Does it work with Google Classroom?',
+                  a: 'Yes, in beta. Connect your school Google account in Settings → Integrations. TaskTrack can only read your classes and your own assignments, never change them. Some schools need their IT admin to allow TaskTrack first.',
+                },
+                {
                   q: 'How do reminders work?',
-                  a: 'When you set a reminder, TaskTrack suggests times before the due date and sends you a push notification at those times. Email reminders and automatic reminders for every test are planned, not available yet.',
+                  a: 'Every task automatically gets a reminder the day before it is due, at your default reminder time (8:00 unless you change it). You can add your own reminders too, and TaskTrack suggests good times. Reminders arrive as notifications in TaskTrack and as push notifications when you allow them. Email reminders are coming soon.',
                 },
                 {
                   q: 'Does TaskTrack alert me when teachers change something?',
-                  a: 'Your ManageBac deadlines update in TaskTrack each time your calendar syncs. There are no real-time notifications when a teacher changes a task.',
+                  a: 'ManageBac and Google Classroom both sync every 10 minutes, so changed due dates show up quickly. If you already edited a task yourself, your edit is kept. There are no instant alerts when a teacher changes something.',
                 },
                 {
                   q: 'How do AI credits work?',
