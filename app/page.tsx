@@ -290,13 +290,13 @@ export default function LandingPage() {
               </div>
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
-                  <CalendarCheckIcon size={40} className="opacity-45 grayscale" />
+                  <CalendarCheckIcon size={40} />
                   <div>
                     <p className="font-semibold text-[#243B64]">Google Classroom</p>
-                    <p className="text-xs font-medium text-amber-700">Coming soon</p>
+                    <p className="text-xs font-medium text-emerald-700">Available · Beta</p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">Keeping Classroom schoolwork together in TaskTrack is planned but not available yet.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">Connect your school Google account once. Assignments with due dates import as tasks, sync every 30 minutes, and tick off when you turn them in. Read-only.</p>
               </div>
               <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)]">
                 <div className="flex items-center gap-3">
