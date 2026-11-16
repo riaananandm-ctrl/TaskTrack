@@ -23,9 +23,9 @@ const WhiteboardTool = dynamic(
 );
 
 const TOOLS: Array<{ id: Tool; label: string; icon: typeof Calculator; description: string }> = [
-  { id: 'calculator', label: 'Calculator', icon: Calculator, description: 'Basic & scientific' },
-  { id: 'spreadsheet', label: 'Spreadsheet', icon: Table, description: 'Auto-calculating cells' },
-  { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw & ask the AI tutor' },
+  { id: 'calculator', label: 'Calculator', icon: Calculator, description: 'Graphing, like Desmos' },
+  { id: 'spreadsheet', label: 'Spreadsheet', icon: Table, description: 'Formulas, SUM, CSV export' },
+  { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw, shapes, AI tutor' },
 ];
 
 export default function ToolsPage() {

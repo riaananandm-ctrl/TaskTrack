@@ -1,410 +1,467 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
 import {
-  Pencil, Eraser, Trash2, Download, Bot, Loader2, Send, Hand, Undo2, Redo2,
+  Pencil, Highlighter, Eraser, Minus, Square, Circle, Hand, Undo2, Redo2, Trash2, Download,
+  Bot, Loader2, Send, Home,
 } from 'lucide-react';
 
-type Tool = 'pen' | 'eraser' | 'hand';
+/**
+ * Whiteboard: an infinite canvas you can draw on, pan around, undo, and save as PNG.
+ * The canvas is always mounted (no "loading" gate), sized to its box with
+ * ResizeObserver, and drawn at device pixel ratio so lines stay crisp.
+ * Drawings are kept in this browser between visits.
+ */
 
-interface Stroke {
-  points: { x: number; y: number }[];
+type ToolId = 'pen' | 'highlighter' | 'eraser' | 'line' | 'rect' | 'ellipse' | 'pan';
+type Pt = { x: number; y: number };
+
+interface Shape {
+  kind: 'free' | 'line' | 'rect' | 'ellipse';
+  points: Pt[]; // free: every point; others: [start, end]
   color: string;
   width: number;
-  tool: Tool;
+  alpha: number;
 }
 
-const COLORS = ['#1e293b', '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#ffffff'];
-const WIDTHS = [2, 4, 8, 16];
+const COLORS = ['#1e293b', '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+const WIDTHS = [2, 4, 8, 14];
+const STORAGE_KEY = 'tasktrack.whiteboard.v2';
+const MAX_SHAPES = 2000;
 
-const MAX_CANVAS_DIM = 4096;
+const TOOLS: Array<{ id: ToolId; label: string; icon: typeof Pencil; key: string }> = [
+  { id: 'pen', label: 'Pen', icon: Pencil, key: 'p' },
+  { id: 'highlighter', label: 'Highlighter', icon: Highlighter, key: 'h' },
+  { id: 'eraser', label: 'Eraser', icon: Eraser, key: 'e' },
+  { id: 'line', label: 'Line', icon: Minus, key: 'l' },
+  { id: 'rect', label: 'Rectangle', icon: Square, key: 'r' },
+  { id: 'ellipse', label: 'Circle', icon: Circle, key: 'o' },
+  { id: 'pan', label: 'Move', icon: Hand, key: 'm' },
+];
 
-function safeSanitizeStrokes(raw: unknown): Stroke[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((s): s is Stroke => {
-    if (!s || typeof s !== 'object') return false;
-    const obj = s as Record<string, unknown>;
-    if (!Array.isArray(obj.points)) return false;
-    if (typeof obj.color !== 'string') return false;
-    if (typeof obj.width !== 'number' || !isFinite(obj.width)) return false;
-    if (typeof obj.tool !== 'string') return false;
-    return obj.points.every(
-      (p) => p && typeof p === 'object' &&
-        typeof (p as Record<string, unknown>).x === 'number' &&
-        typeof (p as Record<string, unknown>).y === 'number' &&
-        isFinite((p as Record<string, unknown>).x as number) &&
-        isFinite((p as Record<string, unknown>).y as number)
-    );
-  });
+function isShape(v: unknown): v is Shape {
+  if (!v || typeof v !== 'object') return false;
+  const s = v as Record<string, unknown>;
+  return (
+    ['free', 'line', 'rect', 'ellipse'].includes(s.kind as string) &&
+    Array.isArray(s.points) &&
+    s.points.every((p) => p && Number.isFinite((p as Pt).x) && Number.isFinite((p as Pt).y)) &&
+    typeof s.color === 'string' && Number.isFinite(s.width) && Number.isFinite(s.alpha)
+  );
+}
+
+function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
+  if (!s.points.length) return;
+  ctx.save();
+  ctx.globalAlpha = s.alpha;
+  ctx.strokeStyle = s.color;
+  ctx.fillStyle = s.color;
+  ctx.lineWidth = s.width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  ctx.beginPath();
+  if (s.kind === 'free') {
+    if (s.points.length === 1) {
+      ctx.arc(a.x, a.y, s.width / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+    ctx.moveTo(a.x, a.y);
+    // Smooth the stroke with quadratic curves through midpoints.
+    for (let i = 1; i < s.points.length - 1; i++) {
+      const p = s.points[i];
+      const n = s.points[i + 1];
+      ctx.quadraticCurveTo(p.x, p.y, (p.x + n.x) / 2, (p.y + n.y) / 2);
+    }
+    ctx.lineTo(b.x, b.y);
+  } else if (s.kind === 'line') {
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+  } else if (s.kind === 'rect') {
+    ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  } else {
+    ctx.ellipse((a.x + b.x) / 2, (a.y + b.y) / 2, Math.abs(b.x - a.x) / 2, Math.abs(b.y - a.y) / 2, 0, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Distance from point p to segment ab. */
+function segDist(p: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = dx * dx + dy * dy;
+  const t = len ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len)) : 0;
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Does the eraser at p (radius r) touch this shape? */
+function hits(s: Shape, p: Pt, r: number): boolean {
+  const tol = r + s.width / 2;
+  const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  if (s.kind === 'free') {
+    if (s.points.length === 1) return Math.hypot(p.x - a.x, p.y - a.y) <= tol;
+    for (let i = 1; i < s.points.length; i++) if (segDist(p, s.points[i - 1], s.points[i]) <= tol) return true;
+    return false;
+  }
+  if (s.kind === 'line') return segDist(p, a, b) <= tol;
+  if (s.kind === 'rect') {
+    const c = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }];
+    return c.some((q, i) => segDist(p, q, c[(i + 1) % 4]) <= tol);
+  }
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2;
+  const rx = Math.abs(b.x - a.x) / 2 || 1;
+  const ry = Math.abs(b.y - a.y) / 2 || 1;
+  const k = Math.hypot((p.x - cx) / rx, (p.y - cy) / ry);
+  return Math.abs(k - 1) * Math.min(rx, ry) <= tol;
 }
 
 export function WhiteboardTool() {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const currentStroke = useRef<Stroke | null>(null);
-  const drawingRef = useRef(false);
-  const strokesRef = useRef<Stroke[]>([]);
-  const redoStackRef = useRef<Stroke[]>([]);
-  const animationFrameRef = useRef<number | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-
-  const [tool, setTool] = useState<Tool>('pen');
+  const [size, setSize] = useState({ w: 800, h: 480 });
+  const [tool, setTool] = useState<ToolId>('pen');
   const [color, setColor] = useState(COLORS[0]);
   const [width, setWidth] = useState(4);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
-  const [redoStack, setRedoStack] = useState<Stroke[]>([]);
-  const [ready, setReady] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [shapes, setShapes] = useState<Shape[]>([]);
+  const [redo, setRedo] = useState<Shape[][]>([]);
+  const [history, setHistory] = useState<Shape[][]>([]);
+  const [offset, setOffset] = useState<Pt>({ x: 0, y: 0 });
+  const [loaded, setLoaded] = useState(false);
+
+  const drawing = useRef<Shape | null>(null);
+  const panStart = useRef<{ p: Pt; offset: Pt } | null>(null);
+  const erasedThisDrag = useRef(false);
 
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Keep ref in sync for use in event handlers without stale closures.
-  useEffect(() => { strokesRef.current = strokes; }, [strokes]);
-  useEffect(() => { redoStackRef.current = redoStack; }, [redoStack]);
-
-  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: Stroke) => {
-    if (!stroke.points || stroke.points.length < 1) return;
-    ctx.beginPath();
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = stroke.tool === 'eraser' ? '#ffffff' : stroke.color;
-    ctx.lineWidth = stroke.tool === 'eraser' ? stroke.width * 3 : stroke.width;
-    const p0 = stroke.points[0];
-    ctx.moveTo(p0.x, p0.y);
-    for (let i = 1; i < stroke.points.length; i++) {
-      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+  // Load a saved board once.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) setShapes(parsed.filter(isShape).slice(-MAX_SHAPES));
+    } catch {
+      // Storage blocked or corrupt: start with an empty board.
     }
-    ctx.stroke();
+    setLoaded(true);
   }, []);
 
-  const redraw = useCallback(() => {
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => {
+      try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(shapes)); } catch { /* full or blocked */ }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [shapes, loaded]);
+
+  // Size the canvas to its box.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setSize({ w: Math.max(100, Math.round(r.width)), h: Math.max(100, Math.round(r.height)) });
+    };
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const render = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== size.w * dpr || canvas.height !== size.h * dpr) {
+      canvas.width = size.w * dpr;
+      canvas.height = size.h * dpr;
+    }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    for (const stroke of strokesRef.current) {
-      drawStroke(ctx, stroke);
+    ctx.fillRect(0, 0, size.w, size.h);
+    // Dot grid that moves with the board.
+    ctx.fillStyle = '#e2e8f0';
+    const gap = 24;
+    const ox = ((offset.x % gap) + gap) % gap;
+    const oy = ((offset.y % gap) + gap) % gap;
+    for (let x = ox; x < size.w; x += gap) for (let y = oy; y < size.h; y += gap) ctx.fillRect(x, y, 1.5, 1.5);
+    ctx.translate(offset.x, offset.y);
+    for (const s of shapes) drawShape(ctx, s);
+    if (drawing.current) drawShape(ctx, drawing.current);
+  }, [shapes, offset, size]);
+
+  useEffect(() => { render(); }, [render]);
+
+  const toBoard = (e: React.PointerEvent): Pt => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - r.left - offset.x, y: e.clientY - r.top - offset.y };
+  };
+
+  const commit = useCallback((next: Shape[]) => {
+    setHistory((h) => [...h.slice(-99), shapes]);
+    setRedo([]);
+    setShapes(next.slice(-MAX_SHAPES));
+  }, [shapes]);
+
+  const eraseAt = (p: Pt) => {
+    const r = width * 2;
+    const kept = shapes.filter((s) => !hits(s, p, r));
+    if (kept.length !== shapes.length) {
+      if (!erasedThisDrag.current) {
+        setHistory((h) => [...h.slice(-99), shapes]);
+        setRedo([]);
+        erasedThisDrag.current = true;
+      }
+      setShapes(kept);
     }
-  }, [drawStroke]);
+  };
 
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
-    const w = Math.min(Math.max(1, Math.round(rect.width)), MAX_CANVAS_DIM);
-    const h = Math.min(Math.max(400, Math.round(rect.height)), MAX_CANVAS_DIM);
-    if (canvas.width === w && canvas.height === h) return;
-    canvas.width = w;
-    canvas.height = h;
-    redraw();
-  }, [redraw]);
+  const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = toBoard(e);
+    if (tool === 'pan' || e.button === 1) {
+      panStart.current = { p: { x: e.clientX, y: e.clientY }, offset };
+      return;
+    }
+    if (tool === 'eraser') {
+      erasedThisDrag.current = false;
+      eraseAt(p);
+      panStart.current = null;
+      drawing.current = null;
+      (e.currentTarget as HTMLCanvasElement).dataset.erasing = '1';
+      return;
+    }
+    const kind: Shape['kind'] = tool === 'line' ? 'line' : tool === 'rect' ? 'rect' : tool === 'ellipse' ? 'ellipse' : 'free';
+    drawing.current = {
+      kind,
+      points: kind === 'free' ? [p] : [p, p],
+      color,
+      width: tool === 'highlighter' ? width * 4 : width,
+      alpha: tool === 'highlighter' ? 0.35 : 1,
+    };
+    render();
+  };
 
-  // Initialize canvas after mount + handle resize via ResizeObserver
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-
-    // Wait one frame for layout to settle so the container has real dimensions.
-    const initFrame = requestAnimationFrame(() => {
-      resizeCanvas();
-      setReady(true);
-    });
-
-    // Use ResizeObserver if available, fall back to window resize.
-    if (typeof ResizeObserver !== 'undefined') {
-      const ro = new ResizeObserver(() => {
-        resizeCanvas();
-      });
-      ro.observe(container);
-      resizeObserverRef.current = ro;
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (panStart.current) {
+      const s = panStart.current;
+      setOffset({ x: s.offset.x + e.clientX - s.p.x, y: s.offset.y + e.clientY - s.p.y });
+      return;
+    }
+    if (e.currentTarget.dataset.erasing === '1') { eraseAt(toBoard(e)); return; }
+    const d = drawing.current;
+    if (!d) return;
+    const p = toBoard(e);
+    if (d.kind === 'free') {
+      const last = d.points[d.points.length - 1];
+      if (Math.hypot(p.x - last.x, p.y - last.y) < 1.5) return;
+      d.points.push(p);
     } else {
-      const onResize = () => resizeCanvas();
-      window.addEventListener('resize', onResize);
-      return () => {
-        cancelAnimationFrame(initFrame);
-        window.removeEventListener('resize', onResize);
-      };
+      d.points[1] = e.shiftKey && d.kind !== 'line'
+        ? { x: p.x, y: d.points[0].y + Math.sign(p.y - d.points[0].y || 1) * Math.abs(p.x - d.points[0].x) }
+        : p;
     }
+    render();
+  };
 
-    return () => {
-      cancelAnimationFrame(initFrame);
-      if (resizeObserverRef.current) {
-        resizeObserverRef.current.disconnect();
-        resizeObserverRef.current = null;
-      }
-    };
-  }, [resizeCanvas]);
-
-  // Redraw whenever strokes change (but only after initial ready).
-  useEffect(() => {
-    if (!ready) return;
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    animationFrameRef.current = requestAnimationFrame(() => {
-      redraw();
-      animationFrameRef.current = null;
-    });
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    };
-  }, [strokes, ready, redraw]);
-
-  const getPos = useCallback((e: React.PointerEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    return {
-      x: isFinite(x) ? x : 0,
-      y: isFinite(y) ? y : 0,
-    };
-  }, []);
-
-  const startDraw = useCallback((e: React.PointerEvent) => {
-    if (tool === 'hand') return;
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    try { canvas.setPointerCapture(e.pointerId); } catch { /* pointerId may be invalid */ }
-    drawingRef.current = true;
-    setRedoStack([]);
-    currentStroke.current = {
-      points: [getPos(e)],
-      color, width, tool,
-    };
-  }, [tool, color, width, getPos]);
-
-  const moveDraw = useCallback((e: React.PointerEvent) => {
-    if (!drawingRef.current || !currentStroke.current) return;
-    e.preventDefault();
-    const pos = getPos(e);
-    currentStroke.current.points.push(pos);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const pts = currentStroke.current.points;
-    if (pts.length >= 2) {
-      ctx.beginPath();
-      ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
-      ctx.lineWidth = tool === 'eraser' ? width * 3 : width;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.moveTo(pts[pts.length - 2].x, pts[pts.length - 2].y);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-  }, [tool, color, width, getPos]);
-
-  const endDraw = useCallback((e: React.PointerEvent) => {
-    if (!drawingRef.current) return;
-    drawingRef.current = false;
-    if (currentStroke.current && currentStroke.current.points.length > 0) {
-      setStrokes((s) => [...s, currentStroke.current!]);
-    }
-    currentStroke.current = null;
-  }, []);
+  const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    panStart.current = null;
+    e.currentTarget.dataset.erasing = '';
+    const d = drawing.current;
+    drawing.current = null;
+    if (d) commit([...shapes, d]);
+  };
 
   const undo = useCallback(() => {
-    setStrokes((s) => {
-      if (!s.length) return s;
-      setRedoStack((r) => [...r, s[s.length - 1]]);
-      return s.slice(0, -1);
+    setHistory((h) => {
+      if (!h.length) return h;
+      setRedo((r) => [...r, shapes]);
+      setShapes(h[h.length - 1]);
+      return h.slice(0, -1);
     });
-  }, []);
+  }, [shapes]);
 
-  const redo = useCallback(() => {
-    setRedoStack((r) => {
+  const redoFn = useCallback(() => {
+    setRedo((r) => {
       if (!r.length) return r;
-      const last = r[r.length - 1];
-      setStrokes((s) => [...s, last]);
+      setHistory((h) => [...h, shapes]);
+      setShapes(r[r.length - 1]);
       return r.slice(0, -1);
     });
-  }, []);
+  }, [shapes]);
 
-  const clearAll = useCallback(() => {
-    setStrokes([]);
-    setRedoStack([]);
-  }, []);
+  const clearAll = () => { if (shapes.length) commit([]); };
 
-  const download = useCallback(() => {
+  const download = () => {
     const canvas = canvasRef.current;
-    if (!canvas || strokesRef.current.length === 0) return;
+    if (!canvas) return;
     try {
-      const link = document.createElement('a');
-      link.download = 'whiteboard.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const a = document.createElement('a');
+      a.download = 'tasktrack-whiteboard.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
     } catch {
-      // toDataURL can fail if canvas is tainted or empty — no-op.
+      // Ignore: nothing to save.
     }
-  }, []);
+  };
 
-  const handleAiAsk = useCallback(async () => {
+  // Keyboard shortcuts when focus is not in a text box.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redoFn(); else undo(); return; }
+      if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redoFn(); return; }
+      if (mod) return;
+      const t = TOOLS.find((x) => x.key === e.key.toLowerCase());
+      if (t) setTool(t.id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redoFn]);
+
+  const askTutor = async () => {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
     setAiError(null);
     setAiResponse('');
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setAiError('Please sign in to use the AI tutor.');
-        setAiLoading(false);
-        return;
-      }
-
+      if (!session) { setAiError('Please sign in to use the AI tutor.'); return; }
       const res = await fetch('/api/study-session/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
           mode: 'chat',
-          messages: [
-            {
-              role: 'user',
-              content: `I'm using a whiteboard and I drew something. Here's what I want to know: ${aiPrompt}\n\nPlease explain it clearly as if you're a teacher standing next to me. If I asked "what is this?", describe what it might be and explain the concept. Use simple language and give an example if helpful.`,
-            },
-          ],
           task: null,
+          messages: [{
+            role: 'user',
+            content: `I am working something out on a whiteboard. ${aiPrompt}\n\nExplain it clearly like a teacher standing next to me, step by step, with a short example if it helps.`,
+          }],
         }),
       });
-
-      if (!res.ok) throw new Error('Request failed');
-      const data = await res.json();
-      if (!data.ok) {
-        setAiError(data.error?.message || 'The AI tutor could not respond. Please try again.');
-      } else {
-        setAiResponse(data.text || 'The AI tutor did not return a response.');
-      }
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) setAiError(data?.error?.message || 'The AI tutor could not respond. Please try again.');
+      else setAiResponse(data.text || 'The AI tutor did not return a response.');
     } catch {
       setAiError('Could not reach the AI tutor. Please check your connection.');
+    } finally {
+      setAiLoading(false);
     }
-    setAiLoading(false);
-  }, [aiPrompt]);
+  };
 
-  if (!ready) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading whiteboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const cursor = tool === 'pan' ? 'cursor-grab active:cursor-grabbing' : tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair';
 
   return (
     <div className="space-y-3">
-      {saveError && (
-        <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-          <span>{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="font-medium hover:underline">Dismiss</button>
-        </div>
-      )}
-
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-lg border border-border p-1">
-          <ToolBtn active={tool === 'pen'} onClick={() => setTool('pen')} icon={Pencil} label="Pen" />
-          <ToolBtn active={tool === 'eraser'} onClick={() => setTool('eraser')} icon={Eraser} label="Eraser" />
-          <ToolBtn active={tool === 'hand'} onClick={() => setTool('hand')} icon={Hand} label="Pan" />
-        </div>
-
-        <div className="h-6 w-px bg-border" />
-
-        {/* Colors */}
-        <div className="flex items-center gap-1">
-          {COLORS.map((c) => (
+        <div className="flex items-center gap-0.5 rounded-lg border border-border p-1" role="toolbar" aria-label="Drawing tools">
+          {TOOLS.map((t) => (
             <button
-              key={c}
-              onClick={() => { setColor(c); setTool('pen'); }}
+              key={t.id}
+              type="button"
+              onClick={() => setTool(t.id)}
+              aria-pressed={tool === t.id}
+              aria-label={`${t.label} (${t.key.toUpperCase()})`}
+              title={`${t.label} (${t.key.toUpperCase()})`}
               className={cn(
-                'w-7 h-7 rounded-full border-2 transition-transform',
-                color === c ? 'border-primary scale-110 ring-2 ring-primary/30' : 'border-border hover:scale-105'
+                'flex items-center justify-center w-8 h-8 rounded-md transition-colors',
+                tool === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               )}
-              style={{ background: c }}
-              aria-label={`Color ${c}`}
-            />
-          ))}
-        </div>
-
-        <div className="h-6 w-px bg-border" />
-
-        {/* Brush width */}
-        <div className="flex items-center gap-1">
-          {WIDTHS.map((w) => (
-            <button
-              key={w}
-              onClick={() => setWidth(w)}
-              className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-lg border-2 transition-colors',
-                width === w ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
-              )}
-              aria-label={`Brush size ${w}`}
             >
-              <span className="rounded-full bg-foreground" style={{ width: w, height: w }} />
+              <t.icon className="w-4 h-4" />
             </button>
           ))}
         </div>
 
-        <div className="h-6 w-px bg-border" />
+        <div className="flex items-center gap-1" role="group" aria-label="Colour">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => { setColor(c); if (tool === 'eraser' || tool === 'pan') setTool('pen'); }}
+              aria-label={`Colour ${c}`}
+              aria-pressed={color === c}
+              className={cn('w-6 h-6 rounded-full border-2 transition-transform', color === c ? 'border-primary scale-110' : 'border-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)] hover:scale-105')}
+              style={{ background: c }}
+            />
+          ))}
+        </div>
 
-        <Button variant="outline" size="sm" onClick={undo} disabled={!strokes.length}>
-          <Undo2 className="w-3.5 h-3.5 mr-1" /> Undo
-        </Button>
-        <Button variant="outline" size="sm" onClick={redo} disabled={!redoStack.length}>
-          <Redo2 className="w-3.5 h-3.5 mr-1" /> Redo
-        </Button>
-        <Button variant="outline" size="sm" onClick={clearAll} disabled={!strokes.length}>
-          <Trash2 className="w-3.5 h-3.5 mr-1" /> Clear
-        </Button>
-        <Button variant="outline" size="sm" onClick={download} disabled={!strokes.length}>
-          <Download className="w-3.5 h-3.5 mr-1" /> Save
-        </Button>
+        <div className="flex items-center gap-1" role="group" aria-label="Size">
+          {WIDTHS.map((w) => (
+            <button
+              key={w}
+              type="button"
+              onClick={() => setWidth(w)}
+              aria-label={`Size ${w}`}
+              aria-pressed={width === w}
+              className={cn('flex items-center justify-center w-8 h-8 rounded-lg border transition-colors', width === w ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted')}
+            >
+              <span className="rounded-full bg-foreground" style={{ width: Math.min(w, 12), height: Math.min(w, 12) }} />
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 ml-auto">
+          <Button type="button" variant="outline" size="sm" onClick={undo} disabled={!history.length} title="Undo (Ctrl+Z)">
+            <Undo2 className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Undo</span>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={redoFn} disabled={!redo.length} title="Redo (Ctrl+Y)">
+            <Redo2 className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Redo</span>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setOffset({ x: 0, y: 0 })} title="Back to start">
+            <Home className="w-3.5 h-3.5" />
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={clearAll} disabled={!shapes.length}>
+            <Trash2 className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Clear</span>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={download}>
+            <Download className="w-3.5 h-3.5 sm:mr-1" /><span className="hidden sm:inline">Save PNG</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Canvas + AI panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
-        {/* Canvas */}
-        <div ref={containerRef} className="relative rounded-xl border border-border overflow-hidden bg-white min-h-[400px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3">
+        <div ref={wrapRef} className="relative rounded-xl border border-border overflow-hidden bg-white h-[460px] lg:h-[560px]">
           <canvas
             ref={canvasRef}
-            onPointerDown={startDraw}
-            onPointerMove={moveDraw}
-            onPointerUp={endDraw}
-            onPointerLeave={endDraw}
-            className={cn(
-              'absolute inset-0 touch-none',
-              tool === 'pen' && 'cursor-crosshair',
-              tool === 'eraser' && 'cursor-cell',
-              tool === 'hand' && 'cursor-grab'
-            )}
+            style={{ width: size.w, height: size.h }}
+            className={cn('block touch-none', cursor)}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            aria-label="Whiteboard drawing area"
+            role="img"
           />
-          {strokes.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <p className="text-sm text-muted-foreground">Draw something here, then ask the AI tutor about it.</p>
-            </div>
+          {loaded && shapes.length === 0 && (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+              Draw here. Shift draws perfect squares and circles.
+            </p>
           )}
         </div>
 
-        {/* AI Tutor panel */}
         <div className="rounded-xl border border-border p-4 space-y-3 bg-card">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -412,72 +469,29 @@ export function WhiteboardTool() {
             </div>
             <div>
               <h3 className="text-sm font-semibold">AI Tutor</h3>
-              <p className="text-xs text-muted-foreground">Ask about your drawing</p>
+              <p className="text-xs text-muted-foreground">Type what you are working on. The tutor reads your question, not the drawing.</p>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <Textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="e.g. What is the water cycle? Can you explain it with more detail?"
-              rows={3}
-              className="text-sm resize-none"
-            />
-            <Button
-              onClick={handleAiAsk}
-              disabled={aiLoading || !aiPrompt.trim()}
-              className="w-full"
-              size="sm"
-            >
-              {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-              {aiLoading ? 'Thinking...' : 'Ask the tutor'}
-            </Button>
-          </div>
-
-          {aiError && (
-            <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-              {aiError}
-            </div>
-          )}
-
+          <Textarea
+            value={aiPrompt}
+            onChange={(e) => setAiPrompt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askTutor(); }}
+            placeholder="e.g. I drew the water cycle. Explain evaporation and condensation."
+            rows={3}
+            className="text-sm resize-none"
+          />
+          <Button type="button" onClick={askTutor} disabled={aiLoading || !aiPrompt.trim()} className="w-full" size="sm">
+            {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+            {aiLoading ? 'Thinking…' : 'Ask the tutor'}
+          </Button>
+          {aiError && <p className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{aiError}</p>}
           {aiResponse && (
             <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[300px] overflow-y-auto">
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiResponse}</p>
             </div>
           )}
-
-          <div className="text-xs text-muted-foreground border-t border-border pt-2">
-            <p className="font-medium mb-1">Try asking:</p>
-            <ul className="space-y-0.5">
-              <li>&ldquo;What is photosynthesis?&rdquo;</li>
-              <li>&ldquo;Explain the Pythagorean theorem&rdquo;</li>
-              <li>&ldquo;How does a cell divide?&rdquo;</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function ToolBtn({ active, onClick, icon: Icon, label }: {
-  active: boolean;
-  onClick: () => void;
-  icon: typeof Pencil;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors',
-        active ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'
-      )}
-      aria-label={label}
-    >
-      <Icon className="w-3.5 h-3.5" />
-      {label}
-    </button>
   );
 }
