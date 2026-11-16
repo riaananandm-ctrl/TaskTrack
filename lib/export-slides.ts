@@ -29,6 +29,7 @@ export async function downloadSlidesPptx(data: SlidesData): Promise<void> {
 
   for (const slide of data.slides) {
     const s = pptx.addSlide();
+    if (slide.notes) s.addNotes(slide.notes);
     s.background = { color: 'FFFFFF' };
     s.addShape('rect', { x: 0, y: 0, w: 13.33, h: 1.2, fill: { color: NAVY } });
     s.addText(slide.heading || '', {

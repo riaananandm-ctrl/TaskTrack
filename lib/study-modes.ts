@@ -144,6 +144,8 @@ export interface Slide {
   heading: string;
   bullets: string[];
   example: string | null;
+  /** Speaker notes: what to say or remember for this slide. */
+  notes?: string | null;
 }
 
 export interface SlidesData {
@@ -237,7 +239,7 @@ export function parseSlides(v: unknown): SlidesData | null {
     const heading = str(s.heading);
     const bullets = strArray(s.bullets);
     if (!heading || bullets.length === 0) continue;
-    slides.push({ heading, bullets, example: str(s.example) || null });
+    slides.push({ heading, bullets, example: str(s.example) || null, notes: str(s.notes) || null });
   }
   return slides.length > 0
     ? { title: str(root.title), subtitle: str(root.subtitle), slides }

@@ -202,7 +202,7 @@ export default function GraderPage() {
             {grading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {grading ? 'Reading your work…' : result ? 'Grade again' : 'Grade my work'}
           </Button>
-          <p className="text-xs text-muted-foreground text-center">Uses one of your daily AI messages. Your work is sent to the AI to assess and isn&rsquo;t saved by TaskTrack.</p>
+          <p className="text-xs text-muted-foreground text-center">Uses 5 AI credits. Your work is sent to the AI to assess and isn&rsquo;t saved by TaskTrack.</p>
         </Card>
 
         {/* ---------- Result ---------- */}

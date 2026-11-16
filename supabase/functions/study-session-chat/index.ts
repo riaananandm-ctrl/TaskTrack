@@ -68,7 +68,7 @@ type ErrorCategory =
 const ERROR_MESSAGES: Record<ErrorCategory, string> = {
   not_configured: 'TaskTrack AI is not configured yet.',
   auth: 'TaskTrack AI is temporarily unavailable. Please try again later.',
-  limit: "You've reached today's TaskTrack AI limit. You can continue tomorrow.",
+  limit: "You've used all your AI credits for this month. They refill on the 1st, or upgrade to Premium for more.",
   model_unavailable: 'The AI model is temporarily unavailable. Please try again later.',
   rate_limit: 'TaskTrack AI is busy right now. Please try again later.',
   invalid_request: "I couldn't process that study request. Please try again.",
@@ -101,6 +101,14 @@ const STATUS_FOR_CATEGORY: Record<ErrorCategory, number> = {
 const STUDY_BOT_MODEL = 'openai/gpt-oss-120b';
 
 const FALLBACK_LIMITS = { daily_ai_messages: 20, max_message_chars: 2000 };
+
+/**
+ * AI credits each mode costs, by how much work it is for the model. Decided here on
+ * the server; the browser cannot choose its own price.
+ */
+const CREDIT_COST: Record<string, number> = {
+  chat: 1, explain: 1, examples: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3,
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -139,7 +147,7 @@ function succeed(params: {
   mode: string;
   text: string;
   structured?: unknown;
-  usage?: { used: number; dailyLimit: number } | null;
+  usage?: { used: number; limit: number; remaining: number; cost: number } | null;
   messageId?: string | null;
 }) {
   return json({
@@ -360,11 +368,16 @@ For each: state the problem, then "**Step-by-step:**" with numbered reasoning, t
 "**Answer:**". Explain why each step works, not just what to do.
 Finish with one similar practice question for the student to try on their own (do not
 answer it).`,
-    slides: `Produce a concise deck of study slides on this topic.
-- 4 to 8 slides. Give the deck a clear title.
-- Each slide has a heading, a short subtitle, and 3 to 5 concise bullet points.
-- Include at least one slide with a concrete worked example, and make the final slide a
-  "Recap" that summarises the most important points.`,
+    slides: `Produce a polished study slide deck that a student could revise from or present in class.
+- 6 to 10 slides. Give the deck a specific title (not just the subject name) and a one-line subtitle.
+- Slide 1 is "What you'll learn": 3 bullets starting with an IB command term (Define, Explain, Calculate, Compare, Evaluate...).
+- Then one idea per slide, ordered from the basics to the harder ideas. Headings are short (at most 7 words) and specific, never generic like "Introduction" or "More info".
+- 3 to 5 bullets per slide. Each bullet is one complete idea in at most about 16 words. No paragraphs, no filler, no repeating the heading.
+- Use the subject's correct terminology, formulas and units. Be accurate; never invent facts, dates or quotes.
+- At least one slide has a worked example in "example", showing the key steps briefly.
+- Include one slide called "Common mistakes" with the errors students usually make.
+- The final slide is "Recap" with the 3 to 5 most important takeaways.
+- Every slide has 1 to 3 sentences of speaker notes in "notes": what to say or remember.`,
   }[mode] || 'The student is chatting freely. Answer their latest message directly and helpfully.';
 }
 
@@ -412,10 +425,10 @@ Every date must be AFTER today's date shown above. Never output a date in the pa
   "title": "the deck title",
   "subtitle": "a short subtitle for the deck",
   "slides": [
-    { "heading": "slide heading", "bullets": ["point", "point", "point"], "example": "an optional concrete example" }
+    { "heading": "slide heading", "bullets": ["point", "point", "point"], "example": "an optional worked example, or null", "notes": "1-3 sentences of speaker notes" }
   ]
 }
-Provide 4 to 8 slides of 3 to 5 bullets each. The final slide's heading should be "Recap".`,
+Provide 6 to 10 slides of 3 to 5 bullets each. The final slide's heading should be "Recap".`,
   },
 };
 
@@ -813,6 +826,8 @@ Deno.serve(async (req: Request) => {
 
   let supabase: ReturnType<typeof createClient> | null = null;
   let reserved = false;
+  // Credits charged for this request, so a failure refunds exactly that.
+  let currentCost = 1;
 
   try {
     // The key lives only in this server-side function's secrets.
@@ -1018,7 +1033,8 @@ Deno.serve(async (req: Request) => {
     }
 
     // Reserve one AI request against today's limit before calling the provider.
-    const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_request');
+    currentCost = CREDIT_COST[mode] ?? 1;
+    const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_credits', { p_cost: currentCost });
     if (reserveError) {
       console.error('AI usage reservation failed:', reserveError.message);
       return fail('provider');
@@ -1028,7 +1044,9 @@ Deno.serve(async (req: Request) => {
       return fail('limit', {
         limitReached: true,
         used: reservation?.used,
-        dailyLimit: reservation?.daily_limit,
+        creditLimit: reservation?.credit_limit,
+        remaining: reservation?.remaining,
+        cost: currentCost,
       });
     }
     reserved = true;
@@ -1069,20 +1087,20 @@ Deno.serve(async (req: Request) => {
       models = await resolveModels(apiKey);
     } catch (err) {
       const category = err instanceof UpstreamError ? categorise(err.status, err.body) : 'provider';
-      return await refundAndFail(supabase, category);
+      return await refundAndFail(supabase, category, currentCost);
     }
 
     if (aiOption === 'study-bot') {
       if (!models.some((m) => m.name === STUDY_BOT_MODEL)) {
         console.error('Study Bot model is not available for this API key:', STUDY_BOT_MODEL);
-        return await refundAndFail(supabase, 'study_bot_unavailable');
+        return await refundAndFail(supabase, 'study_bot_unavailable', currentCost);
       }
       models = models.filter((m) => m.name === STUDY_BOT_MODEL);
     }
 
     if (models.length === 0) {
       console.error('No usable Groq chat models were returned for this API key');
-      return await refundAndFail(supabase, 'model_unavailable');
+      return await refundAndFail(supabase, 'model_unavailable', currentCost);
     }
 
     const failures: ErrorCategory[] = [];
@@ -1142,11 +1160,11 @@ Deno.serve(async (req: Request) => {
 
     if (!reply) {
       const category = pickFailureCategory(failures);
-      return await refundAndFail(supabase, category);
+      return await refundAndFail(supabase, category, currentCost);
     }
     // A reply that is only whitespace is treated exactly like an empty response.
     if (!reply.trim()) {
-      return await refundAndFail(supabase, 'empty');
+      return await refundAndFail(supabase, 'empty', currentCost);
     }
     if (finishReason && finishReason !== 'stop') {
       console.error(`Groq stopped early (${finishReason}) but returned text; using it`);
@@ -1161,7 +1179,7 @@ Deno.serve(async (req: Request) => {
           // A readable plain-text version accompanies the cards so the client always
           // has a safe fallback. The raw JSON is never sent to the browser.
           text: structuredToText(mode, structured),
-          usage: { used: reservation.used, dailyLimit: reservation.daily_limit },
+          usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
         });
       }
 
@@ -1175,7 +1193,7 @@ Deno.serve(async (req: Request) => {
             return succeed({
               mode,
               text: looksLikeJson(retry.text) ? STRUCTURED_RETRY_TEXT : retry.text,
-              usage: { used: reservation.used, dailyLimit: reservation.daily_limit },
+              usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
             });
           }
         } catch (retryErr) {
@@ -1188,21 +1206,21 @@ Deno.serve(async (req: Request) => {
       return succeed({
         mode,
         text: looksLikeJson(reply) ? STRUCTURED_RETRY_TEXT : reply,
-        usage: { used: reservation.used, dailyLimit: reservation.daily_limit },
+        usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
       });
     }
 
     return succeed({
       mode,
       text: reply,
-      usage: { used: reservation.used, dailyLimit: reservation.daily_limit },
+      usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
     });
   } catch (err) {
     console.error('Study session request failed:', err instanceof Error ? err.message : 'unknown error');
     // A fetch that never reached the provider is a genuine connection problem, not a
     // provider fault, so it gets its own category rather than a generic 502.
     const category: ErrorCategory = isNetworkError(err) ? 'network' : 'provider';
-    if (supabase && reserved) return await refundAndFail(supabase, category);
+    if (supabase && reserved) return await refundAndFail(supabase, category, currentCost);
     return fail(category);
   }
 });
@@ -1219,10 +1237,11 @@ function pickFailureCategory(failures: ErrorCategory[]): ErrorCategory {
 
 async function refundAndFail(
   supabase: ReturnType<typeof createClient>,
-  category: ErrorCategory
+  category: ErrorCategory,
+  cost: number
 ) {
   // A failed request must not count against the daily limit.
-  const { error } = await supabase.rpc('refund_ai_request');
+  const { error } = await supabase.rpc('refund_ai_credits', { p_cost: cost });
   if (error) console.error('AI usage refund failed:', error.message);
   return fail(category);
 }

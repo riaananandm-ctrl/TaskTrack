@@ -58,7 +58,7 @@ async function callAiTools(body: Record<string, unknown>): Promise<{ status: num
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []);
 const text = (v: unknown): string => (typeof v === 'string' ? v : '');
 
-/** Ask the AI grader for feedback. Uses one of the student's daily AI messages. */
+/** Ask the AI grader for feedback. Costs 5 AI credits. */
 export async function gradeWork(
   request: GradeRequest
 ): Promise<{ ok: true; result: GradeResult } | { ok: false; error: string; limitReached?: boolean }> {
@@ -159,7 +159,7 @@ export function isSubmissionTask(task: { title?: string | null; description?: st
 
 // ---- Group study ----
 
-/** Ask the AI to answer the latest question in a group study room. Uses one AI message. */
+/** Ask the AI to answer the latest question in a group study room. Costs 1 AI credit. */
 export async function askGroupAi(groupId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const { status, data } = await callAiTools({ action: 'group_ask', groupId });
   if (status === 404 && !data.error) return { ok: false, error: 'The group AI isn’t switched on yet. Please try again later.' };

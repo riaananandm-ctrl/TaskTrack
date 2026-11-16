@@ -206,7 +206,7 @@ export function StudyShowcase() {
             Open a task and pick a tool. TaskTrack&rsquo;s AI uses the task itself to explain the topic, quiz you, make flashcards, or plan your revision.
           </p>
           <ul className="mt-8 space-y-3">
-            {['Starts from your real task, so it stays on topic', 'Quizzes show which answers you got right', 'Free plan includes 7 AI messages a day'].map((line) => (
+            {['Starts from your real task, so it stays on topic', 'Quizzes show which answers you got right', 'Free plan includes 100 AI credits a month'].map((line) => (
               <li key={line} className="flex items-center gap-3 text-[15px] text-blue-50">
                 <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-[#22B29E]/25">
                   <Check className="h-3.5 w-3.5 text-[#5FD3C0]" strokeWidth={3} />

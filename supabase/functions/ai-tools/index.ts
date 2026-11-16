@@ -6,10 +6,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
  *  - `grade`:    feedback on a piece of work against IB-style criteria. Returns an
  *                ESTIMATED level per criterion with strengths and improvements. It is
  *                practice feedback, not an official grade, and it never rewrites the work.
- *                Counts as one AI message against the student's daily limit.
+ *                Costs 5 AI credits.
  *
  *  - `group_ask`: the AI answers the latest question in a private group study room.
- *                Only members can trigger it; it costs the asker one AI message.
+ *                Only members can trigger it; it costs the asker 1 AI credit.
  *
  *  - `classify`: sorts the student's own unsorted tasks into their own subjects and
  *                suggests a priority. The AI does the judging; keyword rules are the
@@ -51,6 +51,10 @@ const MODEL_TIMEOUT_MS = 30_000;
 function speedOptions(model: string): Record<string, unknown> {
   return model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low', include_reasoning: false } : {};
 }
+
+/** AI credits per action. Decided on the server; the browser cannot set its own price. */
+const GRADE_COST = 5;
+const GROUP_ASK_COST = 1;
 
 const MAX_WORK_CHARS = 14_000;
 const MAX_CRITERIA_CHARS = 4_000;
@@ -183,12 +187,12 @@ async function handleGrade(supabase: ReturnType<typeof createClient>, apiKey: st
   const programme = str(body.programme, 10).toUpperCase() === 'DP' ? 'DP' : 'MYP';
   const criteria = str(body.criteria, MAX_CRITERIA_CHARS);
 
-  const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_request');
+  const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_credits', { p_cost: GRADE_COST });
   if (reserveError) return json({ ok: false, error: 'The AI grader is unavailable right now. Please try again.' }, 503);
   const reservation = Array.isArray(reserveData) ? reserveData[0] : reserveData;
   if (!reservation?.allowed) {
     return json(
-      { ok: false, limitReached: true, error: 'You have used all of today’s AI messages. The grader will be available again tomorrow.' },
+      { ok: false, limitReached: true, error: 'You don’t have enough AI credits left this month for a grade check (it uses 5). They refill on the 1st.' },
       429
     );
   }
@@ -221,8 +225,8 @@ ${work}
 
   const result = await askJson(apiKey, system, user, 3000);
   if (!result || typeof result !== 'object') {
-    await supabase.rpc('refund_ai_request');
-    return json({ ok: false, error: 'The AI grader could not finish this time. You were not charged a message. Please try again.' }, 502);
+    await supabase.rpc('refund_ai_credits', { p_cost: GRADE_COST });
+    return json({ ok: false, error: 'The AI grader could not finish this time. Your credits were given back. Please try again.' }, 502);
   }
   return json({ ok: true, programme, result });
 }
@@ -342,12 +346,12 @@ async function handleGroupAsk(
     return json({ ok: false, error: 'Send a message first so the AI knows what the group is working on.' }, 400);
   }
 
-  const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_request');
+  const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_credits', { p_cost: GROUP_ASK_COST });
   if (reserveError) return json({ ok: false, error: 'The group AI is unavailable right now. Please try again.' }, 503);
   const reservation = Array.isArray(reserveData) ? reserveData[0] : reserveData;
   if (!reservation?.allowed) {
     return json(
-      { ok: false, limitReached: true, error: 'You have used all of today’s AI messages. Someone else in the group can ask instead.' },
+      { ok: false, limitReached: true, error: 'You’ve used all your AI credits for this month. Someone else in the group can ask instead.' },
       429
     );
   }
@@ -370,8 +374,8 @@ Reply with a JSON object only: {"reply": "your message to the group"}`;
   const result = (await askJson(apiKey, system, user, 900)) as { reply?: unknown } | null;
   const reply = result && typeof result.reply === 'string' ? result.reply.trim().slice(0, 6000) : '';
   if (!reply) {
-    await supabase.rpc('refund_ai_request');
-    return json({ ok: false, error: 'The AI could not answer this time. You were not charged a message. Please try again.' }, 502);
+    await supabase.rpc('refund_ai_credits', { p_cost: GROUP_ASK_COST });
+    return json({ ok: false, error: 'The AI could not answer this time. Your credit was given back. Please try again.' }, 502);
   }
 
   // AI messages are written by the server; students can only insert their own messages.
@@ -380,8 +384,8 @@ Reply with a JSON object only: {"reply": "your message to the group"}`;
     .from('study_group_messages')
     .insert({ group_id: groupId, user_id: null, display_name: 'TaskTrack AI', kind: 'ai', content: reply });
   if (insertError) {
-    await supabase.rpc('refund_ai_request');
-    return json({ ok: false, error: 'The AI answer could not be posted. You were not charged a message.' }, 500);
+    await supabase.rpc('refund_ai_credits', { p_cost: GROUP_ASK_COST });
+    return json({ ok: false, error: 'The AI answer could not be posted. Your credit was given back.' }, 500);
   }
   return json({ ok: true });
 }

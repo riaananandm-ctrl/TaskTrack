@@ -31,9 +31,11 @@ import { IntegrationsPanel } from '@/components/integrations-panel';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { downloadTasksCsv } from '@/lib/export-tasks';
+import { useAiCredits, refillDate } from '@/lib/ai-credits';
 
 export default function SettingsPage() {
   const { user, profile, signOut, forgetDevice, refreshProfile } = useAuth();
+  const { credits } = useAiCredits();
   const [exporting, setExporting] = useState(false);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const exportTasks = async () => {
@@ -583,8 +585,25 @@ export default function SettingsPage() {
                   <Crown className="w-4 h-4 text-primary" /> Your plan: {entitlements.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {entitlements.dailyAiMessages} TaskTrack AI messages per day · {entitlements.maxMessageChars.toLocaleString()} characters per message
+                  {entitlements.monthlyAiCredits.toLocaleString()} AI credits a month · {entitlements.maxMessageChars.toLocaleString()} characters per message
                 </p>
+                {credits && (
+                  <div className="mt-4 max-w-sm">
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="font-medium">{credits.remaining.toLocaleString()} credits left</span>
+                      <span className="text-xs text-muted-foreground">Refills {refillDate(credits.resetsAt)}</span>
+                    </div>
+                    <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${credits.limit ? Math.min(100, (credits.remaining / credits.limit) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Chat or explain 1 · Quiz, flashcards or plan 2 · Slides 3 · AI Grader 5
+                    </p>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground mt-2">
                   TaskTrack AI is included with your account and shared across everyone using
                   TaskTrack. You never need your own API key.

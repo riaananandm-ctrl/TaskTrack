@@ -11,8 +11,8 @@ export interface PlanEntitlements {
   priceInr: number;
   /** Billing period length in months. */
   periodMonths: number;
-  /** Max successful AI Study Assistant requests per calendar day. */
-  dailyAiMessages: number;
+  /** AI credits per calendar month (UTC). Each AI action costs 1 to 5 credits. */
+  monthlyAiCredits: number;
   /** Max length of a single user message. */
   maxMessageChars: number;
   /** Questions per generated quiz. */
@@ -35,7 +35,7 @@ const FREE: PlanEntitlements = {
   name: 'Free',
   priceInr: 0,
   periodMonths: 0,
-  dailyAiMessages: 7,
+  monthlyAiCredits: 100,
   maxMessageChars: 2000,
   quizQuestions: 5,
   flashcards: 5,
@@ -54,7 +54,7 @@ const PRO: PlanEntitlements = {
   name: 'Premium',
   priceInr: 699,
   periodMonths: 3,
-  dailyAiMessages: 100,
+  monthlyAiCredits: 2000,
   maxMessageChars: 2000,
   quizQuestions: 8,
   flashcards: 12,

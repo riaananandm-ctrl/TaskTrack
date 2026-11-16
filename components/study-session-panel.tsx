@@ -16,6 +16,7 @@ import { QuizView, FlashcardsView, PlanView, SlidesView } from '@/components/stu
 import { CountdownTimer } from '@/components/countdown-timer';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { useAiCredits, announceCreditsChanged, refillDate } from '@/lib/ai-credits';
 import { getProfileEntitlements, resolvePlan } from '@/lib/entitlements';
 import {
   uploadDocument, listDocuments, getUploadUsage, deleteDocument,
@@ -144,8 +145,9 @@ export function StudySessionPanel({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
-  const [usage, setUsage] = useState<{ used: number; dailyLimit: number } | null>(null);
+  const { credits } = useAiCredits();
+  // Locked only when nothing is left; with a few credits left, cheaper modes still work.
+  const limitReached = credits?.remaining === 0;
   const [selectedAi, setSelectedAi] = useState<AiOptionId>('tasktrack-ai');
   // The mode applied to the NEXT message. Changing it never sends a message.
   const [selectedMode, setSelectedMode] = useState<StudyMode>('chat');
@@ -201,7 +203,6 @@ export function StudySessionPanel({
     let cancelled = false;
     setLoadingHistory(true);
     setError(null);
-    setLimitReached(false);
     setStatus(session.status);
 
     getSessionMessages(session.id)
@@ -362,7 +363,7 @@ export function StudySessionPanel({
         text?: string;
         structured?: unknown;
         messageId?: string | null;
-        usage?: { used: number; dailyLimit: number } | null;
+        usage?: { used: number; limit: number; remaining: number } | null;
         error?: { code?: string; message?: string } | string;
       };
 
@@ -407,7 +408,7 @@ export function StudySessionPanel({
               ? `TaskTrack AI is temporarily unavailable (status ${status}). Please try again.`
               : NETWORK_ERROR)
         );
-        if (bodyError?.code === 'QUOTA_EXCEEDED' || status === 429) setLimitReached(true);
+        if (bodyError?.code === 'QUOTA_EXCEEDED') announceCreditsChanged();
         setLoading(false);
         return;
       }
@@ -430,7 +431,7 @@ export function StudySessionPanel({
               : 'Something went wrong. Please try again.';
         setError(message);
         if (typeof data.error === 'object' && data.error?.code === 'QUOTA_EXCEEDED') {
-          setLimitReached(true);
+          announceCreditsChanged();
         }
         setLoading(false);
         return;
@@ -445,7 +446,7 @@ export function StudySessionPanel({
         return;
       }
 
-      if (data.usage?.dailyLimit) setUsage(data.usage);
+      announceCreditsChanged();
 
       // A generated study plan becomes real, persistent scheduled sessions.
       if (mode === 'plan' && structured) {
@@ -793,9 +794,9 @@ export function StudySessionPanel({
           >
             <div className="hidden lg:flex items-center justify-between px-5 py-3 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">Study assistant</h3>
-              {usage && (
-                <span className="text-[11px] text-muted-foreground">
-                  {usage.used}/{usage.dailyLimit} today
+              {credits && (
+                <span className="text-[11px] text-muted-foreground" title={`Refills ${refillDate(credits.resetsAt)}`}>
+                  {credits.remaining} of {credits.limit} credits left
                 </span>
               )}
             </div>
@@ -886,7 +887,7 @@ export function StudySessionPanel({
               {limitReached && (
                 <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs">
                   <Lock className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  <span>You&rsquo;ve reached today&rsquo;s TaskTrack AI limit. You can continue tomorrow.</span>
+                  <span>You&rsquo;ve used all your AI credits for this month. They refill on {refillDate(credits?.resetsAt ?? null)}.</span>
                 </div>
               )}
             </div>
@@ -943,7 +944,7 @@ export function StudySessionPanel({
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={limitReached ? 'Daily limit reached' : 'Ask a question about this task…'}
+                  placeholder={limitReached ? 'No AI credits left this month' : 'Ask a question about this task…'}
                   disabled={loading || limitReached}
                   className="flex-1 min-w-0 px-3.5 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
                 />
@@ -977,7 +978,7 @@ export function StudySessionPanel({
                           if (locked) {
                             setAiNotice({
                               kind: 'info',
-                              text: 'Study Bot is part of Premium. Upgrade to unlock Study Bot — your daily AI limits and usage counting stay the same.',
+                              text: 'Study Bot is part of Premium. Upgrade to unlock Study Bot — it uses the same AI credits.',
                             });
                             return;
                           }

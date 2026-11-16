@@ -306,7 +306,7 @@ export default function LandingPage() {
                     <p className="text-xs font-medium text-emerald-700">Available</p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">Upload your notes, PDFs, Word or PowerPoint files and the AI studies from them. Turn any topic into study slides and download them for Google Slides or PowerPoint.</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">Upload PDFs and text notes and the AI studies from them. Turn any topic into study slides and download them for Google Slides or PowerPoint.</p>
               </div>
             </div>
           </div>
@@ -331,7 +331,7 @@ export default function LandingPage() {
                   {[
                     'Tasks, subjects, and planning',
                     'Calendar and reminders',
-                    '7 AI messages per day',
+                    '100 AI credits a month',
                     'Quizzes (5 questions) and flashcards (5 cards)',
                     'ManageBac connection',
                   ].map((item) => (
@@ -351,7 +351,7 @@ export default function LandingPage() {
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-700">
                   {[
                     'Everything in Free',
-                    '100 AI messages per day',
+                    '2,000 AI credits a month',
                     'Unlimited tasks and reminders',
                     'Worked examples and study plans',
                     'Bigger quizzes and flashcard sets',
@@ -388,8 +388,12 @@ export default function LandingPage() {
                   a: 'Your ManageBac deadlines update in TaskTrack each time your calendar syncs. There are no real-time notifications when a teacher changes a task.',
                 },
                 {
+                  q: 'How do AI credits work?',
+                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Free accounts get 100 credits a month and Premium gets 2,000. They refill on the 1st of every month, and if the AI fails you get them back.',
+                },
+                {
                   q: 'What does Premium add?',
-                  a: 'More daily AI messages, unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Checkout is not open yet.',
+                  a: '20 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Checkout is not open yet.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group rounded-xl border border-slate-200 bg-white p-5 open:shadow-sm">

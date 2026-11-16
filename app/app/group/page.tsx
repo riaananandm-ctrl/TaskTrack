@@ -452,7 +452,7 @@ function Room({ groupId }: { groupId: string }) {
                 aria-label="Message the group"
                 className="max-h-32 min-h-[2.75rem] flex-1 resize-none"
               />
-              <Button type="button" variant="outline" onClick={handleAskAi} disabled={asking || sending || (messages.length === 0 && !draft.trim())} title="Ask the AI to answer the latest question. Uses one of your AI messages.">
+              <Button type="button" variant="outline" onClick={handleAskAi} disabled={asking || sending || (messages.length === 0 && !draft.trim())} title="Ask the AI to answer the latest question. Uses 1 AI credit.">
                 {asking ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1.5" /> : <Sparkles className="h-4 w-4 sm:mr-1.5" />}
                 <span className="hidden sm:inline">Ask AI</span>
               </Button>

@@ -430,6 +430,11 @@ export function SlidesView({ data }: { data: SlidesData }) {
                 <p className="text-xs leading-relaxed">{slide.example}</p>
               </div>
             )}
+            {slide.notes && (
+              <p className="border-l-2 border-primary/40 pl-2.5 text-xs italic leading-relaxed text-muted-foreground">
+                {slide.notes}
+              </p>
+            )}
           </div>
         </div>
       ))}
