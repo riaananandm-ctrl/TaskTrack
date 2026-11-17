@@ -13,6 +13,7 @@ export const CREDIT_COSTS = {
   chat: 1,
   explain: 1,
   examples: 1,
+  practice: 1,
   quiz: 2,
   flashcards: 2,
   plan: 2,

@@ -107,7 +107,7 @@ const FALLBACK_LIMITS = { daily_ai_messages: 20, max_message_chars: 2000 };
  * the server; the browser cannot choose its own price.
  */
 const CREDIT_COST: Record<string, number> = {
-  chat: 1, explain: 1, examples: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3,
+  chat: 1, explain: 1, examples: 1, practice: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3,
 };
 
 const corsHeaders = {
@@ -240,7 +240,7 @@ const MODE_COUNTS: Record<'free' | 'pro', ModeCounts> = {
  * Modes that produce topic-specific material. When the task does not name a real
  * topic these must ask for clarification rather than inventing content.
  */
-const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan']);
+const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan', 'practice']);
 
 /**
  * Words that appear in study tasks but do NOT identify a topic. A task made up
@@ -332,6 +332,7 @@ const CLARIFICATION_FOLLOW_UPS: Record<string, string> = {
   quiz: 'What specific concept, chapter, or skill should the quiz cover?',
   slides: 'What specific concept, chapter, or skill should the slides cover?',
   plan: 'What specific topic, chapter, or subject should the study plan cover?',
+  practice: 'What specific topic, chapter, or skill do you want to practise?',
 };
 
 function buildClarificationReply(mode: string): string {
@@ -348,8 +349,9 @@ function modeInstructions(mode: string, counts: ModeCounts): Record<string, stri
     chat: 'The student is chatting freely. Answer their latest message directly and helpfully.',
     explain: `Explain the topic clearly and simply, in student-friendly language.
 - Start with a one-line summary, then break down the key ideas.
-- Include a concrete example or analogy where it helps.
-- End with one short check-for-understanding question.`,
+- Include a concrete example or analogy where it helps, and name the common misconception if there is one.
+- Link it to how it is assessed in IB (the command terms or criterion it usually appears under).
+- End with one short check-for-understanding question, and invite the student to answer it.`,
     quiz: `Write a quiz of ${counts.quiz} multiple-choice questions on this topic, ordered from easier
 to harder. Give exactly 4 options per question with exactly one correct option. Provide a short
 (one or two sentence) explanation for each answer. End with a short list of the weak topics
@@ -362,12 +364,33 @@ Do not add any other commentary.`,
 - Spread the sessions sensibly between tomorrow and the due date.
 - If the due date is today or tomorrow, include only the sessions that genuinely fit and say
   in the summary that the plan is compressed because the deadline is near.
-- Each session is one focused sitting. Give 3 to 5 concrete topics to cover per session.`,
+- Each session is one focused sitting. Give 3 to 5 concrete topics to cover per session.
+- Build each session as LEARN -> PRACTISE -> CHECK:
+  * "videos": 1 or 2 short videos to watch first. For each give a specific YouTube search
+    ("search") that will find a good explainer, e.g. "IB Chemistry ionic bonding Richard Thornley"
+    or "IB Maths AA SL binomial theorem Revision Village". Name a well-known IB revision channel
+    in "channel" only when you are confident it covers this topic; otherwise leave channel empty.
+    Never invent a URL or a video title you are not sure exists: describe the video in "title".
+  * "practice": one concrete active task (e.g. "Answer 3 past-paper style 'Explain' questions on
+    lattice energy, then mark them against the markscheme points").
+  * "check": a one-line way to know the session worked (e.g. "Explain bonding types to a friend
+    in 1 minute without notes").
+- Use spacing: revisit earlier topics briefly in later sessions, and make the last session a
+  timed, exam-style practice.`,
     examples: `Show 3 worked examples on this topic, ordered from easier to harder.
 For each: state the problem, then "**Step-by-step:**" with numbered reasoning, then
 "**Answer:**". Explain why each step works, not just what to do.
 Finish with one similar practice question for the student to try on their own (do not
 answer it).`,
+    practice: `Run an exam-style practice round, like an IB teacher in a one-to-one lesson.
+- If the student has not answered yet: give ONE exam-style question on this topic, with its
+  command term in bold and the marks in brackets, e.g. "**Explain** why ... [3]". Start at a
+  moderate level. Do NOT give the answer. Ask them to reply with their attempt.
+- If their latest message is an attempt at your previous question: mark it like an IB examiner.
+  Give the mark ("2/3"), list which markscheme points they earned and which they missed, show a
+  model full-mark answer, and give one specific tip. Then ask the next question, a little harder
+  if they did well or a similar one if they struggled.
+- If they say "I don't know" or ask for a hint: give a hint or the first step, not the full answer.`,
     slides: `Produce a polished study slide deck that a student could revise from or present in class.
 - 6 to 10 slides. Give the deck a specific title (not just the subject name) and a one-line subtitle.
 - Slide 1 is "What you'll learn": 3 bullets starting with an IB command term (Define, Explain, Calculate, Compare, Evaluate...).
@@ -382,7 +405,7 @@ answer it).`,
 }
 
 /** Every mode the assistant supports. Anything else falls back to free chat. */
-const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides']);
+const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides', 'practice']);
 
 /** Modes that must never show raw JSON to the student. */
 const STRUCTURED_MODES: Record<string, { schema: string }> = {
@@ -414,7 +437,12 @@ Use exactly the number of cards stated in the instructions above.`,
   "compressed": false,
   "summary": "one short sentence describing the plan",
   "sessions": [
-    { "date": "YYYY-MM-DD", "focus": "what this session covers", "topics": ["topic", "topic"], "minutes": 45 }
+    {
+      "date": "YYYY-MM-DD", "focus": "what this session covers", "topics": ["topic", "topic"], "minutes": 45,
+      "videos": [{ "title": "what the video explains", "channel": "channel name or empty", "search": "YouTube search words" }],
+      "practice": "the active practice task",
+      "check": "how to check the session worked"
+    }
   ]
 }
 Set compressed to true when the deadline is so close that only the sessions listed could fit.
@@ -431,6 +459,46 @@ Every date must be AFTER today's date shown above. Never output a date in the pa
 Provide 6 to 10 slides of 3 to 5 bullets each. The final slide's heading should be "Recap".`,
   },
 };
+
+/**
+ * How TaskTrack AI teaches. Included in every study-session prompt so every mode follows
+ * the same IB-aware, evidence-based approach.
+ */
+const IB_TEACHING_GUIDE = `How you teach (follow this in every reply):
+- Help the student LEARN, not just get answers. Prefer guiding questions, hints and worked
+  steps over handing over finished work. Never write graded work (IA, EE, TOK essay, coursework)
+  for them; coach them to write it themselves.
+- Check understanding often: ask the student to explain back, predict, or try a similar
+  question. Diagnose misconceptions and fix the idea, not just the answer.
+- Use proven study techniques and name them briefly when useful: retrieval practice (testing
+  yourself), spaced repetition, interleaving (mixing topics), worked examples then fading the
+  help, dual coding (words + diagrams), and elaboration (asking "why" and "how").
+- Keep it in small steps; one idea at a time for a student who is stuck.
+
+What you know about IB:
+- Programmes: MYP (ages 11-16) and DP (16-19). Many students are also in the PYP-to-MYP or
+  MYP-to-DP transition.
+- MYP assessment: each subject has four criteria A-D, each marked 0-8 with level descriptors
+  (e.g. Sciences: A Knowing & understanding, B Inquiring & designing, C Processing & evaluating,
+  D Reflecting on the impacts of science). Higher bands need evaluation, justification and
+  detail, not just description. Point students to the descriptor words that separate bands.
+- DP: six subject groups at SL/HL, graded 1-7, plus the Core: TOK (essay + exhibition),
+  Extended Essay (4,000 words) and CAS. Most subjects have external exams (Paper 1, 2, sometimes
+  3) and an Internal Assessment (IA) marked against criteria. Bonus points come from TOK + EE.
+- IB command terms set the depth expected: Define/State/List (recall, short), Describe/Outline
+  (some detail), Explain (causes and reasons, "because"), Analyse/Compare/Contrast (break down,
+  similarities and differences), Evaluate/Discuss/To what extent (both sides, judgement,
+  conclusion), Calculate/Derive/Show that (working shown, units, significant figures). Always
+  answer to the command term and remind students marks follow markscheme points.
+- Exam technique that earns marks: read the command term and the marks (1 mark ~ 1 point),
+  show working, use subject vocabulary precisely, label diagrams and units, and manage time
+  (about 1 minute per mark in many papers).
+- Approaches to Learning (ATL) skills: thinking, communication, social, self-management and
+  research. The learner profile values being inquirers, thinkers, reflective and balanced.
+- Only cite real resources. Well-known free IB help includes the subject guide and past-paper
+  style questions from the student's teacher, Richard Thornley (Chemistry), Revision Village
+  (Maths), and Khan Academy for fundamentals. If unsure a resource exists, describe what to
+  search for instead.`;
 
 function buildSystemPrompt(
   task: TaskContext | null,
@@ -461,6 +529,8 @@ not based on the student's exact assignment. Do not pretend to know their specif
     : '';
 
   return `You are TaskTrack AI, a patient and encouraging study companion for school students.
+
+${IB_TEACHING_GUIDE}
 
 ${taskLines ? `The student opened this session from this task:\n${taskLines}\n` : ''}
 Today's date is ${today}.
@@ -664,6 +734,12 @@ function structuredToText(mode: string, value: unknown): string {
       lines.push(
         `- ${s(x.date)}: ${s(x.focus)}${topics.length ? ` (${topics.join(', ')})` : ''}`
       );
+      arr(x.videos).forEach((y0) => {
+        const y = y0 as Record<string, unknown>;
+        if (s(y.title)) lines.push(`  Watch: ${s(y.title)}${s(y.channel) ? ` (${s(y.channel)})` : ''}`);
+      });
+      if (s(x.practice)) lines.push(`  Practise: ${s(x.practice)}`);
+      if (s(x.check)) lines.push(`  Check: ${s(x.check)}`);
     });
     return lines.join('\n');
   }

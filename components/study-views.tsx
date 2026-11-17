@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, X, Layers, Loader2, Download } from 'lucide-react';
+import { Check, CheckCircle2, X, ExternalLink, Layers, Loader2, Download, PenLine, PlayCircle } from 'lucide-react';
 import { downloadSlidesPptx } from '@/lib/export-slides';
 import { cn } from '@/lib/utils';
 import { saveDeck } from '@/lib/spaced-review';
-import type { QuizData, FlashcardsData, StudyPlanData, SlidesData } from '@/lib/study-modes';
+import { youtubeSearchUrl, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData } from '@/lib/study-modes';
 
 // ---------------------------------------------------------------------------
 // Quiz — one question at a time, immediate feedback, score and weak topics
@@ -324,7 +324,7 @@ export function FlashcardsView({ data, deckDefaults }: FlashcardsViewProps) {
 // Study plan — dates, focus, topics
 // ---------------------------------------------------------------------------
 
-export function PlanView({ data }: { data: StudyPlanData }) {
+export function PlanView({ data, onPractice }: { data: StudyPlanData; onPractice?: (session: PlanSession) => void }) {
   return (
     <div className="space-y-4">
       {data.summary && <p className="text-sm leading-relaxed">{data.summary}</p>}
@@ -360,6 +360,52 @@ export function PlanView({ data }: { data: StudyPlanData }) {
                   <li key={j} className="text-xs text-muted-foreground leading-relaxed">- {t}</li>
                 ))}
               </ul>
+            )}
+            {((s.videos?.length ?? 0) > 0 || s.practice || s.check) && (
+              <ol className="mt-3 space-y-2 border-t border-border pt-3">
+                {(s.videos?.length ?? 0) > 0 && (
+                  <li className="flex gap-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-600"><PlayCircle className="h-3.5 w-3.5" /></span>
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">1 · Watch</p>
+                      {s.videos!.map((v, k) => (
+                        <a key={k} href={youtubeSearchUrl(v)} target="_blank" rel="noopener noreferrer"
+                          className="group flex items-start gap-1.5 text-xs font-medium text-foreground hover:text-primary">
+                          <span className="text-muted-foreground">Video {k + 1}:</span>
+                          <span className="underline decoration-dotted underline-offset-2 group-hover:decoration-solid">
+                            {v.title || v.search}{v.channel ? ` · ${v.channel}` : ''}
+                          </span>
+                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 opacity-60" />
+                        </a>
+                      ))}
+                    </div>
+                  </li>
+                )}
+                {s.practice && (
+                  <li className="flex gap-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><PenLine className="h-3.5 w-3.5" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">2 · Practise</p>
+                      <p className="text-xs leading-relaxed">{s.practice}</p>
+                      {onPractice && (
+                        <button type="button" onClick={() => onPractice(s)}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground hover:opacity-90">
+                          <PenLine className="h-3 w-3" /> Practise with TaskTrack AI
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                )}
+                {s.check && (
+                  <li className="flex gap-2.5">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" /></span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">3 · Check yourself</p>
+                      <p className="text-xs leading-relaxed">{s.check}</p>
+                    </div>
+                  </li>
+                )}
+              </ol>
             )}
           </div>
         ))}

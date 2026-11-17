@@ -8,7 +8,7 @@ import {
   X, Send, Loader2, AlertCircle, Lock, CheckCircle2, RotateCcw,
   ChevronDown, CalendarDays, Clock, CalendarPlus, Paperclip, FileText,
   ShieldAlert, Sparkles, Crown, BookOpen, ListChecks, Presentation,
-  Lightbulb, CalendarRange, MessageSquare,
+  Lightbulb, CalendarRange, MessageSquare, PenLine,
 } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Logo } from '@/components/logo';
@@ -38,6 +38,7 @@ import {
   type QuizData,
   type FlashcardsData,
   type StudyPlanData,
+  type PlanSession,
   type SlidesData,
 } from '@/lib/study-modes';
 import {
@@ -104,6 +105,7 @@ const TOOL_ICONS: Record<StudyMode, ReactNode> = {
   quiz: <ListChecks className="w-4 h-4" />,
   plan: <CalendarRange className="w-4 h-4" />,
   examples: <MessageSquare className="w-4 h-4" />,
+  practice: <PenLine className="w-4 h-4" />,
   slides: <Presentation className="w-4 h-4" />,
 };
 
@@ -299,6 +301,14 @@ export function StudySessionPanel({
       setScheduling(false);
     }
   }, [task?.id, task?.title, task?.estimated_minutes, session.id, scheduling]);
+
+  const practiseSession = (plan: PlanSession) => {
+    if (loading || limitReached) return;
+    const topics = plan.topics.length ? ` (${plan.topics.join(', ')})` : '';
+    setSelectedMode('practice');
+    setMobileChatOpen(true);
+    sendMessage(`Give me an exam-style practice question on: ${plan.focus}${topics}.${plan.practice ? ` Plan task: ${plan.practice}` : ''}`, 'practice');
+  };
 
   const sendMessage = async (text: string, mode: StudyMode) => {
     if (!text.trim() || loading || limitReached) return;
@@ -858,7 +868,7 @@ export function StudySessionPanel({
                     {msg.role === 'user' ? (
                       <p>{displayContent(msg.mode, msg.content, Boolean(msg.structured))}</p>
                     ) : (
-                      <StructuredMessage message={msg} onQuizFinished={saveAttempt} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
+                      <StructuredMessage message={msg} onQuizFinished={saveAttempt} onPractice={practiseSession} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
                     )}
                   </div>
                 </div>
@@ -1250,10 +1260,13 @@ function AiContextDisclosure({
 function StructuredMessage({
   message,
   onQuizFinished,
+  onPractice,
   deckDefaults,
 }: {
   message: DisplayMessage;
   onQuizFinished?: (result: QuizResult) => void;
+  /** Starts an exam-practice round for one session of a study plan. */
+  onPractice?: (session: PlanSession) => void;
   /** Links a saved deck back to this task and session. */
   deckDefaults?: { taskId: string | null; sessionId: string };
 }) {
@@ -1272,7 +1285,7 @@ function StructuredMessage({
             deckDefaults={deckDefaults}
           />
         )}
-        {message.mode === 'plan' && <PlanView data={message.structured as StudyPlanData} />}
+        {message.mode === 'plan' && <PlanView data={message.structured as StudyPlanData} onPractice={onPractice} />}
         {message.mode === 'slides' && <SlidesView data={message.structured as SlidesData} />}
       </div>
     );

@@ -2,7 +2,7 @@
 // The server asks Gemini for strict JSON in these modes; everything here validates
 // the payload before it reaches the UI so malformed data never breaks rendering.
 
-export type StudyMode = 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides';
+export type StudyMode = 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides' | 'practice';
 
 export interface StudyTask {
   taskId?: string | null;
@@ -67,6 +67,12 @@ export const MODE_OPTIONS: ModeOption[] = [
     structured: true,
   },
   {
+    id: 'practice',
+    label: 'Practise exam questions',
+    prompt: 'Give me an exam-style practice question on this topic.',
+    structured: false,
+  },
+  {
     id: 'examples',
     label: 'Show worked examples',
     prompt: 'Show me worked examples for this topic.',
@@ -94,6 +100,7 @@ export const MODE_SELECT_OPTIONS: { id: StudyMode; label: string }[] = [
   { id: 'quiz', label: 'Quiz' },
   { id: 'flashcards', label: 'Flashcards' },
   { id: 'plan', label: 'Study plan' },
+  { id: 'practice', label: 'Exam practice' },
   { id: 'examples', label: 'Worked examples' },
   { id: 'slides', label: 'Study slides' },
 ];
@@ -127,11 +134,27 @@ export interface FlashcardsData {
   cards: Flashcard[];
 }
 
+export interface PlanVideo {
+  title: string;
+  channel: string;
+  /** YouTube search words; the app links to a search so a link can never be dead. */
+  search: string;
+}
+
 export interface PlanSession {
   date: string;
   focus: string;
   topics: string[];
   minutes: number | null;
+  videos?: PlanVideo[];
+  practice?: string;
+  check?: string;
+}
+
+/** A YouTube search link for a suggested video. */
+export function youtubeSearchUrl(v: PlanVideo): string {
+  const q = v.search || [v.title, v.channel].filter(Boolean).join(' ');
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 }
 
 export interface StudyPlanData {
@@ -222,6 +245,14 @@ export function parsePlan(v: unknown): StudyPlanData | null {
       focus,
       topics: strArray(s.topics),
       minutes: Number.isFinite(minutes) && minutes > 0 ? minutes : null,
+      videos: (Array.isArray(s.videos) ? s.videos : [])
+        .map(obj)
+        .filter((x): x is Record<string, unknown> => !!x)
+        .map((x) => ({ title: str(x.title).slice(0, 140), channel: str(x.channel).slice(0, 60), search: str(x.search).slice(0, 140) }))
+        .filter((x) => x.title || x.search)
+        .slice(0, 2),
+      practice: str(s.practice).slice(0, 400),
+      check: str(s.check).slice(0, 300),
     });
   }
   return sessions.length > 0
