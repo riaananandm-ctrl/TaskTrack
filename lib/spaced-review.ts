@@ -94,6 +94,17 @@ export async function listDueCards(limit = 50): Promise<ReviewCard[]> {
   return data ?? [];
 }
 
+/** All the student's cards (newest decks first), for picking the daily review. */
+export async function listAllCards(limit = 1000): Promise<ReviewCard[]> {
+  const { data, error } = await supabase
+    .from('review_cards')
+    .select(CARD_COLUMNS)
+    .order('due_at', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getDeckWithCards(deckId: string): Promise<DeckWithCards | null> {
   const { data: deck, error } = await supabase
     .from('review_decks')

@@ -21,6 +21,49 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-17',
+    date: '2026-11-17',
+    title: 'IB Hub, daily review, streak buddies and a parent summary',
+    items: [
+      {
+        title: 'IB grade tracker',
+        description:
+          'In IB Hub → Grades, add your MYP criterion marks (A–D) or DP grades (1–7). See a predicted grade for each subject and which criterion to work on next.',
+        href: '/app/ib?tab=grades',
+      },
+      {
+        title: 'Exam countdown and revision timetable',
+        description:
+          'Add your mock and final exam dates. TaskTrack counts down and plans revision backwards from each exam, ending with a timed past paper.',
+        href: '/app/ib?tab=exams',
+      },
+      {
+        title: 'IA and EE checkpoints',
+        description:
+          'Split your Extended Essay, an IA or your TOK essay into checkpoints up to the deadline. They appear in My Tasks and your calendar with the usual reminders.',
+        href: '/app/ib?tab=projects',
+      },
+      {
+        title: 'Daily 5-minute review',
+        description:
+          'The top of Review now picks up to 15 flashcards for today, starting with topics you got wrong in recent study-session quizzes.',
+        href: '/app/review',
+      },
+      {
+        title: 'Streak buddies',
+        description:
+          'Pair up with a friend from Group Study and keep a shared streak going. Your study streak now counts properly too.',
+        href: '/app/group',
+      },
+      {
+        title: 'Weekly summary for a parent (optional)',
+        description:
+          'Turn it on in Settings → Privacy to get a private link for a parent: tasks done, what’s due and upcoming exams. No notes, chats or grades.',
+        href: '/app/settings?tab=privacy',
+      },
+    ],
+  },
+  {
     id: '2026-11-16',
     date: '2026-11-16',
     title: 'Google Classroom, better slides and monthly AI credits',

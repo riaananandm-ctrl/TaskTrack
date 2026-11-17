@@ -28,6 +28,7 @@ import { ProFeatureGate } from '@/components/pro-feature-gate';
 import { getProfileEntitlements } from '@/lib/entitlements';
 import { PushNotificationsCard } from '@/components/push-notifications-card';
 import { IntegrationsPanel } from '@/components/integrations-panel';
+import { ParentSummaryCard } from '@/components/parent-summary-card';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { downloadTasksCsv } from '@/lib/export-tasks';
@@ -636,6 +637,7 @@ export default function SettingsPage() {
 
         {/* Privacy */}
         <TabsContent value="privacy" className="space-y-4">
+          <ParentSummaryCard />
           <Card className="p-6 space-y-4">
             <h3 className="font-semibold">Security and privacy</h3>
             <div className="space-y-3 text-sm text-muted-foreground">

@@ -26,6 +26,7 @@ import {
   X,
   Inbox,
   Users,
+  Target,
 } from 'lucide-react';
 import { useNewTaskCount } from '@/lib/new-tasks';
 import { hasUnseenRelease } from '@/lib/whats-new';
@@ -55,6 +56,7 @@ const NAV_GROUPS = [
   {
     label: 'Study',
     items: [
+      { href: '/app/ib', label: 'IB Hub', icon: Target },
       { href: '/app/planning', label: 'Planning', icon: CalendarClock },
       { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
       { href: '/app/group', label: 'Group Study', icon: Users },

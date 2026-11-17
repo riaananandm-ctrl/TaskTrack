@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Layers, Plus, Trash2, Pencil, Check, X, RefreshCw, Loader2,
   AlertCircle, BookOpen, ChevronDown, ChevronUp,
@@ -12,12 +12,14 @@ import {
 } from '@/components/ui/dialog';
 import {
   listDecks, getDeckWithCards, saveDeck, updateCard, deleteCard,
-  renameDeck, deleteDeck, recordReview,
+  renameDeck, deleteDeck, recordReview, listAllCards,
   type ReviewDeck, type ReviewCard, type DeckWithCards,
 } from '@/lib/spaced-review';
 import { format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
+import { listQuizAttempts } from '@/lib/quiz-attempts';
+import { pickDailyReview, DAILY_REVIEW_SIZE } from '@/lib/daily-review';
 
 /**
  * Review page: the student's saved flashcard decks and the due-today queue.
@@ -60,6 +62,8 @@ export default function ReviewPage() {
         </Button>
       </div>
 
+      {!loading && decks.length > 0 && <DailyReview onFinished={load} />}
+
       {loadError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {loadError}
@@ -98,6 +102,79 @@ export default function ReviewPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={load}
       />
+    </div>
+  );
+}
+
+/**
+ * Today's 5-minute review: up to 15 cards, due cards first, with cards about the
+ * topics you got wrong in recent study-session quizzes put to the front.
+ */
+function DailyReview({ onFinished }: { onFinished: () => void }) {
+  const [cards, setCards] = useState<ReviewCard[] | null>(null);
+  const [weakTopics, setWeakTopics] = useState<string[]>([]);
+  const [practising, setPractising] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const reviewed = useRef(new Set<string>());
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      listAllCards(),
+      listQuizAttempts({ limit: 10 }).catch(() => []),
+    ])
+      .then(([all, attempts]) => {
+        if (cancelled) return;
+        const topics = Array.from(new Set(attempts.flatMap((a) => a.weak_topics))).slice(0, 20);
+        setWeakTopics(topics);
+        setCards(pickDailyReview(all, topics, new Date(), DAILY_REVIEW_SIZE));
+      })
+      .catch(() => !cancelled && setCards([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (cards === null) return null;
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+      {practising ? (
+        <PracticeSession
+          cards={cards}
+          exitLabel="Done"
+          onExit={() => {
+            setPractising(false);
+            const left = cards.filter((c) => !reviewed.current.has(c.id));
+            setCards(left);
+            if (left.length === 0) setFinished(true);
+            onFinished();
+          }}
+          onCardReviewed={(c) => reviewed.current.add(c.id)}
+          onFinished={() => {}}
+        />
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <p className="font-semibold">Today&rsquo;s 5-minute review</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {finished
+                ? 'Done for today. Nice work! Cards come back on their schedule.'
+                : cards.length === 0
+                  ? 'Nothing due today. Your cards come back on their schedule.'
+                  : `${cards.length} card${cards.length === 1 ? '' : 's'}${weakTopics.length ? ', starting with topics you got wrong in recent quizzes' : ', hardest first'}.`}
+            </p>
+            {!finished && weakTopics.length > 0 && cards.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1 truncate">Weak topics: {weakTopics.slice(0, 4).join(', ')}</p>
+            )}
+          </div>
+          {!finished && cards.length > 0 && (
+            <Button onClick={() => setPractising(true)} className="gap-1.5">
+              <RefreshCw className="w-4 h-4" /> Start
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -326,11 +403,13 @@ function PracticeSession({
   onExit,
   onCardReviewed,
   onFinished,
+  exitLabel = 'Back to deck',
 }: {
   cards: ReviewCard[];
   onExit: () => void;
   onCardReviewed: (card: ReviewCard) => void;
   onFinished: () => void;
+  exitLabel?: string;
 }) {
   const queue = useMemo(() => cards.filter((c) => c.front), [cards]);
   const [index, setIndex] = useState(0);
@@ -366,7 +445,7 @@ function PracticeSession({
             ? 'Nothing to review right now — cards return on their schedule.'
             : `${reviewedCount} reviewed, ${correctCount} correct. Cards you got wrong come back tomorrow; the rest later.`}
         </p>
-        <Button size="sm" variant="outline" onClick={onExit}>Back to deck</Button>
+        <Button size="sm" variant="outline" onClick={onExit}>{exitLabel}</Button>
       </div>
     );
   }

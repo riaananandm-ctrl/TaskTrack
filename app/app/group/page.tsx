@@ -27,6 +27,7 @@ import {
 } from '@/lib/group-study';
 import { GroupIcon } from '@/components/brand-icons';
 import { ParentConsentCard } from '@/components/consent-gate';
+import { StreakBuddies } from '@/components/streak-buddies';
 import { needsParent, useConsent } from '@/lib/consent';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Button } from '@/components/ui/button';
@@ -214,6 +215,8 @@ function Lobby() {
           </div>
         )}
       </section>
+
+      <StreakBuddies />
     </div>
   );
 }
