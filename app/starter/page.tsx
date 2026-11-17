@@ -30,6 +30,8 @@ import { connectManageBac, syncManageBac, verifyManageBacFeed } from '@/lib/mana
 import { normalizeFeedUrl, maskFeedUrl } from '@/lib/feed-url';
 import { enableNotifications, sendTestNotification, isPushSupported, getPushStatus, type PushStatus } from '@/lib/push-notifications';
 import { ManageBacHelpDialog, FirstVisitHelpTooltip } from '@/components/managebac-help';
+import { SubjectPicker } from '@/components/subject-picker';
+import { autoSortTasks } from '@/lib/ai-tools';
 
 export default function StarterPage() {
   const router = useRouter();
@@ -50,6 +52,8 @@ export default function StarterPage() {
   const [notifBusy, setNotifBusy] = useState(false);
   const [notifFeedback, setNotifFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [subjectsDone, setSubjectsDone] = useState(false);
+  const [sortedImported, setSortedImported] = useState<number | null>(null);
 
   const loadProgress = useCallback(async () => {
     const data = await fetchOnboardingProgress();
@@ -145,6 +149,10 @@ export default function StarterPage() {
 
       const imported = (sync.imported ?? 0) + (sync.updated ?? 0);
       setImportedCount(imported);
+      // Sort the imported tasks into the student's subjects right away.
+      if (imported > 0) {
+        autoSortTasks({ all: true }).then((r) => setSortedImported(r.subjected)).catch(() => {});
+      }
       await updateStep('step_managebac_connected', XP_RULES.managebac_connected, 'managebac_connected', BADGE_KEYS.managebac_connected);
       if (imported > 0) {
         await awardXp(XP_RULES.first_task_imported_from_managebac, 'first_task_imported_from_managebac');
@@ -243,6 +251,26 @@ export default function StarterPage() {
           <Logo />
         </div>
 
+        {/* Step 1: pick subjects, so imported tasks can be sorted into them */}
+        <section id="pick-subjects" className="mb-8">
+          <Card className="p-6 sm:p-8">
+            <div className="flex items-center gap-2 mb-1">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Step 1 — Your subjects</span>
+              {subjectsDone && (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-full">
+                  <Check className="w-3 h-3" /> Done
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-1">Which subjects do you take?</h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              Pick your subjects. When your tasks come in from ManageBac or Google Classroom, TaskTrack AI reads each one and files it under the right subject.
+            </p>
+            <SubjectPicker onDone={() => setSubjectsDone(true)} />
+          </Card>
+        </section>
+
         {/* Layout: hero + sidebar with XP widget */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-6 mb-8">
           {/* ManageBac hero — the first and biggest thing */}
@@ -251,7 +279,7 @@ export default function StarterPage() {
             <div className="relative">
               <div className="flex items-center gap-2 mb-4">
                 <Calendar className="w-7 h-7" />
-                <span className="text-sm font-medium uppercase tracking-wide opacity-90">Step 1 — Get connected</span>
+                <span className="text-sm font-medium uppercase tracking-wide opacity-90">Step 2 — Get connected</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-3">
                 Connect ManageBac — see all your deadlines in one place
@@ -296,6 +324,7 @@ export default function StarterPage() {
                     <Check className="w-4 h-4" /> ManageBac connected — +{XP_RULES.managebac_connected} XP earned
                   </div>
                   {importedCount !== null && <p className="text-sm text-white/90">Imported {importedCount} task{importedCount === 1 ? '' : 's'} and event{importedCount === 1 ? '' : 's'}.</p>}
+                  {sortedImported !== null && sortedImported > 0 && <p className="text-sm text-white/90">TaskTrack AI sorted {sortedImported} into your subjects.</p>}
                 </div>
               )}
             </div>

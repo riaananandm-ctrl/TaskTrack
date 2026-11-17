@@ -33,7 +33,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Search, BookOpen, Pencil, Archive, Trash2, MoreVertical, ArrowLeft, CheckCircle2, Clock, AlertCircle, RotateCcw } from 'lucide-react';
+import { Plus, Search, BookOpen, Pencil, Archive, Trash2, MoreVertical, ArrowLeft, CheckCircle2, Clock, AlertCircle, RotateCcw, Sparkles } from 'lucide-react';
+import { SubjectPicker } from '@/components/subject-picker';
 import { cn } from '@/lib/utils';
 import { validateSubjectName, SUBJECT_MAX_WORDS, SUBJECT_MAX_CHARS } from '@/lib/subject-validation';
 import { TaskCard } from '@/components/task-card';
@@ -68,6 +69,7 @@ export default function SubjectsPage() {
   const [deleteMode, setDeleteMode] = useState<'archive' | 'delete'>('archive');
   const [detailSubject, setDetailSubject] = useState<Subject | null>(null);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -245,10 +247,27 @@ export default function SubjectsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Subjects</h1>
           <p className="text-sm text-muted-foreground mt-1">{subjects.length} subject{subjects.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={handleNew} size="lg">
-          <Plus className="w-4 h-4 mr-1" /> Add subject
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setPickerOpen(true)} size="lg" variant="outline">
+            <Sparkles className="w-4 h-4 mr-1" /> Pick subjects & sort tasks
+          </Button>
+          <Button onClick={handleNew} size="lg">
+            <Plus className="w-4 h-4 mr-1" /> Add subject
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) fetchData(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pick your subjects</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Choose the subjects you take. TaskTrack AI then files your unsorted tasks under the right subject using each task’s title and description.
+          </p>
+          <SubjectPicker compact onDone={() => fetchData()} />
+        </DialogContent>
+      </Dialog>
 
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -278,7 +297,10 @@ export default function SubjectsPage() {
             {tab === 'archived' ? 'Archived subjects will appear here.' : 'Add your first subject to organise your tasks.'}
           </p>
           {tab === 'active' && (
-            <Button onClick={handleNew}><Plus className="w-4 h-4 mr-1" /> Add subject</Button>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button onClick={() => setPickerOpen(true)}><Sparkles className="w-4 h-4 mr-1" /> Pick subjects & sort tasks</Button>
+              <Button variant="outline" onClick={handleNew}><Plus className="w-4 h-4 mr-1" /> Add subject</Button>
+            </div>
           )}
         </div>
       ) : (

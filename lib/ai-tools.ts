@@ -96,50 +96,89 @@ const SORTED_KEY = 'tasktrack:auto-sorted-task-ids';
 /** Fired after tasks were sorted, so open pages can refresh their lists. */
 export const TASKS_SORTED_EVENT = 'tasktrack:tasks-sorted';
 
-function readSorted(): Set<string> {
+/**
+ * Remembers which tasks were already offered to the sorter, together with the set of
+ * subjects at that time. When the student's subjects change (for example they pick
+ * subjects after importing), the memory is reset so every unsorted task is tried again.
+ */
+interface SortedMemory { subjects: string; ids: Set<string> }
+
+function readSorted(): SortedMemory {
   try {
     const raw = window.localStorage.getItem(SORTED_KEY);
-    const ids = raw ? (JSON.parse(raw) as unknown) : [];
-    return new Set(Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    // Older format: a plain list of ids, with no subject signature.
+    if (Array.isArray(parsed)) return { subjects: '', ids: new Set(parsed.filter((x): x is string => typeof x === 'string')) };
+    const obj = parsed as { subjects?: unknown; ids?: unknown } | null;
+    return {
+      subjects: typeof obj?.subjects === 'string' ? obj.subjects : '',
+      ids: new Set(Array.isArray(obj?.ids) ? (obj!.ids as unknown[]).filter((x): x is string => typeof x === 'string') : []),
+    };
   } catch {
-    return new Set();
+    return { subjects: '', ids: new Set() };
   }
 }
 
-function saveSorted(ids: Set<string>) {
+function saveSorted(memory: SortedMemory) {
   try {
     // Keep the newest 500 so the list cannot grow without bound.
-    window.localStorage.setItem(SORTED_KEY, JSON.stringify(Array.from(ids).slice(-500)));
+    window.localStorage.setItem(SORTED_KEY, JSON.stringify({ subjects: memory.subjects, ids: Array.from(memory.ids).slice(-500) }));
   } catch {
     // Storage blocked: the same tasks may simply be offered again next visit.
   }
 }
 
-/**
- * Give unsorted tasks a subject and a priority. Each task is offered to the sorter
- * once per device, so a task the AI could not place is not retried on every page load.
- * Returns how many tasks changed.
- */
-export async function autoSortTasks(): Promise<number> {
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('id')
-    .is('subject_id', null)
-    .eq('is_archived', false)
-    .neq('status', 'completed')
-    .order('created_at', { ascending: false })
-    .limit(80);
-  const already = readSorted();
-  const pending = ((tasks ?? []) as { id: string }[]).map((t) => t.id).filter((id) => !already.has(id)).slice(0, 40);
-  if (pending.length === 0) return 0;
+const CLASSIFY_BATCH = 40;
 
-  const { data } = await callAiTools({ action: 'classify', taskIds: pending });
-  if (!data.ok) return 0;
-  pending.forEach((id) => already.add(id));
-  saveSorted(already);
-  const updated = typeof data.updated === 'number' ? data.updated : 0;
+/**
+ * Give unsorted tasks a subject and a priority, using the student's own subjects and
+ * each task's title and description. Each task is offered to the sorter once per
+ * device per set of subjects, so a task the AI could not place is not retried on
+ * every page load, but is retried when the student adds or changes subjects.
+ *
+ * `all: true` sorts every unsorted task now (up to 120, in batches), ignoring the
+ * memory; used right after the student picks subjects.
+ * Returns how many tasks changed, and how many were given a subject.
+ */
+export async function autoSortTasks(options?: { all?: boolean }): Promise<{ updated: number; subjected: number }> {
+  const all = options?.all === true;
+  const [{ data: tasks }, { data: subjects }] = await Promise.all([
+    supabase
+      .from('tasks')
+      .select('id')
+      .is('subject_id', null)
+      .eq('is_archived', false)
+      .neq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(all ? 120 : 80),
+    supabase.from('subjects').select('id').eq('is_archived', false),
+  ]);
+  const signature = ((subjects ?? []) as { id: string }[]).map((s) => s.id).sort().join(',');
+  const memory = readSorted();
+  if (all || memory.subjects !== signature) {
+    memory.subjects = signature;
+    memory.ids = new Set();
+  }
+  const unsorted = ((tasks ?? []) as { id: string }[]).map((t) => t.id).filter((id) => !memory.ids.has(id));
+  const pending = all ? unsorted : unsorted.slice(0, CLASSIFY_BATCH);
+  if (pending.length === 0) {
+    saveSorted(memory);
+    return { updated: 0, subjected: 0 };
+  }
+
+  let updated = 0;
+  let subjected = 0;
+  for (let i = 0; i < pending.length; i += CLASSIFY_BATCH) {
+    const batch = pending.slice(i, i + CLASSIFY_BATCH);
+    const { data } = await callAiTools({ action: 'classify', taskIds: batch });
+    if (!data.ok) break;
+    batch.forEach((id) => memory.ids.add(id));
+    updated += typeof data.updated === 'number' ? data.updated : 0;
+    if (Array.isArray(data.sorted)) subjected += (data.sorted as { subjectId?: unknown }[]).filter((r) => typeof r?.subjectId === 'string').length;
+  }
+  saveSorted(memory);
   if (updated > 0) window.dispatchEvent(new Event(TASKS_SORTED_EVENT));
-  return updated;
+  return { updated, subjected };
 }
 
 // ---- "Would you like this graded?" ----
