@@ -33,7 +33,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Age and consent:</strong> whether you are 18 or older, when you accepted these terms, and, for
-            students under 18, the name a parent or guardian typed and when they gave consent.
+            students under 18, the name a parent or guardian typed and when they gave consent. If you say you are 18 or
+            older and do the camera age check, we keep only its result (&ldquo;18 or older&rdquo; or &ldquo;under
+            18&rdquo;), when you agreed to it and when it ran. We never receive or store your camera image or any face
+            data.
           </li>
           <li>
             <strong>Your schoolwork:</strong> tasks, deadlines, subjects, notes, reminders, documents you upload, study
@@ -82,6 +85,13 @@ export default function PrivacyPage() {
           own schoolwork straight away, but <strong>Group Study</strong>, where you chat with other students, stays
           locked until a parent or guardian agrees using a one-time link you send them. They see what we collect and
           type their name to confirm.
+        </p>
+        <p>
+          <strong>Camera age check.</strong> If you say you are 18 or older, we ask you to agree separately to a short
+          camera scan that estimates your age. It runs entirely on your device using a model loaded from our own site:
+          your camera image never leaves your device and is not saved. Only the result is stored. Age estimates can be
+          wrong by a few years, so a result of &ldquo;under 18&rdquo; simply means Group Study needs a parent or
+          guardian&rsquo;s OK, as above. You can skip the scan and continue as under 18 instead.
         </p>
         <p>
           A parent or guardian can withdraw consent, see the data we hold about their child, or ask us to delete the

@@ -25,12 +25,28 @@ export interface Consent {
   parent_name: string | null;
   parent_consent_at: string | null;
   parent_token_expires_at: string | null;
+  age_verified_at: string | null;
+  age_check_result: AgeBand | null;
+  age_check_attempts: number | null;
+  age_check_window_start: string | null;
 }
 
 export const CONSENT_CHANGED_EVENT = 'tasktrack:consent-changed';
 
 export function needsTerms(c: Consent | null): boolean {
   return !c || !c.terms_accepted_at || c.terms_version !== TERMS_VERSION;
+}
+
+/** Says 18+ but hasn't passed the face age check yet (and has no parent OK instead). */
+export function needsAgeCheck(c: Consent | null): boolean {
+  return !!c && c.age_band === 'adult' && !c.age_verified_at && !c.parent_consent_at;
+}
+
+/** Scan tries left today (3 per rolling day). */
+export function ageChecksLeft(c: Consent | null): number {
+  if (!c?.age_check_window_start) return 3;
+  const windowOpen = Date.now() - new Date(c.age_check_window_start).getTime() < 24 * 60 * 60 * 1000;
+  return windowOpen ? Math.max(0, 3 - (c.age_check_attempts ?? 0)) : 3;
 }
 
 export function needsParent(c: Consent | null): boolean {
@@ -49,7 +65,7 @@ export function useConsent() {
     if (!user) return;
     const { data, error } = await supabase
       .from('user_consents')
-      .select('terms_accepted_at, terms_version, age_band, parent_name, parent_consent_at, parent_token_expires_at')
+      .select('terms_accepted_at, terms_version, age_band, parent_name, parent_consent_at, parent_token_expires_at, age_verified_at, age_check_result, age_check_attempts, age_check_window_start')
       .eq('user_id', user.id)
       .maybeSingle();
     setUnavailable(!!error);
@@ -80,6 +96,23 @@ export async function acceptTerms(ageBand: AgeBand): Promise<string | null> {
   if (error) return 'We couldn’t save that. Please try again.';
   announce();
   return null;
+}
+
+/** Saves the result of an on-device face age estimate. Only 'adult' or 'minor' is stored. */
+export async function recordAgeCheck(estimatedAge: number): Promise<{ result: AgeBand } | { error: string }> {
+  const { data, error } = await supabase.rpc('tasktrack_record_age_check', {
+    p_consented: true,
+    p_estimated_age: estimatedAge,
+  });
+  if (error) {
+    return {
+      error: error.message.includes('too_many_attempts')
+        ? 'That’s 3 tries today. Try again tomorrow, or continue as under 18.'
+        : 'We couldn’t save the result. Please try again.',
+    };
+  }
+  announce();
+  return { result: data === 'adult' ? 'adult' : 'minor' };
 }
 
 /** A fresh link for a parent or guardian. Valid for 14 days; making a new one replaces the old. */

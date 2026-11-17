@@ -39,6 +39,7 @@ const ERRORS: Record<string, string> = {
   name_required: 'Give your group a name.',
   not_signed_in: 'Please sign in again and retry.',
   parent_consent_required: 'A parent or guardian needs to OK Group Study first. Make a link for them at the top of this page.',
+  age_check_required: 'Please finish the quick age check at the top of this page first.',
   consent_required: 'Please accept the Terms of Service first, then try again.',
 };
 

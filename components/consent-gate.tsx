@@ -6,7 +6,8 @@ import { Check, Copy, Loader2, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Logo } from '@/components/logo';
-import { acceptTerms, AgeBand, createParentLink, needsTerms, useConsent } from '@/lib/consent';
+import { acceptTerms, AgeBand, createParentLink, needsAgeCheck, needsTerms, useConsent } from '@/lib/consent';
+import { AgeCheck } from '@/components/age-check';
 import { cn } from '@/lib/utils';
 
 /**
@@ -16,9 +17,27 @@ import { cn } from '@/lib/utils';
  */
 export function ConsentGate({ children }: { children: React.ReactNode }) {
   const { consent, loading, unavailable } = useConsent();
+  // Keeps the age check on screen after a scan so the student sees the result.
+  const [holding, setHolding] = useState(false);
   if (loading || unavailable) return <>{children}</>;
-  if (!needsTerms(consent)) return <>{children}</>;
-  return <ConsentScreen />;
+  if (needsTerms(consent)) return <ConsentScreen />;
+  if (needsAgeCheck(consent) || holding) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-10 sm:py-16">
+        <div className="mx-auto max-w-lg animate-slide-up">
+          <div className="flex items-center gap-3">
+            <Logo size={40} />
+            <span className="text-xl font-bold tracking-tight">TaskTrack</span>
+          </div>
+          <h1 className="mt-8 text-2xl font-bold tracking-tight sm:text-3xl">One more step</h1>
+          <div className="mt-6">
+            <AgeCheck onScanStart={() => setHolding(true)} onDone={() => setHolding(false)} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 function ConsentScreen() {
@@ -75,6 +94,12 @@ function ConsentScreen() {
               <p className="mt-3 rounded-lg bg-primary/5 p-3 text-sm text-muted-foreground">
                 You can use TaskTrack right away. To use <strong>Group Study</strong>, a parent or guardian needs to say
                 it’s OK. We’ll give you a link to send them.
+              </p>
+            )}
+            {age === 'adult' && (
+              <p className="mt-3 rounded-lg bg-primary/5 p-3 text-sm text-muted-foreground">
+                Next, we’ll ask you to do a quick camera age check. It runs on your device and no image is saved. You can
+                skip it and continue as under 18 instead.
               </p>
             )}
           </div>
