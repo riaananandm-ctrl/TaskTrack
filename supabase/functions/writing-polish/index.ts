@@ -1,6 +1,28 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 /**
+ * Refunds go through a database function only TaskTrack's server can call (service
+ * role), so a student can't refund their own credits from the browser.
+ */
+async function serverRefund(
+  userClient: ReturnType<typeof createClient>,
+  fn: 'refund_ai_credits_for' | 'refund_tool_use_for' | 'refund_polish_use_for',
+  args: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { data } = await userClient.auth.getUser();
+    if (!url || !key || !data?.user) return;
+    const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await admin.rpc(fn, { p_user: data.user.id, ...args });
+    if (error) console.error('Refund failed:', error.message);
+  } catch (e) {
+    console.error('Refund failed:', e instanceof Error ? e.message : 'unknown');
+  }
+}
+
+/**
  * "Polish my writing": edits the student's OWN draft for clarity, grammar, flow and
  * tone, keeping their ideas, argument and voice, and lists what changed and why so
  * the student learns from it. It does not add new ideas or content.
@@ -136,7 +158,7 @@ Reply with JSON only: {"polished": "the full edited text", "changes": [{"before"
     const result = (await askJson(apiKey, system, text, 2200)) as { polished?: unknown; changes?: unknown; tip?: unknown } | null;
     const polished = result && typeof result.polished === 'string' ? result.polished.trim() : '';
     if (!polished) {
-      await supabase.rpc('refund_polish_use');
+      await serverRefund(supabase, 'refund_polish_use_for');
       return json({ ok: false, error: 'The AI couldn’t polish that this time. Your use was given back. Please try again.' }, 502);
     }
     const changes = Array.isArray(result?.changes)

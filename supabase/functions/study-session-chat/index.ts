@@ -1,5 +1,27 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+/**
+ * Refunds go through a database function only TaskTrack's server can call (service
+ * role), so a student can't refund their own credits from the browser.
+ */
+async function serverRefund(
+  userClient: ReturnType<typeof createClient>,
+  fn: 'refund_ai_credits_for' | 'refund_tool_use_for' | 'refund_polish_use_for',
+  args: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { data } = await userClient.auth.getUser();
+    if (!url || !key || !data?.user) return;
+    const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await admin.rpc(fn, { p_user: data.user.id, ...args });
+    if (error) console.error('Refund failed:', error.message);
+  } catch (e) {
+    console.error('Refund failed:', e instanceof Error ? e.message : 'unknown');
+  }
+}
+
 // Study Assistant provider: Groq, called through its OpenAI-compatible endpoint.
 // The API key is read from the server-side GROQ_API_KEY secret only; it is never
 // logged, returned, or sent to the browser.
@@ -1317,7 +1339,6 @@ async function refundAndFail(
   cost: number
 ) {
   // A failed request must not count against the daily limit.
-  const { error } = await supabase.rpc('refund_ai_credits', { p_cost: cost });
-  if (error) console.error('AI usage refund failed:', error.message);
+  await serverRefund(supabase, 'refund_ai_credits_for', { p_cost: cost });
   return fail(category);
 }

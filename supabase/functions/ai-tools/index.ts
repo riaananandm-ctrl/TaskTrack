@@ -1,6 +1,28 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 /**
+ * Refunds go through a database function only TaskTrack's server can call (service
+ * role), so a student can't refund their own credits from the browser.
+ */
+async function serverRefund(
+  userClient: ReturnType<typeof createClient>,
+  fn: 'refund_ai_credits_for' | 'refund_tool_use_for' | 'refund_polish_use_for',
+  args: Record<string, unknown> = {},
+): Promise<void> {
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { data } = await userClient.auth.getUser();
+    if (!url || !key || !data?.user) return;
+    const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await admin.rpc(fn, { p_user: data.user.id, ...args });
+    if (error) console.error('Refund failed:', error.message);
+  } catch (e) {
+    console.error('Refund failed:', e instanceof Error ? e.message : 'unknown');
+  }
+}
+
+/**
  * TaskTrack AI tools. Three actions, both for the signed-in student only:
  *
  *  - `grade`:    feedback on a piece of work against IB-style criteria. Returns an
@@ -226,7 +248,7 @@ ${work}
 
   const result = await askJson(apiKey, system, user, 3000);
   if (!result || typeof result !== 'object') {
-    await supabase.rpc('refund_ai_credits', { p_cost: GRADE_COST });
+    await serverRefund(supabase, 'refund_ai_credits_for', { p_cost: GRADE_COST });
     return json({ ok: false, error: 'The AI grader could not finish this time. Your credits were given back. Please try again.' }, 502);
   }
   return json({ ok: true, programme, result });
@@ -384,7 +406,7 @@ Reply with a JSON object only: {"reply": "your message to the group"}`;
   const result = (await askJson(apiKey, system, user, 900)) as { reply?: unknown } | null;
   const reply = result && typeof result.reply === 'string' ? result.reply.trim().slice(0, 6000) : '';
   if (!reply) {
-    await supabase.rpc('refund_ai_credits', { p_cost: GROUP_ASK_COST });
+    await serverRefund(supabase, 'refund_ai_credits_for', { p_cost: GROUP_ASK_COST });
     return json({ ok: false, error: 'The AI could not answer this time. Your credit was given back. Please try again.' }, 502);
   }
 
@@ -394,7 +416,7 @@ Reply with a JSON object only: {"reply": "your message to the group"}`;
     .from('study_group_messages')
     .insert({ group_id: groupId, user_id: null, display_name: 'TaskTrack AI', kind: 'ai', content: reply });
   if (insertError) {
-    await supabase.rpc('refund_ai_credits', { p_cost: GROUP_ASK_COST });
+    await serverRefund(supabase, 'refund_ai_credits_for', { p_cost: GROUP_ASK_COST });
     return json({ ok: false, error: 'The AI answer could not be posted. Your credit was given back.' }, 500);
   }
   return json({ ok: true });
