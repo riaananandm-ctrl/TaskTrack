@@ -29,6 +29,26 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  // Don't advertise the framework version.
+  poweredByHeader: false,
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Stops other sites showing TaskTrack inside a frame to trick clicks.
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // Stops browsers guessing a file's type.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Other sites only learn that a visitor came from TaskTrack, not which page.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // TaskTrack uses none of these device features.
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

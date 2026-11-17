@@ -1,5 +1,6 @@
 'use client';
 
+import { safeNextPath } from '@/lib/safe-next';
 import { useRef, useState, useEffect, Suspense } from 'react';
 import { BrandLoading } from '@/components/brand-loading';
 import { AuthLayout } from '@/components/auth-layout';
@@ -41,7 +42,7 @@ function LoginForm() {
       const confirmed = !!user?.email_confirmed_at || !!user?.confirmed_at;
       if (user && confirmed && !persistentLoginExpired()) {
         const next = searchParams.get('next');
-        router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : peekLastRoute() || '/app');
+        router.replace(safeNextPath(next) || peekLastRoute() || '/app');
       } else {
         setCheckingSession(false);
       }
@@ -118,7 +119,7 @@ function LoginForm() {
       if (remember) markPersistentLogin();
       else clearPersistentLogin();
       const resumeRoute = peekLastRoute();
-      router.push(next && next.startsWith('/') ? next : resumeRoute || '/app');
+      router.push(safeNextPath(next) || resumeRoute || '/app');
     } catch {
       setError('We couldn\u2019t reach the server. Please check your connection and try again.');
     } finally {

@@ -1,5 +1,6 @@
 'use client';
 
+import { safeNextPath } from '@/lib/safe-next';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle } from 'lucide-react';
@@ -33,7 +34,7 @@ export default function OAuthReturnPage() {
       settled = true;
       markPersistentLogin();
       const next = url.searchParams.get('next');
-      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+      const safeNext = safeNextPath(next);
       // Full navigation so the app starts with the freshly stored session.
       window.location.replace(safeNext || peekLastRoute() || '/app');
     };

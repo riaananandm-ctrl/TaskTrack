@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { safeHttpUrl } from '@/lib/safe-url';
+import { safeNextPath } from '@/lib/safe-next';
 import { maskFeedUrl, normalizeFeedUrl } from '@/lib/feed-url';
 
 describe('safeHttpUrl', () => {
@@ -36,5 +37,16 @@ describe('ManageBac feed links', () => {
     const masked = maskFeedUrl('https://a.managebac.com/student/events/token/SECRET.ics');
     expect(masked).not.toContain('SECRET');
     expect(masked.startsWith('https://a.managebac.com/')).toBe(true);
+  });
+});
+
+describe('safeNextPath (where to go after login)', () => {
+  it('allows pages inside TaskTrack', () => {
+    expect(safeNextPath('/app/tasks?x=1')).toBe('/app/tasks?x=1');
+  });
+  it('blocks links that would leave TaskTrack', () => {
+    for (const bad of ['//evil.com', '/\\evil.com', 'https://evil.com', '/\t/evil.com', '', null]) {
+      expect(safeNextPath(bad)).toBeNull();
+    }
   });
 });

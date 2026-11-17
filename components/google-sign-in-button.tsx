@@ -1,5 +1,6 @@
 'use client';
 
+import { safeNextPath } from '@/lib/safe-next';
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -56,7 +57,8 @@ export function GoogleSignInButton({ next, label = 'Continue with Google', onErr
     // Google sign-ins stay signed in on this device, like "Stay logged in" checked.
     setRememberDevice(true);
     const target = new URL('/auth/oauth', window.location.origin);
-    if (next && next.startsWith('/') && !next.startsWith('//')) target.searchParams.set('next', next);
+    const safeNext = safeNextPath(next);
+    if (safeNext) target.searchParams.set('next', safeNext);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
