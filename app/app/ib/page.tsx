@@ -27,6 +27,7 @@ export default function IbHubPage() {
   // IA & EE are Diploma (Grade 11-12) work, so younger students see them as "later", not as a to-do.
   const dp = isDpYear(profile?.year_group);
   const [tab, setTab] = useState<Tab>('grades');
+  const [stripVersion, setStripVersion] = useState(0);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function IbHubPage() {
         <p className="text-muted-foreground mt-1">Your grades, exams and big projects in one place.</p>
       </div>
 
-      <TodayStrip onOpenExams={() => changeTab('exams')} />
+      <TodayStrip version={stripVersion} onOpenExams={() => changeTab('exams')} />
 
       <Tabs value={tab} onValueChange={changeTab}>
         <TabsList className="grid w-full grid-cols-3 sm:inline-grid sm:w-auto">
@@ -66,7 +67,7 @@ export default function IbHubPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="grades" className="mt-4"><GradesTab subjectNames={names} defaultProgramme={dp ? 'DP' : 'MYP'} /></TabsContent>
-        <TabsContent value="exams" className="mt-4"><ExamsTab subjectNames={names} /></TabsContent>
+        <TabsContent value="exams" className="mt-4"><ExamsTab subjectNames={names} onChanged={() => setStripVersion((v) => v + 1)} /></TabsContent>
         <TabsContent value="projects" className="mt-4 space-y-4">
           {dp === false && (
             <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
@@ -80,7 +81,7 @@ export default function IbHubPage() {
   );
 }
 
-function TodayStrip({ onOpenExams }: { onOpenExams: () => void }) {
+function TodayStrip({ onOpenExams, version }: { onOpenExams: () => void; version: number }) {
   const [streak, setStreak] = useState<MyStreak | null>(null);
   const [nextExam, setNextExam] = useState<Exam | null>(null);
   const [todayCount, setTodayCount] = useState(0);
@@ -99,7 +100,7 @@ function TodayStrip({ onOpenExams }: { onOpenExams: () => void }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, version]);
 
   const tile = 'flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent/50';
 

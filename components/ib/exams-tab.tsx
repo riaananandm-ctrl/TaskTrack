@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Plus, Trash2, CalendarClock, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,10 @@ export function countdownLabel(days: number): string {
   return `in ${days} days`;
 }
 
-export function ExamsTab({ subjectNames }: { subjectNames: string[] }) {
+export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; onChanged?: () => void }) {
+  // Lets the IB Hub summary strip refresh when exams or sessions change.
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
   const [exams, setExams] = useState<Exam[]>([]);
   const [sessions, setSessions] = useState<RevisionSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +53,7 @@ export function ExamsTab({ subjectNames }: { subjectNames: string[] }) {
       setExams(e);
       setSessions(s);
       setError(null);
+      changed.current?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Your exams could not be loaded.');
     } finally {
@@ -95,6 +99,7 @@ export function ExamsTab({ subjectNames }: { subjectNames: string[] }) {
     setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, done: !s.done } : x)));
     try {
       await setSessionDone(s.id, !s.done);
+      changed.current?.();
     } catch {
       setSessions((prev) => prev.map((x) => (x.id === s.id ? { ...x, done: s.done } : x)));
     }

@@ -318,9 +318,9 @@ export function StudyShowcase() {
           <div aria-live="polite" className="mt-3 min-h-[1.5rem] max-w-lg text-sm">
             {error && (
               <p className="text-amber-200">
-                {error}{' '}
+                {limited && error ? error.replace(/\s*Sign up free.*$/, '') : error}{' '}
                 {limited && (
-                  <Link href="/signup" className="font-semibold text-white underline">Sign up free</Link>
+                  <Link href="/signup" className="font-semibold text-white underline">Sign up free to keep going</Link>
                 )}
               </p>
             )}
