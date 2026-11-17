@@ -130,6 +130,7 @@ export function AgeCheck({ compact, onScanStart, onDone }: {
           <ul className="space-y-2.5 text-sm">
             <li className="flex gap-2.5"><EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-primary" />The scan runs on your device. Your camera image is never uploaded or saved.</li>
             <li className="flex gap-2.5"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />We only keep the result, “18 or older” or “under 18”, and the date.</li>
+            <li className="flex gap-2.5"><ScanFace className="mt-0.5 h-4 w-4 shrink-0 text-primary" />To be safe, the scan only passes people who clearly look 25 or older. If you’re 18–24, you may need to continue as under 18.</li>
             <li className="flex gap-2.5"><Trash2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Deleting your account deletes the result too.</li>
             <li className="flex gap-2.5"><Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Don’t want a scan? Continue as under 18, and a parent or guardian can OK Group Study instead.</li>
           </ul>
@@ -189,10 +190,10 @@ export function AgeCheck({ compact, onScanStart, onDone }: {
       {step === 'minor' && (
         <div className="mt-5 rounded-xl bg-primary/5 p-4 text-sm">
           <p>
-            <strong>The scan suggests you’re under 18.</strong> No problem: you can keep using TaskTrack. For Group Study,
+            <strong>The scan couldn’t confirm you’re 18 or older.</strong> No problem: you can keep using TaskTrack. For Group Study,
             a parent or guardian just needs to OK it. You’ll find the link for them on the Group Study page.
           </p>
-          <p className="mt-2 text-muted-foreground">Think it got it wrong? Scans can be off by a few years. You can try again in better light.</p>
+          <p className="mt-2 text-muted-foreground">To be safe, it only passes people who clearly look 25 or older, so many 18–24-year-olds won’t pass. You can try again in better light.</p>
           {left > 0 && (
             <Button variant="outline" size="sm" className="mt-3" onClick={() => { setAgreed(true); setStep('consent'); }}>
               Try again ({left} left today)
