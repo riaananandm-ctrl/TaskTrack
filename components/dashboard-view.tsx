@@ -226,7 +226,9 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
         </div>
       </Spotlight>
 
-      <XpStreakWidget />
+      <Link href="/app/leaderboard" aria-label="Open the leaderboard" className="block rounded-xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+        <XpStreakWidget />
+      </Link>
 
       {!managebacConnected && !bannerDismissed && (
         <Card className="p-4 border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20">

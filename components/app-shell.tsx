@@ -27,6 +27,7 @@ import {
   Inbox,
   Users,
   Target,
+  Trophy,
 } from 'lucide-react';
 import { useNewTaskCount } from '@/lib/new-tasks';
 import { hasUnseenRelease } from '@/lib/whats-new';
@@ -62,6 +63,7 @@ const NAV_GROUPS = [
       { href: '/app/group', label: 'Group Study', icon: Users },
       { href: '/app/grader', label: 'AI Grader', icon: ClipboardCheck },
       { href: '/app/review', label: 'Review', icon: Layers },
+      { href: '/app/leaderboard', label: 'Leaderboard', icon: Trophy },
       { href: '/app/tools', label: 'Tools', icon: Ruler },
     ],
   },

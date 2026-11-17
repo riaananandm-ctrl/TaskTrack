@@ -9,10 +9,11 @@ import {
   ChevronDown, CalendarDays, Clock, CalendarPlus, Paperclip, FileText,
   ShieldAlert, Sparkles, Crown, BookOpen, ListChecks, Presentation,
   Lightbulb, CalendarRange, MessageSquare, PenLine,
+  PlayCircle,
 } from 'lucide-react';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Logo } from '@/components/logo';
-import { QuizView, FlashcardsView, PlanView, SlidesView } from '@/components/study-views';
+import { QuizView, FlashcardsView, PlanView, SlidesView, VideosView } from '@/components/study-views';
 import { CountdownTimer } from '@/components/countdown-timer';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
@@ -40,6 +41,7 @@ import {
   type StudyPlanData,
   type PlanSession,
   type SlidesData,
+  type VideosData,
 } from '@/lib/study-modes';
 import {
   addMessage,
@@ -107,6 +109,7 @@ const TOOL_ICONS: Record<StudyMode, ReactNode> = {
   examples: <MessageSquare className="w-4 h-4" />,
   practice: <PenLine className="w-4 h-4" />,
   slides: <Presentation className="w-4 h-4" />,
+  videos: <PlayCircle className="w-4 h-4" />,
 };
 
 function toDisplay(row: StudySessionMessage): DisplayMessage {
@@ -1287,6 +1290,7 @@ function StructuredMessage({
         )}
         {message.mode === 'plan' && <PlanView data={message.structured as StudyPlanData} onPractice={onPractice} />}
         {message.mode === 'slides' && <SlidesView data={message.structured as SlidesData} />}
+        {message.mode === 'videos' && <VideosView data={message.structured as VideosData} />}
       </div>
     );
   }

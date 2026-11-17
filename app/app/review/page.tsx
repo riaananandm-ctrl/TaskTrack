@@ -443,7 +443,7 @@ function PracticeSession({
         <p className="text-xs text-muted-foreground">
           {reviewedCount === 0
             ? 'Nothing to review right now — cards return on their schedule.'
-            : `${reviewedCount} reviewed, ${correctCount} correct. Cards you got wrong come back tomorrow; the rest later.`}
+            : `${reviewedCount} reviewed, ${correctCount} correct${correctCount > 0 ? ` (+${correctCount * 3} XP)` : ''}. Cards you got wrong come back tomorrow; the rest later.`}
         </p>
         <Button size="sm" variant="outline" onClick={onExit}>{exitLabel}</Button>
       </div>

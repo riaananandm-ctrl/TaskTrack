@@ -5,7 +5,7 @@ import { Check, CheckCircle2, X, ExternalLink, Layers, Loader2, Download, PenLin
 import { downloadSlidesPptx } from '@/lib/export-slides';
 import { cn } from '@/lib/utils';
 import { saveDeck } from '@/lib/spaced-review';
-import { youtubeSearchUrl, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData } from '@/lib/study-modes';
+import { quizXp, youtubeSearchUrl, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData, type VideosData } from '@/lib/study-modes';
 
 // ---------------------------------------------------------------------------
 // Quiz — one question at a time, immediate feedback, score and weak topics
@@ -93,6 +93,11 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Quiz complete</p>
           <p className="text-4xl font-bold mt-1">{score}/{total}</p>
           <p className="text-sm text-muted-foreground mt-1">{percent}% correct</p>
+          {quizXp(score, total) > 0 && (
+            <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+              +{quizXp(score, total)} XP{score === total && total >= 3 ? ' · perfect score bonus' : ''}
+            </p>
+          )}
         </div>
 
         {weakTopics.length > 0 && (
@@ -100,7 +105,17 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Revise these topics</p>
             <ul className="space-y-1.5">
               {weakTopics.map((t, i) => (
-                <li key={i} className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">- {t}</li>
+                <li key={i} className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <span>- {t}</span>{' '}
+                  <a
+                    href={youtubeSearchUrl({ title: '', channel: '', search: `${t.slice(0, 90)} explained` })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-400"
+                  >
+                    <PlayCircle className="w-3.5 h-3.5" /> Watch a video
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
@@ -484,6 +499,48 @@ export function SlidesView({ data }: { data: SlidesData }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Videos: AI-picked YouTube searches, in the order to watch them
+// ---------------------------------------------------------------------------
+
+export function VideosView({ data }: { data: VideosData }) {
+  return (
+    <div className="space-y-2.5">
+      {data.videos.map((v, i) => (
+        <a
+          key={i}
+          href={youtubeSearchUrl(v)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-red-300 hover:bg-red-50/40 dark:hover:border-red-900 dark:hover:bg-red-950/20"
+        >
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
+            <PlayCircle className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-snug">
+              <span className="text-muted-foreground">{i + 1}.</span> {v.title || v.search}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {[v.channel, v.minutes ? `about ${v.minutes} min` : ''].filter(Boolean).join(' · ') || 'YouTube'}
+            </p>
+            {v.why && <p className="mt-1.5 text-xs leading-relaxed">{v.why}</p>}
+            {v.watchFor && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                <span className="font-semibold text-foreground">Note down:</span> {v.watchFor}
+              </p>
+            )}
+          </div>
+          <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-red-600" aria-hidden />
+        </a>
+      ))}
+      <p className="text-[11px] text-muted-foreground">
+        Each link opens a YouTube search picked by the AI, so you can choose the clearest video. Then take a quiz to check you&rsquo;ve got it.
+      </p>
     </div>
   );
 }

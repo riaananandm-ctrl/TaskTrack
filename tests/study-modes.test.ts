@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlan, parseQuiz, youtubeSearchUrl } from '@/lib/study-modes';
+import { parsePlan, parseQuiz, parseVideos, quizXp, youtubeSearchUrl } from '@/lib/study-modes';
 
 describe('study plan parsing', () => {
   it('keeps videos, practice and check, capped at 2 videos', () => {
@@ -40,5 +40,36 @@ describe('quiz parsing', () => {
     });
     expect(quiz?.questions).toHaveLength(1);
     expect(quiz?.questions[0].answerIndex).toBe(0);
+  });
+});
+
+describe('video suggestions', () => {
+  it('keeps valid videos and drops empty ones', () => {
+    const r = parseVideos({
+      videos: [
+        { title: 'Osmosis overview', channel: 'Michael Walker', search: 'IB Biology osmosis', why: 'Basics', watchFor: 'Water potential', minutes: '8' },
+        { title: '', search: '' },
+        { search: 'osmosis exam questions', minutes: 999 },
+      ],
+    });
+    expect(r?.videos).toHaveLength(2);
+    expect(r?.videos[0].minutes).toBe(8);
+    expect(r?.videos[1].minutes).toBeNull();
+    expect(youtubeSearchUrl(r!.videos[0])).toBe('https://www.youtube.com/results?search_query=IB%20Biology%20osmosis');
+  });
+
+  it('rejects the wrong shape', () => {
+    expect(parseVideos({ videos: 'x' })).toBeNull();
+    expect(parseVideos({ videos: [] })).toBeNull();
+  });
+});
+
+describe('quiz XP', () => {
+  it('matches the server rules', () => {
+    expect(quizXp(3, 5)).toBe(15);
+    expect(quizXp(5, 5)).toBe(35);
+    expect(quizXp(2, 2)).toBe(10); // no bonus under 3 questions
+    expect(quizXp(999, 999)).toBe(110); // clamped to 20 questions
+    expect(quizXp(0, 5)).toBe(0);
   });
 });

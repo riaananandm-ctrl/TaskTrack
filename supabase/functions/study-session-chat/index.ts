@@ -129,7 +129,7 @@ const FALLBACK_LIMITS = { daily_ai_messages: 20, max_message_chars: 2000 };
  * the server; the browser cannot choose its own price.
  */
 const CREDIT_COST: Record<string, number> = {
-  chat: 1, explain: 1, examples: 1, practice: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3,
+  chat: 1, explain: 1, examples: 1, practice: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3, videos: 1,
 };
 
 const corsHeaders = {
@@ -262,7 +262,7 @@ const MODE_COUNTS: Record<'free' | 'pro', ModeCounts> = {
  * Modes that produce topic-specific material. When the task does not name a real
  * topic these must ask for clarification rather than inventing content.
  */
-const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan', 'practice']);
+const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan', 'practice', 'videos']);
 
 /**
  * Words that appear in study tasks but do NOT identify a topic. A task made up
@@ -355,6 +355,7 @@ const CLARIFICATION_FOLLOW_UPS: Record<string, string> = {
   slides: 'What specific concept, chapter, or skill should the slides cover?',
   plan: 'What specific topic, chapter, or subject should the study plan cover?',
   practice: 'What specific topic, chapter, or skill do you want to practise?',
+  videos: 'What specific topic, chapter, or skill should the videos cover?',
 };
 
 function buildClarificationReply(mode: string): string {
@@ -423,11 +424,24 @@ answer it).`,
 - Include one slide called "Common mistakes" with the errors students usually make.
 - The final slide is "Recap" with the 3 to 5 most important takeaways.
 - Every slide has 1 to 3 sentences of speaker notes in "notes": what to say or remember.`,
+    videos: `Suggest 4 YouTube videos that would help the student learn THIS topic, in the order to
+watch them: start with a short overview, then go deeper on the hardest part, then exam technique
+or worked examples.
+- For each, give a specific YouTube search ("search") that will find a good explainer, e.g.
+  "IB Biology osmosis Michael Walker" or "IB Maths AA SL binomial theorem Revision Village".
+  Include the subject and the exact sub-topic, so the search finds the right video.
+- Prefer well-known, trustworthy educational channels (for example Crash Course, Khan Academy,
+  Revision Village, Richard Thornley, Michael Walker, Save My Exams, Primrose Kitten, FreeScienceLessons).
+  Put a channel in "channel" only when you are confident it covers this topic; otherwise leave it empty.
+- Never invent a URL or claim an exact video title you are not sure exists: describe the video in "title".
+- "why" says in one short sentence what the student will get from it.
+- "watchFor" is one thing to listen out for or note down while watching.
+- "minutes" is a rough length, 3 to 20.`,
   }[mode] || 'The student is chatting freely. Answer their latest message directly and helpfully.';
 }
 
 /** Every mode the assistant supports. Anything else falls back to free chat. */
-const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides', 'practice']);
+const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides', 'practice', 'videos']);
 
 /** Modes that must never show raw JSON to the student. */
 const STRUCTURED_MODES: Record<string, { schema: string }> = {
@@ -479,6 +493,14 @@ Every date must be AFTER today's date shown above. Never output a date in the pa
   ]
 }
 Provide 6 to 10 slides of 3 to 5 bullets each. The final slide's heading should be "Recap".`,
+  },
+  videos: {
+    schema: `{
+  "videos": [
+    { "title": "what the video explains", "channel": "channel name or empty", "search": "YouTube search words", "why": "one short sentence", "watchFor": "one thing to note while watching", "minutes": 8 }
+  ]
+}
+Provide exactly 4 videos.`,
   },
 };
 
@@ -764,6 +786,15 @@ function structuredToText(mode: string, value: unknown): string {
       if (s(x.check)) lines.push(`  Check: ${s(x.check)}`);
     });
     return lines.join('\n');
+  }
+
+  if (mode === 'videos') {
+    return arr(v.videos)
+      .map((y0, i) => {
+        const y = y0 as Record<string, unknown>;
+        return `${i + 1}. ${s(y.title)}${s(y.channel) ? ` (${s(y.channel)})` : ''}${s(y.why) ? `\n   ${s(y.why)}` : ''}`;
+      })
+      .join('\n');
   }
 
   if (mode === 'slides') {

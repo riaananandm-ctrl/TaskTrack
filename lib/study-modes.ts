@@ -2,7 +2,7 @@
 // The server asks Gemini for strict JSON in these modes; everything here validates
 // the payload before it reaches the UI so malformed data never breaks rendering.
 
-export type StudyMode = 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides' | 'practice';
+export type StudyMode = 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides' | 'practice' | 'videos';
 
 export interface StudyTask {
   taskId?: string | null;
@@ -84,6 +84,12 @@ export const MODE_OPTIONS: ModeOption[] = [
     prompt: 'Create study slides for this topic.',
     structured: true,
   },
+  {
+    id: 'videos',
+    label: 'Find videos',
+    prompt: 'Suggest YouTube videos to help me learn this topic.',
+    structured: true,
+  },
 ];
 
 export function getModeOption(mode: StudyMode): ModeOption | undefined {
@@ -103,6 +109,7 @@ export const MODE_SELECT_OPTIONS: { id: StudyMode; label: string }[] = [
   { id: 'practice', label: 'Exam practice' },
   { id: 'examples', label: 'Worked examples' },
   { id: 'slides', label: 'Study slides' },
+  { id: 'videos', label: 'Videos' },
 ];
 
 export function modeLabel(mode: StudyMode): string {
@@ -161,6 +168,16 @@ export interface StudyPlanData {
   compressed: boolean;
   summary: string;
   sessions: PlanSession[];
+}
+
+export interface SuggestedVideo extends PlanVideo {
+  why: string;
+  watchFor: string;
+  minutes: number | null;
+}
+
+export interface VideosData {
+  videos: SuggestedVideo[];
 }
 
 export interface Slide {
@@ -260,6 +277,29 @@ export function parsePlan(v: unknown): StudyPlanData | null {
     : null;
 }
 
+export function parseVideos(v: unknown): VideosData | null {
+  const root = obj(v);
+  if (!root || !Array.isArray(root.videos)) return null;
+  const videos: SuggestedVideo[] = [];
+  for (const raw of root.videos) {
+    const x = obj(raw);
+    if (!x) continue;
+    const title = str(x.title).slice(0, 140);
+    const search = str(x.search).slice(0, 140);
+    if (!title && !search) continue;
+    const minutes = typeof x.minutes === 'number' ? x.minutes : Number(x.minutes);
+    videos.push({
+      title,
+      search,
+      channel: str(x.channel).slice(0, 60),
+      why: str(x.why).slice(0, 240),
+      watchFor: str(x.watchFor).slice(0, 240),
+      minutes: Number.isFinite(minutes) && minutes > 0 && minutes <= 120 ? Math.round(minutes) : null,
+    });
+  }
+  return videos.length > 0 ? { videos: videos.slice(0, 6) } : null;
+}
+
 export function parseSlides(v: unknown): SlidesData | null {
   const root = obj(v);
   if (!root || !Array.isArray(root.slides)) return null;
@@ -288,6 +328,8 @@ export function parseStructuredResult(mode: StudyMode, v: unknown): unknown | nu
       return parsePlan(v);
     case 'slides':
       return parseSlides(v);
+    case 'videos':
+      return parseVideos(v);
     default:
       return null;
   }
@@ -299,6 +341,7 @@ export const STRUCTURED_VIEW_MODES: Set<StudyMode> = new Set<StudyMode>([
   'flashcards',
   'plan',
   'slides',
+  'videos',
 ]);
 
 /** True when text is a JSON blob rather than something a student should read. */
@@ -321,4 +364,11 @@ export function displayContent(
     }
   }
   return content;
+}
+
+/** XP the server gives for a quiz: 5 per correct answer, +10 for a perfect score. */
+export function quizXp(score: number, total: number): number {
+  const t = Math.min(Math.max(total, 0), 20);
+  const sc = Math.min(Math.max(score, 0), t);
+  return sc * 5 + (t >= 3 && sc === t ? 10 : 0);
 }
