@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ScanSearch, Loader2, Lock, Sparkles, Info } from 'lucide-react';
+import { ScanSearch, Loader2, Info } from 'lucide-react';
 import { countWords, detectAi, type DetectResult, type ToolAccess } from '@/lib/tool-unlocks';
 
 const MAX_WORDS = 1000;
@@ -31,23 +30,6 @@ export function AiDetectorTool({ access, onUsed }: { access: ToolAccess; onUsed:
   const words = countWords(text);
   const left = Math.max(access.detectorLimit - access.detectorUsed, 0);
   const over = words > MAX_WORDS;
-
-  if (!access.premium) {
-    return (
-      <div className="max-w-lg mx-auto py-8 text-center space-y-3">
-        <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-          <Lock className="w-6 h-6 text-blue-600" />
-        </div>
-        <h2 className="text-xl font-bold">You found the AI Detector</h2>
-        <p className="text-sm text-muted-foreground">
-          Your code worked, and the tool is saved to your account. It runs for Premium students, so upgrade to start checking.
-        </p>
-        <Link href="/app/premium" className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-          <Sparkles className="w-4 h-4" /> Upgrade to Premium
-        </Link>
-      </div>
-    );
-  }
 
   const run = async () => {
     setBusy(true);

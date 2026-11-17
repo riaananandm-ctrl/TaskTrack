@@ -32,7 +32,7 @@ const TOOLS: Array<{ id: Tool; label: string; icon: typeof Calculator; descripti
   { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw, shapes, AI tutor' },
 ];
 const POLISH_TAB = { id: 'polish' as Tool, label: 'Polish my writing', icon: Wand2, description: 'Now in Rewrite Coach' };
-const DETECTOR_TAB = { id: 'detector' as Tool, label: 'AI Detector', icon: ScanSearch, description: 'Unlocked · Premium' };
+const DETECTOR_TAB = { id: 'detector' as Tool, label: 'AI Detector', icon: ScanSearch, description: 'Unlocked with a code' };
 const REDEEM_TAB = { id: 'redeem' as Tool, label: 'Redeem Code', icon: Gift, description: 'Find codes on @task.track' };
 
 export default function ToolsPage() {
