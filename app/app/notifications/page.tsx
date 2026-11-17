@@ -244,7 +244,7 @@ export default function NotificationsPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {!reminder.is_read && reminder.is_enabled && (
-                          <button onClick={() => markAsRead(reminder.id)} className="p-1.5 rounded hover:bg-accent" aria-label="Mark as read">
+                          <button onClick={() => markAsRead(reminder.id)} className="tap-target p-1.5 rounded hover:bg-accent" aria-label="Mark as read">
                             <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         )}
@@ -252,7 +252,7 @@ export default function NotificationsPage() {
                           <div className="relative">
                             <button
                               onClick={() => setSnoozeOpenId(snoozeOpenId === reminder.id ? null : reminder.id)}
-                              className="p-1.5 rounded hover:bg-accent"
+                              className="tap-target p-1.5 rounded hover:bg-accent"
                               aria-label="Snooze reminder"
                               aria-expanded={snoozeOpenId === reminder.id}
                               disabled={snoozingId !== null}
@@ -277,13 +277,13 @@ export default function NotificationsPage() {
                             )}
                           </div>
                         )}
-                        <button onClick={() => toggleEnabled(reminder)} className="p-1.5 rounded hover:bg-accent" aria-label="Toggle reminder">
+                        <button onClick={() => toggleEnabled(reminder)} className="tap-target p-1.5 rounded hover:bg-accent" aria-label="Toggle reminder">
                           {reminder.is_enabled ? <Bell className="w-3.5 h-3.5 text-primary" /> : <BellOff className="w-3.5 h-3.5 text-muted-foreground" />}
                         </button>
-                        <button onClick={() => handleEdit(reminder)} className="p-1.5 rounded hover:bg-accent" aria-label="Edit reminder">
+                        <button onClick={() => handleEdit(reminder)} className="tap-target p-1.5 rounded hover:bg-accent" aria-label="Edit reminder">
                           <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                         </button>
-                        <button onClick={() => deleteReminder(reminder.id)} className="p-1.5 rounded hover:bg-accent" aria-label="Delete reminder">
+                        <button onClick={() => deleteReminder(reminder.id)} className="tap-target p-1.5 rounded hover:bg-accent" aria-label="Delete reminder">
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </button>
                       </div>

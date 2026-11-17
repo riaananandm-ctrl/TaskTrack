@@ -70,7 +70,7 @@ export function PriorityAlertBanner() {
             </p>
             <button
               onClick={dismiss}
-              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex-shrink-0"
+              className="tap-target p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex-shrink-0"
               aria-label="Dismiss alert"
             >
               <X className="w-4 h-4 text-red-700 dark:text-red-300" />

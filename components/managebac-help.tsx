@@ -160,7 +160,7 @@ export function ManageBacHelpDialog({
                   </a>
                   <button
                     onClick={() => copyEmail(email)}
-                    className="p-1 rounded text-muted-foreground hover:bg-accent transition-colors flex-shrink-0"
+                    className="tap-target p-1 rounded text-muted-foreground hover:bg-accent transition-colors flex-shrink-0"
                     aria-label={`Copy ${email}`}
                     title="Copy email address"
                   >

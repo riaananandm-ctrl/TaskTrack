@@ -465,7 +465,7 @@ function SessionCard({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="p-1 rounded hover:bg-accent transition-colors flex-shrink-0">
+            <button className="tap-target p-1 rounded hover:bg-accent transition-colors flex-shrink-0">
               <MoreVertical className="w-4 h-4 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>

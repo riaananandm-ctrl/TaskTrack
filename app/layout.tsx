@@ -6,6 +6,9 @@ import { FontProvider } from '@/lib/font-provider';
 import { RecoveryLinkGuard } from '@/components/recovery-link-guard';
 import { LastRouteResume } from '@/components/last-route-resume';
 import { FONT_VARIABLE_CLASSES } from '@/lib/fonts';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { ErrorReporter } from '@/components/error-reporter';
 
 const DESCRIPTION =
   'The free study planner for IB students: sync your ManageBac deadlines, study with AI quizzes and flashcards, check drafts against the IB criteria, and revise with friends.';
@@ -67,6 +70,9 @@ export default function RootLayout({
             <FontProvider>{children}</FontProvider>
           </ThemeProvider>
         </AuthProvider>
+        <ErrorReporter />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

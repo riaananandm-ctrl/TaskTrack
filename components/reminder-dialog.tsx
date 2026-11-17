@@ -306,7 +306,7 @@ export function ReminderDialog({
                     <button
                       type="button"
                       onClick={() => removeSuggestion(i)}
-                      className="p-1 rounded hover:bg-accent flex-shrink-0"
+                      className="tap-target p-1 rounded hover:bg-accent flex-shrink-0"
                       aria-label="Remove reminder"
                     >
                       <X className="w-3.5 h-3.5 text-destructive" />

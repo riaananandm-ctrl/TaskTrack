@@ -8,7 +8,7 @@ import { WhiteboardErrorBoundary } from '@/components/whiteboard-error-boundary'
 import { cn } from '@/lib/utils';
 import { Calculator, Table, PenTool, Gift, Wand2, ScanSearch } from 'lucide-react';
 import { RedeemCodeTool } from '@/components/redeem-code-tool';
-import { PolishWritingTool } from '@/components/polish-writing-tool';
+import { PolishMovedNotice } from '@/components/polish-moved-notice';
 import { AiDetectorTool } from '@/components/ai-detector-tool';
 import { EMPTY_ACCESS, TOOL_ACCESS_EVENT, getToolAccess, type ToolAccess } from '@/lib/tool-unlocks';
 
@@ -31,7 +31,7 @@ const TOOLS: Array<{ id: Tool; label: string; icon: typeof Calculator; descripti
   { id: 'spreadsheet', label: 'Spreadsheet', icon: Table, description: 'Formulas, SUM, CSV export' },
   { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw, shapes, AI tutor' },
 ];
-const POLISH_TAB = { id: 'polish' as Tool, label: 'Polish my writing', icon: Wand2, description: 'Unlocked · Premium' };
+const POLISH_TAB = { id: 'polish' as Tool, label: 'Polish my writing', icon: Wand2, description: 'Now in Rewrite Coach' };
 const DETECTOR_TAB = { id: 'detector' as Tool, label: 'AI Detector', icon: ScanSearch, description: 'Unlocked · Premium' };
 const REDEEM_TAB = { id: 'redeem' as Tool, label: 'Redeem Code', icon: Gift, description: 'Find codes on @task.track' };
 
@@ -92,7 +92,7 @@ export default function ToolsPage() {
         {active === 'redeem' && (
           <RedeemCodeTool unlocked={access.unlocked} onOpenTool={(tool) => (tool === 'polish' || tool === 'detector') && setActive(tool)} />
         )}
-        {active === 'polish' && <PolishWritingTool access={access} onUsed={loadAccess} />}
+        {active === 'polish' && <PolishMovedNotice />}
         {active === 'detector' && <AiDetectorTool access={access} onUsed={loadAccess} />}
         {active === 'whiteboard' && (
           <WhiteboardErrorBoundary onReset={resetWhiteboard}>

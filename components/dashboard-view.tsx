@@ -247,7 +247,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
               <ManageBacHelpButton label="Need help?" variant="ghost" className="text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-950/50" />
               <button
                 onClick={dismissBanner}
-                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+                className="tap-target p-1.5 rounded-lg text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
                 aria-label="Dismiss ManageBac banner"
               >
                 <X className="w-4 h-4" />

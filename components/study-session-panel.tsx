@@ -747,7 +747,7 @@ export function StudySessionPanel({
                         </div>
                         <button
                           onClick={() => removeAttachment(a.id)}
-                          className="p-1.5 rounded hover:bg-accent transition-colors"
+                          className="tap-target p-1.5 rounded hover:bg-accent transition-colors"
                           aria-label={`Remove ${a.name}`}
                           title={`Remove ${a.name}`}
                         >
@@ -1405,7 +1405,7 @@ function UploadDialog({ onClose, isPro, onAttached }: UploadDialogProps) {
       >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Upload document</h3>
-          <button onClick={onClose} aria-label="Close upload dialog" className="p-1 rounded-md hover:bg-accent">
+          <button onClick={onClose} aria-label="Close upload dialog" className="tap-target p-1 rounded-md hover:bg-accent">
             <X className="w-4 h-4" />
           </button>
         </div>

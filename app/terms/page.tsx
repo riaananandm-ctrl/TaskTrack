@@ -7,7 +7,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="13 November 2026"
+      updated="17 November 2026"
       intro={
         <p>
           These are the rules for using TaskTrack. By using it you agree to them and to our{' '}
@@ -22,7 +22,7 @@ export default function TermsPage() {
         <ul>
           <li>TaskTrack is for school students and anyone planning their studies.</li>
           <li>
-            If you are under 18, a parent or guardian must agree before you use Group Study. You can use the rest of
+            A parent or guardian must agree before you use Group Study. You can use the rest of
             TaskTrack while you wait.
           </li>
           <li>Please give your real name and age. You are responsible for keeping your account secure.</li>

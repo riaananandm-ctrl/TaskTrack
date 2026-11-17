@@ -400,7 +400,7 @@ export function AppTopBar({
           </Link>
           <button
             onClick={onOpenAccount}
-            className="p-1 rounded-full hover:bg-accent transition-colors"
+            className="tap-target p-1 rounded-full hover:bg-accent transition-colors"
             aria-label="Account and settings"
             aria-haspopup="dialog"
           >

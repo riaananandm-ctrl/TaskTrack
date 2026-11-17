@@ -178,7 +178,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="p-1 rounded-md hover:bg-accent transition-all focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+                  className="tap-target p-1 rounded-md hover:bg-accent transition-all focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                   aria-label={`More actions for ${displayTask.title}`}
                 >
                   <MoreVertical className="w-4 h-4 text-muted-foreground" />

@@ -44,53 +44,6 @@ export async function redeemCode(code: string): Promise<{ ok: true; tool: string
   return { ok: false, error: 'That code isn’t valid or has expired.' };
 }
 
-export type PolishFocus = 'clarity' | 'grammar' | 'academic' | 'concise';
-
-export interface PolishResult {
-  polished: string;
-  changes: { before: string; after: string; why: string }[];
-  tip: string;
-  used: number | null;
-  limit: number;
-}
-
-export async function polishWriting(
-  text: string,
-  focus: PolishFocus
-): Promise<{ ok: true; result: PolishResult } | { ok: false; error: string; reason?: string }> {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!base || !session) return { ok: false, error: 'Please sign in again and retry.' };
-  try {
-    const res = await fetch(`${base}/functions/v1/writing-polish`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, Apikey: anon ?? '' },
-      body: JSON.stringify({ text, focus }),
-    });
-    const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!d.ok || typeof d.polished !== 'string') {
-      return {
-        ok: false,
-        error: typeof d.error === 'string' ? d.error : 'Couldn’t polish that right now. Please try again.',
-        reason: typeof d.reason === 'string' ? d.reason : undefined,
-      };
-    }
-    return {
-      ok: true,
-      result: {
-        polished: d.polished,
-        changes: Array.isArray(d.changes) ? (d.changes as PolishResult['changes']) : [],
-        tip: typeof d.tip === 'string' ? d.tip : '',
-        used: typeof d.used === 'number' ? d.used : null,
-        limit: typeof d.limit === 'number' ? d.limit : 3,
-      },
-    };
-  } catch {
-    return { ok: false, error: 'Could not reach TaskTrack. Check your connection and try again.' };
-  }
-}
-
 export function countWords(s: string): number {
   return s.trim() ? s.trim().split(/\s+/).length : 0;
 }

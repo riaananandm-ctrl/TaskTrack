@@ -27,8 +27,7 @@ import {
 } from '@/lib/group-study';
 import { GroupIcon } from '@/components/brand-icons';
 import { ParentConsentCard } from '@/components/consent-gate';
-import { needsAgeCheck, needsParent, useConsent } from '@/lib/consent';
-import { AgeCheck } from '@/components/age-check';
+import { needsParent, useConsent } from '@/lib/consent';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -468,11 +467,10 @@ function Room({ groupId }: { groupId: string }) {
   );
 }
 
-/** Safety notes for the lobby, plus the parent link for students under 18. */
+/** Safety notes for the lobby, plus the parent link until a parent or guardian has said OK. */
 function GroupSafety() {
   const { consent } = useConsent();
   if (needsParent(consent)) return <ParentConsentCard />;
-  if (needsAgeCheck(consent)) return <AgeCheck compact />;
   return (
     <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#22B29E]" />

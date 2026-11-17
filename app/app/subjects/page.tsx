@@ -320,7 +320,7 @@ export default function SubjectsPage() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-accent transition-all">
+                      <button className="tap-target opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 p-1 rounded hover:bg-accent transition-all">
                         <MoreVertical className="w-4 h-4 text-muted-foreground" />
                       </button>
                     </DropdownMenuTrigger>

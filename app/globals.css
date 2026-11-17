@@ -324,3 +324,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/*
+ * Small icon buttons get a finger-sized (44px) tap area on touch screens. The area
+ * grows the button itself rather than overlapping its neighbours, so a tap never
+ * lands on the wrong button (for example Delete next to Edit).
+ */
+@media (pointer: coarse) {
+  .tap-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

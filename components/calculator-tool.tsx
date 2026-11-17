@@ -532,7 +532,7 @@ export function CalculatorTool() {
                   <button
                     type="button"
                     onClick={() => removeRow(row.id)}
-                    className="self-start mt-1 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-muted"
+                    className="tap-target self-start mt-1 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-muted"
                     aria-label={`Delete expression ${i + 1}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />

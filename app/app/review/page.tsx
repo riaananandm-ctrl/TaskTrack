@@ -204,10 +204,10 @@ function DeckDetail({ deck, onChanged }: { deck: DeckWithCards; onChanged: () =>
         {renaming ? (
           <div className="flex flex-1 items-center gap-1.5">
             <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} className="h-8 text-sm" />
-            <button onClick={commitRename} aria-label="Save name" className="p-1.5 rounded hover:bg-accent">
+            <button onClick={commitRename} aria-label="Save name" className="tap-target p-1.5 rounded hover:bg-accent">
               <Check className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => setRenaming(false)} aria-label="Cancel rename" className="p-1.5 rounded hover:bg-accent">
+            <button onClick={() => setRenaming(false)} aria-label="Cancel rename" className="tap-target p-1.5 rounded hover:bg-accent">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -309,10 +309,10 @@ function CardRow({
           Box {card.box} · {dueLabel} · {card.times_correct} right / {card.times_wrong} wrong
         </p>
       </div>
-      <button onClick={() => setEditing(true)} aria-label={`Edit ${card.front}`} className="p-1.5 rounded hover:bg-accent flex-shrink-0">
+      <button onClick={() => setEditing(true)} aria-label={`Edit ${card.front}`} className="tap-target p-1.5 rounded hover:bg-accent flex-shrink-0">
         <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
-      <button onClick={remove} aria-label={`Delete ${card.front}`} className="p-1.5 rounded hover:bg-accent flex-shrink-0">
+      <button onClick={remove} aria-label={`Delete ${card.front}`} className="tap-target p-1.5 rounded hover:bg-accent flex-shrink-0">
         <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
       </button>
     </li>
@@ -482,7 +482,7 @@ function CreateDeckDialog({
                   <button
                     onClick={() => setCards((prev) => prev.filter((_, j) => j !== i))}
                     aria-label={`Remove card ${i + 1}`}
-                    className="p-1.5 rounded hover:bg-accent flex-shrink-0"
+                    className="tap-target p-1.5 rounded hover:bg-accent flex-shrink-0"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>

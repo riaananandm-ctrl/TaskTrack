@@ -103,7 +103,7 @@ export function GraderGroupShowcase() {
               </div>
               <p className="mt-4 flex items-start gap-1.5 text-xs leading-5 text-slate-500">
                 <Flag className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                Swear words are filtered, any message can be reported, and students under 18 need a parent&rsquo;s OK first.
+                Swear words are filtered, any message can be reported, and every student needs a parent&rsquo;s OK first.
               </p>
             </div>
           </Reveal>

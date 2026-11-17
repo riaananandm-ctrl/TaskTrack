@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="13 November 2026"
+      updated="17 November 2026"
       intro={
         <p>
           This explains, in plain English, what TaskTrack collects, why, who helps us run it, and the choices you have.
@@ -32,11 +32,9 @@ export default function PrivacyPage() {
             password.
           </li>
           <li>
-            <strong>Age and consent:</strong> whether you are 18 or older, when you accepted these terms, and, for
-            students under 18, the name a parent or guardian typed and when they gave consent. If you say you are 18 or
-            older and do the camera age check, we keep only its result (&ldquo;18 or older&rdquo; or &ldquo;under
-            18&rdquo;), when you agreed to it and when it ran. We never receive or store your camera image or any face
-            data.
+            <strong>Age and consent:</strong> whether you are 18 or older, when you accepted these terms, and, if a
+            parent or guardian has agreed to Group Study, the name they typed and when they gave consent. We do not
+            collect any camera image or face data.
           </li>
           <li>
             <strong>Your schoolwork:</strong> tasks, deadlines, subjects, notes, reminders, documents you upload, study
@@ -81,17 +79,11 @@ export default function PrivacyPage() {
 
       <Section title="4. Students under 18 and parental consent">
         <p>
-          When you start using TaskTrack, we ask whether you are 18 or older. If you are under 18, you can plan your
-          own schoolwork straight away, but <strong>Group Study</strong>, where you chat with other students, stays
-          locked until a parent or guardian agrees using a one-time link you send them. They see what we collect and
-          type their name to confirm.
-        </p>
-        <p>
-          <strong>Camera age check.</strong> If you say you are 18 or older, we ask you to agree separately to a short
-          camera scan that estimates your age. It runs entirely on your device using a model loaded from our own site:
-          your camera image never leaves your device and is not saved. Only the result is stored. Age estimates can be
-          wrong by a few years, so a result of &ldquo;under 18&rdquo; simply means Group Study needs a parent or
-          guardian&rsquo;s OK, as above. You can skip the scan and continue as under 18 instead.
+          When you start using TaskTrack, we ask whether you are 18 or older. Everyone can plan their own schoolwork
+          straight away, but <strong>Group Study</strong>, where you chat with other students, stays locked until a
+          parent or guardian agrees using a one-time link you send them. This applies to every student, whatever age
+          they give, because we can&rsquo;t reliably check age online. Your parent or guardian sees what we collect
+          and types their name to confirm.
         </p>
         <p>
           A parent or guardian can withdraw consent, see the data we hold about their child, or ask us to delete the
