@@ -172,3 +172,72 @@ export function isDpYear(yearGroup: string | null | undefined): boolean | null {
   if (!yearGroup || yearGroup === 'Other') return null;
   return /DP|Grade 1[12]\b|Year 1[23]\b/.test(yearGroup);
 }
+
+// ---------- Honour roll (MYP, 8 subjects) ----------
+
+export type HonourAward = 'chairman' | 'high_honour' | 'honour' | 'merit';
+
+export const HONOUR_LABEL: Record<HonourAward, string> = {
+  chairman: 'Chairman’s Roll',
+  high_honour: 'High Honour Roll',
+  honour: 'Honour Roll',
+  merit: 'Merit Roll',
+};
+
+/**
+ * School honour roll levels, highest first. Each needs a total across all 8 subjects
+ * and a lowest-grade floor: any grade below 4 rules out every award, below 5 rules out
+ * High Honour and Chairman's, and below 6 rules out Chairman's.
+ */
+export const HONOUR_LEVELS: { award: HonourAward; total: number; minGrade: number }[] = [
+  { award: 'chairman', total: 52, minGrade: 6 },
+  { award: 'high_honour', total: 48, minGrade: 5 },
+  { award: 'honour', total: 44, minGrade: 4 },
+  { award: 'merit', total: 40, minGrade: 4 },
+];
+
+export const HONOUR_SUBJECTS = 8;
+
+export interface HonourResult {
+  /** Subjects with a grade so far (only the first 8 count). */
+  counted: number;
+  total: number;
+  lowest: number | null;
+  /** The award earned, or null. Only set once all 8 subjects have a grade. */
+  award: HonourAward | null;
+  /** Why a higher award was missed, in one plain sentence. */
+  note: string | null;
+  /** The next award up and how many more points it needs, if the total is short. */
+  next: { award: HonourAward; points: number } | null;
+}
+
+/** Works out the honour roll from 1-7 subject grades. */
+export function honourRoll(grades: number[]): HonourResult {
+  const counted = grades.filter((g) => g > 0).slice(0, HONOUR_SUBJECTS);
+  const total = counted.reduce((s, g) => s + g, 0);
+  const lowest = counted.length ? Math.min(...counted) : null;
+  const complete = counted.length === HONOUR_SUBJECTS;
+
+  let award: HonourAward | null = null;
+  let note: string | null = null;
+  if (complete && lowest !== null) {
+    for (const level of HONOUR_LEVELS) {
+      if (total < level.total) continue;
+      if (lowest >= level.minGrade) {
+        award = level.award;
+        break;
+      }
+      // Total is high enough but a grade is too low: say so, then try the level below.
+      note ??= lowest < 4
+        ? `A grade below 4 means no honour roll this time, even with ${total} points.`
+        : `You have the points for the ${HONOUR_LABEL[level.award]}, but it needs every grade at ${level.minGrade} or above.`;
+    }
+  }
+
+  const reachable = HONOUR_LEVELS.filter((l) => l.total > total).pop();
+  const next = complete && reachable && (!award || HONOUR_LEVELS.findIndex((l) => l.award === award) > HONOUR_LEVELS.indexOf(reachable))
+    ? { award: reachable.award, points: reachable.total - total }
+    : null;
+
+  return { counted: counted.length, total, lowest, award, note, next };
+}

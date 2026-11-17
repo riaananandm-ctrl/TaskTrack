@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Trash2, Target, TrendingUp, TrendingDown, Minus, ChevronDown, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Target, Award, TrendingUp, TrendingDown, Minus, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
-  CRITERIA, dpTotal, focusTip, summarise,
+  CRITERIA, dpTotal, focusTip, gradeOf, honourRoll, HONOUR_LABEL, HONOUR_LEVELS, HONOUR_SUBJECTS, summarise,
   type Criterion, type GradeEntry, type Programme, type SubjectSummary,
 } from '@/lib/ib-grades';
 import { addGrades, deleteGrade, listGrades, localToday } from '@/lib/ib-data';
@@ -91,6 +91,7 @@ export function GradesTab({ subjectNames, defaultProgramme = 'MYP' }: { subjectN
               </div>
             </div>
           )}
+          <HonourRollCard summaries={summaries} />
           {total !== null && (
             <p className="text-sm">
               Predicted DP total from your six subjects: <span className="font-semibold">{total}/42</span>{' '}
@@ -113,6 +114,66 @@ export function GradesTab({ subjectNames, defaultProgramme = 'MYP' }: { subjectN
       )}
 
       <AddMarksDialog open={adding} onClose={() => setAdding(false)} onSaved={load} subjectNames={subjectNames} defaultProgramme={defaultProgramme} />
+    </div>
+  );
+}
+
+/** MYP honour roll from the predicted grade in each of the 8 subjects. */
+function HonourRollCard({ summaries }: { summaries: SubjectSummary[] }) {
+  const myp = summaries.filter((s) => s.programme === 'MYP' && gradeOf(s) > 0);
+  if (!myp.length) return null;
+  // Best 8 if a student has logged more subjects than the honour roll counts.
+  const grades = myp.map(gradeOf).sort((a, b) => b - a);
+  const r = honourRoll(grades);
+  const complete = r.counted === HONOUR_SUBJECTS;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', r.award ? 'bg-amber-500/15 text-amber-600' : 'bg-muted text-muted-foreground')}>
+          <Award className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">
+            {!complete
+              ? `Honour roll: ${r.counted} of ${HONOUR_SUBJECTS} subjects added`
+              : r.award
+                ? `On track for the ${HONOUR_LABEL[r.award]}`
+                : 'Not on the honour roll yet'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {complete
+              ? `Total ${r.total}/56 from your 8 subjects · lowest grade ${r.lowest}`
+              : `Add marks for all ${HONOUR_SUBJECTS} subjects to see your honour roll. Total so far: ${r.total}.`}
+          </p>
+        </div>
+      </div>
+
+      {complete && (r.note || r.next) && (
+        <div className="mt-3 space-y-1 text-sm">
+          {r.note && <p className="text-amber-700 dark:text-amber-400">{r.note}</p>}
+          {r.next && (
+            <p className="text-muted-foreground">
+              {r.next.points} more point{r.next.points === 1 ? '' : 's'} for the {HONOUR_LABEL[r.next.award]}.
+            </p>
+          )}
+        </div>
+      )}
+      {myp.length > HONOUR_SUBJECTS && (
+        <p className="mt-2 text-xs text-muted-foreground">You have {myp.length} subjects; your best {HONOUR_SUBJECTS} are counted.</p>
+      )}
+
+      <details className="mt-3 text-xs text-muted-foreground">
+        <summary className="cursor-pointer select-none">How it works</summary>
+        <ul className="mt-2 space-y-1">
+          {HONOUR_LEVELS.map((l) => (
+            <li key={l.award}>
+              <span className="font-medium text-foreground">{HONOUR_LABEL[l.award]}</span>: {l.total}+ points, every grade {l.minGrade} or above
+            </li>
+          ))}
+          <li>Any grade below 4 means no honour roll. Based on your predicted grades, so it&rsquo;s a guide.</li>
+        </ul>
+      </details>
     </div>
   );
 }

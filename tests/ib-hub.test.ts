@@ -168,3 +168,33 @@ describe('DP year detection', () => {
     expect(isDpYear(null)).toBeNull();
   });
 });
+
+describe('honour roll', () => {
+  const run = async (g: number[]) => (await import('@/lib/ib-grades')).honourRoll(g);
+  it('gives each level at its total', async () => {
+    expect((await run([5, 5, 5, 5, 5, 5, 5, 5])).award).toBe('merit'); // 40
+    expect((await run([6, 6, 6, 6, 5, 5, 5, 5])).award).toBe('honour'); // 44
+    expect((await run([6, 6, 6, 6, 6, 6, 6, 6])).award).toBe('high_honour'); // 48
+    expect((await run([7, 7, 7, 7, 6, 6, 6, 6])).award).toBe('chairman'); // 52
+    expect((await run([5, 5, 5, 5, 5, 5, 5, 4])).award).toBeNull(); // 39
+  });
+  it('cancels every award for a grade below 4', async () => {
+    const r = await run([7, 7, 7, 7, 7, 7, 7, 3]);
+    expect(r.total).toBe(52);
+    expect(r.award).toBeNull();
+    expect(r.note).toMatch(/below 4/);
+  });
+  it('drops to the level the lowest grade allows', async () => {
+    expect((await run([7, 7, 7, 7, 7, 7, 5, 5])).award).toBe('high_honour'); // 52 but a 5
+    expect((await run([7, 7, 7, 7, 7, 7, 7, 4])).award).toBe('honour'); // 53 but a 4
+    expect((await run([7, 7, 7, 7, 7, 7, 7, 4])).note).toMatch(/Chairman/);
+  });
+  it('waits for all 8 subjects', async () => {
+    const r = await run([7, 7, 7]);
+    expect(r.counted).toBe(3);
+    expect(r.award).toBeNull();
+  });
+  it('says how far the next level is', async () => {
+    expect((await run([6, 6, 5, 5, 5, 5, 5, 5])).next).toEqual({ award: 'honour', points: 2 }); // 42
+  });
+});
