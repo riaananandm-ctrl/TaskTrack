@@ -26,7 +26,8 @@ import {
   PRIORITY_LABELS,
   STATUS_LABELS,
 } from '@/lib/types';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, PenLine } from 'lucide-react';
+import Link from 'next/link';
 import { autoPriority, matchAutoPriority } from '@/lib/auto-priority';
 import { markTasksSeen } from '@/lib/new-tasks';
 
@@ -357,6 +358,16 @@ export function TaskDialog({
               onChange={(e) => setFormData({ ...formData, external_link: e.target.value })}
             />
           </div>
+
+          {task && (
+            <Link
+              href={`/app/tasks/${task.id}/coach`}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:bg-accent transition-colors"
+            >
+              <PenLine className="w-4 h-4 text-primary" />
+              <span><span className="font-medium">Rewrite Coach</span><span className="text-muted-foreground"> · get suggested edits to your draft for this task</span></span>
+            </Link>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

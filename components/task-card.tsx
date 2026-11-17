@@ -6,7 +6,8 @@ import { getDueDateLabel, getPriorityBadgeClass, isOverdue, isDueToday } from '@
 import { getDeadlineStatus } from '@/lib/deadline-status';
 import { supabase } from '@/lib/supabase/client';
 import { awardXp, upsertOnboardingProgress } from '@/lib/gamification';
-import { CheckCircle2, Circle, Clock, Link as LinkIcon, Bell, MoreVertical, Copy, Archive, Trash2, Pencil, Sparkles, Loader2 } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Link as LinkIcon, Bell, MoreVertical, Copy, Archive, Trash2, Pencil, Sparkles, Loader2, PenLine } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { safeHttpUrl } from '@/lib/safe-url';
@@ -180,6 +181,11 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
                 )}
                 <DropdownMenuItem onClick={openStudySession}>
                   <Sparkles className="w-3.5 h-3.5 mr-2" /> Study Session
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/app/tasks/${task.id}/coach`}>
+                    <PenLine className="w-3.5 h-3.5 mr-2" /> Rewrite Coach
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={duplicateTask}>
                   <Copy className="w-3.5 h-3.5 mr-2" /> Duplicate
