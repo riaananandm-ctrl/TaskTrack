@@ -72,7 +72,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 max-w-7xl mx-auto w-full">
             <PriorityAlertBanner />
             <NotificationPrompt />
-            {children}
+            {/* Keyed by route so each page eases in when the student navigates. */}
+            <div key={pathname} className="animate-page-in">
+              {children}
+            </div>
           </main>
         </div>
       </div>

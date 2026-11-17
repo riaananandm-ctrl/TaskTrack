@@ -8,6 +8,9 @@ import { Reveal, ScrollProgress } from '@/components/landing/reveal';
 import { ManageBacShowcase } from '@/components/landing/managebac-showcase';
 import { StudyShowcase } from '@/components/landing/study-showcase';
 import { GraderGroupShowcase } from '@/components/landing/grader-group-showcase';
+import { HeroDemo } from '@/components/landing/hero-demo';
+import { Aurora } from '@/components/fx/aurora';
+import { Spotlight } from '@/components/fx/spotlight';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import { RELEASES } from '@/lib/whats-new';
 import {
@@ -21,10 +24,7 @@ import {
 } from '@/components/brand-icons';
 import {
   ArrowRight,
-  BookOpen,
   Check,
-  Clock3,
-  ListTodo,
   Menu,
   X,
 } from 'lucide-react';
@@ -109,7 +109,7 @@ export default function LandingPage() {
             <Logo size={34} />
             <span className="text-lg font-bold tracking-tight text-white">TaskTrack</span>
           </Link>
-          <div className="hidden items-center gap-7 md:flex">
+          <div className="hidden items-center gap-6 lg:flex">
             {navLinks.map((l) => (
               <a key={l.href} href={l.href} className="text-sm font-medium text-blue-100 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
                 {l.label}
@@ -119,7 +119,7 @@ export default function LandingPage() {
             <Link href="/signup"><Button size="sm" className="bg-[#315EDB] text-white hover:bg-[#274DBE]">Get started</Button></Link>
           </div>
           <button
-            className="rounded-md p-2 text-blue-100 transition-colors hover:bg-white/10 md:hidden"
+            className="rounded-md p-2 text-blue-100 transition-colors hover:bg-white/10 lg:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
@@ -128,7 +128,7 @@ export default function LandingPage() {
           </button>
         </div>
         {mobileMenuOpen && (
-          <div className="border-t border-white/10 bg-[#243B64] px-4 py-4 md:hidden">
+          <div className="border-t border-white/10 bg-[#243B64] px-4 py-4 lg:hidden">
             <div className="space-y-3">
               {navLinks.map((l) => (
                 <a key={l.href} href={l.href} onClick={closeMenu} className="block rounded-md px-2 py-1.5 text-sm text-blue-100 hover:bg-white/5 hover:text-white">
@@ -146,18 +146,17 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden bg-[#243B64] pb-16 pt-12 lg:pb-24 lg:pt-16">
+        <Spotlight className="overflow-hidden bg-[#1F3459]">
+        <section className="relative overflow-hidden pb-16 pt-12 lg:pb-24 lg:pt-16">
+          <Aurora />
           <div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
             aria-hidden
-            style={{
-              background:
-                'radial-gradient(48rem 30rem at 100% 0%, rgba(49,94,219,0.55), transparent 65%), radial-gradient(40rem 28rem at 0% 110%, rgba(34,178,158,0.30), transparent 65%)',
-            }}
+            style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)', backgroundSize: '44px 44px', maskImage: 'radial-gradient(ellipse at 50% 30%, black, transparent 75%)', WebkitMaskImage: 'radial-gradient(ellipse at 50% 30%, black, transparent 75%)' }}
           />
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
-              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
+              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-shimmer">Be ready for it.</span></h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac and Google Classroom deadlines into one list, helps you study for each one with AI, checks your drafts against the IB criteria, and lets you revise with friends.</p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <a href="#managebac" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
@@ -180,66 +179,19 @@ export default function LandingPage() {
                 </a>
               </div>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/signup"><Button size="lg" className="w-full bg-[#315EDB] text-base text-white hover:bg-[#274DBE] sm:w-auto">Get started free <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+                <Link href="/signup"><Button size="lg" className="btn-shine group w-full bg-[#315EDB] text-base text-white shadow-lg shadow-[#315EDB]/30 hover:bg-[#274DBE] sm:w-auto">Get started free <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" /></Button></Link>
                 <a href="#managebac"><Button size="lg" variant="outline" className="w-full border-white/25 bg-transparent text-base text-white hover:bg-white/10 sm:w-auto">See how it works</Button></a>
               </div>
               <p className="mt-5 text-sm text-blue-200">Free to start. No card required.</p>
             </div>
 
-            {/* Example workspace — synthetic, illustrative data */}
-            <div className="rounded-2xl border border-white/60 bg-[#FDFCF9] p-4 shadow-2xl shadow-[#0b1530]/40 ring-1 ring-white/10 sm:p-5 lg:rotate-[0.6deg]" aria-label="Example TaskTrack workspace">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Example workspace</p>
-                  <p className="mt-1 text-lg font-semibold text-[#243B64]">This week at a glance</p>
-                </div>
-                <CalendarCheckIcon size={34} />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs text-slate-500">ManageBac deadlines</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#243B64]">4</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs text-slate-500">Tasks due</p>
-                  <p className="mt-2 text-2xl font-semibold text-[#243B64]">3</p>
-                </div>
-              </div>
-              <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-medium text-[#243B64]">Next up</p>
-                  <span className="text-xs text-slate-400">Sample</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="h-8 w-1 rounded-full bg-[#315EDB]" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-700">English — comparative essay</p>
-                      <p className="text-xs text-slate-500">Due in 3 days · Draft outline</p>
-                    </div>
-                    <Clock3 className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="h-8 w-1 rounded-full bg-amber-500" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-700">Mathematics — problem set</p>
-                      <p className="text-xs text-slate-500">Due Friday · 6 questions</p>
-                    </div>
-                    <ListTodo className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="h-8 w-1 rounded-full bg-emerald-600" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-700">Chemistry — topic review</p>
-                      <p className="text-xs text-slate-500">Study session · 45 min</p>
-                    </div>
-                    <BookOpen className="h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-              </div>
+            {/* Example workspace: synthetic, illustrative data, interactive */}
+            <div className="animate-float-slow lg:animate-none">
+              <HeroDemo />
             </div>
           </div>
         </section>
+        </Spotlight>
 
         <ManageBacShowcase />
         <StudyShowcase />

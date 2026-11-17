@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, SlidersHorizontal, ListTodo } from 'lucide-react';
 import { parseISO } from 'date-fns';
 import { getDeadlineStatus } from '@/lib/deadline-status';
+import { readPageCache, writePageCache } from '@/lib/page-cache';
 
 type SortBy = 'due_date' | 'priority' | 'created_at' | 'alphabetical' | 'subject';
 type FilterStatus = 'all' | 'active' | 'completed' | 'overdue' | 'archived';
@@ -23,9 +24,10 @@ type FilterStatus = 'all' | 'active' | 'completed' | 'overdue' | 'archived';
 export default function TasksPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = user ? readPageCache<{ tasks: Task[]; subjects: Subject[] }>(`tasks:${user.id}`) : undefined;
+  const [tasks, setTasks] = useState<Task[]>(cached?.tasks ?? []);
+  const [subjects, setSubjects] = useState<Subject[]>(cached?.subjects ?? []);
+  const [loading, setLoading] = useState(!cached);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [search, setSearch] = useState('');
@@ -40,13 +42,16 @@ export default function TasksPage() {
     if (!user) return;
     // A silent refresh keeps the current list mounted, so an open Study Session panel
     // inside a task card is never unmounted while a reply is being saved.
-    if (!options?.silent) setLoading(true);
+    if (!options?.silent && !readPageCache(`tasks:${user.id}`)) setLoading(true);
     const [tasksRes, subjectsRes] = await Promise.all([
       supabase.from('tasks').select('*, subject:subjects(*)').order('created_at', { ascending: false }),
       supabase.from('subjects').select('*').eq('is_archived', false),
     ]);
-    setTasks((tasksRes.data as unknown as Task[]) || []);
-    setSubjects((subjectsRes.data as Subject[]) || []);
+    const nextTasks = (tasksRes.data as unknown as Task[]) || [];
+    const nextSubjects = (subjectsRes.data as Subject[]) || [];
+    setTasks(nextTasks);
+    setSubjects(nextSubjects);
+    if (!tasksRes.error) writePageCache(`tasks:${user.id}`, { tasks: nextTasks, subjects: nextSubjects });
     if (!options?.silent) setLoading(false);
   }, [user]);
 

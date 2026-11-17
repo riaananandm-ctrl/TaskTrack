@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Spotlight } from '@/components/fx/spotlight';
+import { Aurora } from '@/components/fx/aurora';
 import {
   format,
   isToday,
@@ -189,7 +191,8 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome header */}
-      <div className="gradient-hero relative overflow-hidden rounded-2xl p-6 sm:p-8 text-white shadow-lg-soft">
+      <Spotlight className="gradient-hero overflow-hidden rounded-2xl p-6 sm:p-8 text-white shadow-lg-soft" color="rgba(127, 178, 255, 0.22)" size={420}>
+        <Aurora className="opacity-60" />
         {/* Decorative check mark echoing the logo */}
         <svg
           className="pointer-events-none absolute -right-6 -bottom-10 h-48 w-48 text-white/[0.06] sm:h-56 sm:w-56"
@@ -221,7 +224,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
             <Plus className="w-4 h-4 mr-1" /> New task
           </Button>
         </div>
-      </div>
+      </Spotlight>
 
       <XpStreakWidget />
 

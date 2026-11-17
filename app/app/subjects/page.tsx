@@ -47,13 +47,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import * as LucideIcons from 'lucide-react';
+import { SubjectIcon } from '@/lib/subject-icons';
 
-type IconName = keyof typeof LucideIcons;
 
 function getIcon(name: string) {
-  const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[name];
-  return Icon || BookOpen;
+  return SubjectIcon(name);
 }
 
 export default function SubjectsPage() {

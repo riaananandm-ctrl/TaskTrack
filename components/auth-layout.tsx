@@ -1,6 +1,53 @@
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import { ReactNode } from 'react';
+import { Aurora } from '@/components/fx/aurora';
+import { Spotlight } from '@/components/fx/spotlight';
+import { Tilt } from '@/components/fx/tilt';
+
+/** Illustrative cards floating on the brand panel (sample content, not real data). */
+function FloatingCards() {
+  return (
+    <div className="relative mx-auto h-[260px] w-full max-w-md" aria-hidden>
+      <div className="absolute left-0 top-2 w-[78%] animate-float">
+        <Tilt className="rounded-2xl" max={8}>
+          <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-md shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-200">Due tomorrow</p>
+              <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-200">Summative</span>
+            </div>
+            <p className="mt-2 text-sm font-semibold text-white">Chemistry: bonding test</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-sky-300 to-[#5FD3C0]" />
+            </div>
+            <p className="mt-1.5 text-[11px] text-blue-200">2 of 3 study sessions done</p>
+          </div>
+        </Tilt>
+      </div>
+      <div className="absolute bottom-0 right-0 w-[70%] animate-float-slow">
+        <Tilt className="rounded-2xl" max={8}>
+          <div className="rounded-2xl border border-white/15 bg-[#0f1d3d]/70 p-4 backdrop-blur-md shadow-xl shadow-black/30">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#5FD3C0]/20 text-[#5FD3C0]">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Spanish: writing task</p>
+                <p className="text-[11px] text-blue-200">Completed · +20 XP</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                <span key={d} className={`h-2 flex-1 rounded-full ${d <= 5 ? 'bg-[#5FD3C0]' : 'bg-white/15'}`} />
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-blue-200">5-day streak</p>
+          </div>
+        </Tilt>
+      </div>
+    </div>
+  );
+}
 
 export function AuthLayout({
   children,
@@ -15,58 +62,58 @@ export function AuthLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#243B64] relative overflow-hidden">
+      {/* Brand panel (desktop) */}
+      <Spotlight className="hidden lg:flex lg:w-1/2 overflow-hidden bg-[#1F3459]">
+        <Aurora />
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
           aria-hidden
           style={{
-            background:
-              'radial-gradient(38rem 28rem at 100% 0%, rgba(49,94,219,0.6), transparent 65%), radial-gradient(34rem 26rem at 0% 105%, rgba(34,178,158,0.32), transparent 65%), linear-gradient(170deg,#243B64 0%,#172648 100%)',
+            backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
           }}
         />
-        <div className="relative flex flex-col justify-between p-12 text-white w-full">
+        <div className="relative flex flex-col justify-between gap-10 p-12 text-white w-full">
           <Link href="/" className="inline-flex items-center gap-3 self-start">
             <Logo size={40} className="shadow-lg shadow-black/20" />
             <span className="text-xl font-bold tracking-tight">TaskTrack</span>
           </Link>
-          <div className="space-y-6">
-            <h2 className="text-5xl font-bold leading-[1.08] tracking-tight">
-              Know what&rsquo;s due.
-              <br />
-              <span className="text-[#5FD3C0]">Be ready for it.</span>
-            </h2>
-            <p className="text-lg text-blue-200 leading-relaxed max-w-md">
-              Keep all your academic tasks, deadlines and reminders in one organised place.
-            </p>
-            <div className="space-y-3 pt-4">
-              {['Organise tasks by subject', 'Set reminders for exact times', 'Plan your week with confidence'].map((item, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#22B29E]/20 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="#5FD3C0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="m5 12.5 4.500 4.500L19 7.500" />
-                    </svg>
-                  </div>
-                  <span className="text-sm text-blue-100">{item}</span>
-                </div>
-              ))}
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <h2 className="text-5xl font-bold leading-[1.08] tracking-tight">
+                Know what&rsquo;s due.
+                <br />
+                <span className="text-shimmer">Be ready for it.</span>
+              </h2>
+              <p className="text-lg text-blue-200 leading-relaxed max-w-md">
+                Your ManageBac and Classroom deadlines, sorted by subject, with AI study help for each one.
+              </p>
             </div>
+            <FloatingCards />
           </div>
           <p className="text-xs text-blue-300">
             &copy; {new Date().getFullYear()} TaskTrack. All rights reserved.
           </p>
         </div>
+      </Spotlight>
+
+      {/* Brand strip (mobile and tablet) */}
+      <div className="relative overflow-hidden bg-[#1F3459] px-6 pb-10 pt-6 text-white lg:hidden">
+        <Aurora />
+        <div className="relative">
+          <Link href="/" className="inline-flex items-center gap-2.5">
+            <Logo size={34} />
+            <span className="text-lg font-bold tracking-tight">TaskTrack</span>
+          </Link>
+          <p className="mt-5 text-2xl font-bold leading-tight tracking-tight">
+            Know what&rsquo;s due. <span className="text-shimmer">Be ready for it.</span>
+          </p>
+        </div>
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <Logo size={34} />
-              <span className="text-lg font-bold tracking-tight">TaskTrack</span>
-            </Link>
-          </div>
+      {/* Form panel */}
+      <div className="relative flex-1 flex items-start lg:items-center justify-center p-6 sm:p-12 bg-background app-backdrop -mt-6 rounded-t-3xl lg:mt-0 lg:rounded-none">
+        <div className="w-full max-w-md animate-slide-up">
           <div className="mb-8">
             <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
             <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>

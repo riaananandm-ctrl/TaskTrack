@@ -8,7 +8,9 @@ import { cn } from '@/lib/utils';
  * true, so animations play a single time instead of replaying on every scroll.
  */
 export function useInView<T extends Element>({
-  threshold = 0.2,
+  // Any visible pixel counts: a section taller than the screen could never reach a
+  // percentage threshold and would stay invisible.
+  threshold = 0,
   rootMargin = '0px 0px -8% 0px',
   once = true,
 }: { threshold?: number; rootMargin?: string; once?: boolean } = {}) {

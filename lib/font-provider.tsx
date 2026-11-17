@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { getUserSettings, patchUserSettingsCache } from '@/lib/user-settings-cache';
 import { useAuth } from '@/lib/auth-context';
 import { DEFAULT_FONT_ID, isFontId } from '@/lib/fonts';
 
@@ -67,11 +68,7 @@ export function FontProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     let active = true;
     (async () => {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('font_family')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const data = await getUserSettings(user.id);
       if (!active) return;
       const stored = (data as { font_family?: string } | null)?.font_family;
       if (isFontId(stored)) {
@@ -92,6 +89,7 @@ export function FontProvider({ children }: { children: ReactNode }) {
       applyFont(id);
       persistLocal(id);
       if (user) {
+        patchUserSettingsCache(user.id, { font_family: id });
         const { error } = await supabase
           .from('user_settings')
           .upsert({ user_id: user.id, font_family: id }, { onConflict: 'user_id' });

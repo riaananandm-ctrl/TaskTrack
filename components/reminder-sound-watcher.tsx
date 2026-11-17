@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
+import { getUserSettings } from '@/lib/user-settings-cache';
 import { dingDueReminders, markAudioUnlocked, pruneDinged } from '@/lib/reminder-sound';
 
 /**
@@ -40,11 +41,7 @@ export function ReminderSoundWatcher() {
     let active = true;
 
     const readPreference = async () => {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('reminder_sound_enabled')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const data = await getUserSettings(user.id);
       if (active) soundEnabled.current = Boolean(data?.reminder_sound_enabled);
     };
 

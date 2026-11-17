@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { getUserSettings, patchUserSettingsCache } from '@/lib/user-settings-cache';
 import { useAuth } from '@/lib/auth-context';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -88,11 +89,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     let active = true;
     (async () => {
-      const { data } = await supabase
-        .from('user_settings')
-        .select('theme')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const data = await getUserSettings(user.id);
       if (!active) return;
       const stored = (data as { theme?: string } | null)?.theme;
       if (isTheme(stored)) {
@@ -120,6 +117,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // Ignore blocked storage.
       }
       if (user) {
+        patchUserSettingsCache(user.id, { theme: next });
         void supabase
           .from('user_settings')
           .upsert({ user_id: user.id, theme: next }, { onConflict: 'user_id' });

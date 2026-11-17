@@ -36,6 +36,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
   const [studyError, setStudyError] = useState<string | null>(null);
   const [optimisticStatus, setOptimisticStatus] = useState<Task['status'] | null>(null);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [xpPop, setXpPop] = useState(0);
 
   const displayTask: Task = optimisticStatus ? { ...task, status: optimisticStatus, completed_at: optimisticStatus === 'completed' ? new Date().toISOString() : null } : task;
 
@@ -45,6 +46,11 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
     setCompleteError(null);
     const newStatus = task.status === 'completed' ? 'not_started' : 'completed';
     setOptimisticStatus(newStatus);
+    if (newStatus === 'completed') {
+      const key = Date.now();
+      setXpPop(key);
+      setTimeout(() => setXpPop((k) => (k === key ? 0 : k)), 900);
+    }
     try {
       const { error } = await supabase
         .from('tasks')
@@ -132,6 +138,11 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
       <span className="absolute inset-y-0 left-0 w-1" style={{ background: subjectColour }} aria-hidden />
       <div className="flex items-start gap-3">
         {/* Complete button */}
+        {xpPop > 0 && (
+          <span key={xpPop} className="animate-xp-pop pointer-events-none absolute left-3 top-1 z-10 text-xs font-bold text-emerald-600 dark:text-emerald-400" aria-hidden>
+            +20 XP
+          </span>
+        )}
         <button
           type="button"
           onClick={toggleComplete}

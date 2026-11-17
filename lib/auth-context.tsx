@@ -9,6 +9,8 @@ import { markRecoveryHandoff, clearRecoveryHint, claimRecoveryRedirect } from '@
 import { clearPersistentLogin, persistentLoginExpired } from '@/lib/auth-storage';
 import { isAssessPrepTask, getTaskDeadline } from '@/lib/deadline-status';
 import { cleanupPastAssessPrepTasks } from '@/lib/assessprep-cleanup';
+import { clearPageCache } from '@/lib/page-cache';
+import { clearUserSettingsCache } from '@/lib/user-settings-cache';
 
 interface AuthContextType {
   user: User | null;
@@ -41,6 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const assessprepCleanedRef = useRef(false);
+  const profileRequest = useRef<{ userId: string; promise: Promise<void> } | null>(null);
+
+  /**
+   * Keep the same user object while it is the same account, so every effect that
+   * depends on `user` does not re-run (and re-fetch) when the session is re-read.
+   */
+  const setStableUser = (next: User | null) =>
+    setUser((prev) => (prev && next && prev.id === next.id && prev.updated_at === next.updated_at ? prev : next));
 
   useEffect(() => {
     let mounted = true;
@@ -64,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
           setSession(session);
-          setUser(session?.user ?? null);
+          setStableUser(session?.user ?? null);
           setEmailConfirmed(true);
           setLoading(false);
           return;
@@ -74,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'TOKEN_REFRESHED') {
           if (session) {
             setSession(session);
-            setUser(session.user ?? null);
+            setStableUser(session.user ?? null);
           }
           return;
         }
@@ -93,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // The recovery handoff hint is flow UI state, not session data; drop it
           // whenever the session ends so it can never outlive its flow.
           clearRecoveryHint();
+          profileRequest.current = null;
+          clearPageCache();
+          clearUserSettingsCache();
           setSession(null);
           setUser(null);
           setProfile(null);
@@ -103,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // INITIAL_SESSION and SIGNED_IN: set the session.
         setSession(session);
-        setUser(session?.user ?? null);
+        setStableUser(session?.user ?? null);
 
         const confirmed = !!session?.user?.email_confirmed_at || !!session?.user?.confirmed_at;
         setEmailConfirmed(confirmed);
@@ -170,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const confirmed = !!session?.user?.email_confirmed_at || !!session?.user?.confirmed_at;
       setSession(session);
-      setUser(session?.user ?? null);
+      setStableUser(session?.user ?? null);
       setEmailConfirmed(confirmed);
 
       if (session?.user && confirmed) {
@@ -194,7 +207,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const loadProfile = async (userId: string) => {
+  /** Loads the profile once per sign-in: overlapping calls share one request. */
+  const loadProfile = (userId: string, force = false): Promise<void> => {
+    if (!force && profileRequest.current?.userId === userId) return profileRequest.current.promise;
+    const promise = fetchProfile(userId);
+    profileRequest.current = { userId, promise };
+    return promise;
+  };
+
+  const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
@@ -215,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await loadProfile(user.id);
+      await loadProfile(user.id, true);
     }
   };
 
@@ -224,6 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut({ scope: 'local' });
     clearRecoveryHint();
     clearPersistentLogin();
+    profileRequest.current = null;
+    clearPageCache();
+    clearUserSettingsCache();
     setProfile(null);
     setUser(null);
     setSession(null);

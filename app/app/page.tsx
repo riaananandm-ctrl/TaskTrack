@@ -7,12 +7,14 @@ import { supabase } from '@/lib/supabase/client';
 import { Task, Subject, Reminder } from '@/lib/types';
 import { listUpcomingStudySessions, ScheduledStudySession } from '@/lib/study-schedule';
 import { DashboardView, DashboardSkeleton, DashboardError, DashboardData } from '@/components/dashboard-view';
+import { readPageCache, writePageCache } from '@/lib/page-cache';
 
 export default function DashboardPage() {
   const { user, profile } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const cacheKey = user ? `dashboard:${user.id}` : '';
+  const [data, setData] = useState<DashboardData | null>(() => (cacheKey ? readPageCache<DashboardData>(cacheKey) ?? null : null));
   const [failed, setFailed] = useState(false);
-  const hasLoaded = useRef(false);
+  const hasLoaded = useRef(data !== null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -33,13 +35,15 @@ export default function DashboardPage() {
       // Tasks are the heart of the dashboard; without them an empty page would be misleading.
       if (tasksRes.error) throw tasksRes.error;
 
-      setData({
+      const next: DashboardData = {
         tasks: (tasksRes.data as unknown as Task[]) || [],
         subjects: (subjectsRes.data as Subject[]) || [],
         reminders: (remindersRes.data as unknown as Reminder[]) || [],
         studySessions: sessionsRes || [],
         managebacConnected: !!mbRes.data,
-      });
+      };
+      setData(next);
+      writePageCache(`dashboard:${user.id}`, next);
       hasLoaded.current = true;
     } catch {
       // A failed background refresh keeps the data already on screen.

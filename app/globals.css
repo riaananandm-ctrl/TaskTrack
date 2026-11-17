@@ -181,6 +181,120 @@
   }
 }
 
+@layer utilities {
+  /* Page change inside the app: a quick, subtle rise. */
+  .animate-page-in {
+    animation: pageIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Cards and rows that respond to the pointer. */
+  .card-interactive {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  @media (hover: hover) {
+    .card-interactive:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px -2px rgba(23, 38, 75, 0.06), 0 14px 28px -10px rgba(23, 38, 75, 0.16);
+    }
+    .dark .card-interactive:hover {
+      box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.35), 0 14px 28px -10px rgba(0, 0, 0, 0.5);
+    }
+  }
+  /* A light sweep across primary call-to-action buttons on hover. */
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%) skewX(-20deg);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    transition: transform 0.7s ease;
+  }
+  .btn-shine:hover::after {
+    transform: translateX(120%) skewX(-20deg);
+  }
+  /* Animated brand gradient for headline words. */
+  .text-shimmer {
+    background: linear-gradient(90deg, #5FD3C0, #7FB2FF, #5FD3C0);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 6s linear infinite;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 8s ease-in-out infinite;
+    animation-delay: -3s;
+  }
+  .animate-xp-pop {
+    animation: xpPop 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+}
+
+/* Drifting aurora blobs behind dark brand panels. */
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.aurora-1 {
+  width: 34rem; height: 34rem; top: -12rem; right: -8rem;
+  background: radial-gradient(circle, rgba(49, 94, 219, 0.9), transparent 65%);
+  animation: drift1 18s ease-in-out infinite alternate;
+}
+.aurora-2 {
+  width: 28rem; height: 28rem; bottom: -12rem; left: -6rem;
+  background: radial-gradient(circle, rgba(34, 178, 158, 0.75), transparent 65%);
+  animation: drift2 22s ease-in-out infinite alternate;
+}
+.aurora-3 {
+  width: 22rem; height: 22rem; top: 30%; left: 40%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.45), transparent 65%);
+  animation: drift3 26s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob, .text-shimmer, .animate-float, .animate-float-slow, .animate-page-in { animation: none !important; }
+  .card-interactive, .card-interactive:hover { transform: none !important; }
+  .btn-shine::after { display: none; }
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes xpPop {
+  0% { opacity: 0; transform: translateY(4px) scale(0.8); }
+  25% { opacity: 1; transform: translateY(-6px) scale(1.08); }
+  100% { opacity: 0; transform: translateY(-28px) scale(1); }
+}
+@keyframes drift1 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-6rem, 4rem) scale(1.15); }
+}
+@keyframes drift2 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(7rem, -3rem) scale(1.1); }
+}
+@keyframes drift3 {
+  from { transform: translate(0, 0) scale(0.9); }
+  to { transform: translate(-5rem, -4rem) scale(1.2); }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

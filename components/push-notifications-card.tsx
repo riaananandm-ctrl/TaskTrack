@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/lib/supabase/client';
+import { patchUserSettingsCache } from '@/lib/user-settings-cache';
 import {
   Bell, BellOff, BellRing, Loader2, Volume2, AlertTriangle, ShieldAlert,
   Send, CheckCircle2, Info, RotateCw, VolumeX,
@@ -134,6 +135,7 @@ export function PushNotificationsCard() {
       await supabase
         .from('user_settings')
         .upsert({ user_id: auth.user.id, reminder_sound_enabled: next }, { onConflict: 'user_id' });
+      patchUserSettingsCache(auth.user.id, { reminder_sound_enabled: next });
     }
     setSoundSaving(false);
   };
