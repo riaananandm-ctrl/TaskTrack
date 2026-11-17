@@ -9,19 +9,11 @@ import { ManageBacShowcase } from '@/components/landing/managebac-showcase';
 import { StudyShowcase } from '@/components/landing/study-showcase';
 import { GraderGroupShowcase } from '@/components/landing/grader-group-showcase';
 import { HeroDemo } from '@/components/landing/hero-demo';
-import { Aurora } from '@/components/fx/aurora';
+import { ProblemPicker } from '@/components/landing/problem-picker';
 import { Spotlight } from '@/components/fx/spotlight';
+import { CalendarCheckIcon, SlidesIcon } from '@/components/brand-icons';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import { RELEASES } from '@/lib/whats-new';
-import {
-  UpcomingIcon,
-  CalendarCheckIcon,
-  StudyIcon,
-  ReminderIcon,
-  SlidesIcon,
-  GraderIcon,
-  GroupIcon,
-} from '@/components/brand-icons';
 import {
   ArrowRight,
   Check,
@@ -37,54 +29,6 @@ const navLinks = [
   { label: 'Features', href: '#features' },
   { label: 'Plans', href: '#plans' },
   { label: 'Contact', href: '#contact' },
-];
-
-const featureCards = [
-  {
-    icon: UpcomingIcon,
-    title: 'Tasks',
-    description: 'Every assignment and due date in one list, organised by subject.',
-  },
-  {
-    icon: CalendarCheckIcon,
-    title: 'ManageBac',
-    description: 'Subscribe to your ManageBac calendar and its deadlines import into TaskTrack.',
-  },
-  {
-    icon: StudyIcon,
-    title: 'Study tools',
-    description: 'Turn a task into explanations, quizzes, flashcards, and a study plan.',
-  },
-  {
-    icon: GraderIcon,
-    title: 'AI Grader',
-    description: 'Paste a draft and get an estimated IB level for each criterion, plus what to fix.',
-  },
-  {
-    icon: GroupIcon,
-    title: 'Group Study',
-    description: 'Private study rooms with a share code, where the AI can help the whole group.',
-  },
-  {
-    icon: ReminderIcon,
-    title: 'Day-before reminders',
-    description: 'Every task gets a reminder the day before it is due, at the time you choose.',
-  },
-  {
-    icon: CalendarCheckIcon,
-    title: 'Google Classroom',
-    description: 'Classroom assignments with due dates import as tasks and tick off when you turn them in.',
-  },
-  {
-    icon: UpcomingIcon,
-    title: 'New Tasks',
-    description: 'See what just arrived and what is due today on one page, then sort it in seconds.',
-  },
-  {
-    icon: SlidesIcon,
-    title: 'Study slides',
-    description: 'Turn any topic into a slide deck with speaker notes and download it for Google Slides or PowerPoint.',
-  },
 ];
 
 const workflow = [
@@ -148,15 +92,9 @@ export default function LandingPage() {
         {/* Hero */}
         <Spotlight className="overflow-hidden bg-[#1F3459]">
         <section className="relative overflow-hidden pb-16 pt-12 lg:pb-24 lg:pt-16">
-          <Aurora />
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.07]"
-            aria-hidden
-            style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)', backgroundSize: '44px 44px', maskImage: 'radial-gradient(ellipse at 50% 30%, black, transparent 75%)', WebkitMaskImage: 'radial-gradient(ellipse at 50% 30%, black, transparent 75%)' }}
-          />
           <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_0.95fr] lg:px-8">
             <div className="max-w-2xl">
-              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-shimmer">Be ready for it.</span></h1>
+              <h1 className="max-w-xl text-4xl font-semibold leading-[1.15] tracking-tight text-white sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">Know what&rsquo;s due. <span className="text-[#5FD3C0]">Be ready for it.</span></h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-blue-100">TaskTrack pulls your ManageBac and Google Classroom deadlines into one list, helps you study for each one with AI, checks your drafts against the IB criteria, and lets you revise with friends.</p>
               <div className="mt-6 flex flex-wrap gap-2.5">
                 <a href="#managebac" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
@@ -180,7 +118,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href="/signup"><Button size="lg" className="btn-shine group w-full bg-[#315EDB] text-base text-white shadow-lg shadow-[#315EDB]/30 hover:bg-[#274DBE] sm:w-auto">Get started free <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" /></Button></Link>
-                <a href="#managebac"><Button size="lg" variant="outline" className="w-full border-white/25 bg-transparent text-base text-white hover:bg-white/10 sm:w-auto">See how it works</Button></a>
+                <a href="#study"><Button size="lg" variant="outline" className="w-full border-white/25 bg-transparent text-base text-white hover:bg-white/10 sm:w-auto">Try the AI now, no sign-up</Button></a>
               </div>
               <p className="mt-5 text-sm text-blue-200">Free to start. No card required.</p>
             </div>
@@ -225,23 +163,10 @@ export default function LandingPage() {
         <section id="features" className="border-b border-slate-200 bg-[#F6F5F1] py-20 lg:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315EDB]">Features</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Everything in one place.</h2>
+              <h2 className="text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">What&rsquo;s going wrong this week?</h2>
+              <p className="mt-3 text-lg text-slate-600">Pick the one that sounds like you.</p>
             </div>
-            <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {featureCards.map((feature, i) => {
-                const Icon = feature.icon;
-                return (
-                  <Reveal key={feature.title} delay={i * 90} className="h-full">
-                  <div className="h-full rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(23,38,75,0.04),0_1px_3px_rgba(23,38,75,0.05)] transition-all duration-200 hover:-translate-y-1 hover:border-[#315EDB]/30 hover:shadow-[0_2px_4px_-1px_rgba(23,38,75,0.05),0_12px_28px_-6px_rgba(23,38,75,0.14)]">
-                    <Icon size={44} />
-                    <h3 className="mt-5 text-lg font-semibold text-[#243B64]">{feature.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
-                  </div>
-                  </Reveal>
-                );
-              })}
-            </div>
+            <ProblemPicker />
           </div>
         </section>
 

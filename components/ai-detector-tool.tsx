@@ -96,7 +96,7 @@ export function AiDetectorTool({ access, onUsed }: { access: ToolAccess; onUsed:
             {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Checking…</> : <><ScanSearch className="w-4 h-4 mr-2" />Check</>}
           </Button>
         </div>
-        {left === 0 && <p className="text-xs text-muted-foreground">You’ve used today’s 5 checks. They reset at midnight UTC.</p>}
+        {left === 0 && <p className="text-xs text-muted-foreground">You’ve used today’s {access.detectorLimit} checks. They reset at midnight UTC.</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 

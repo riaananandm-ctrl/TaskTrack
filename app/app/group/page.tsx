@@ -473,7 +473,7 @@ function Room({ groupId }: { groupId: string }) {
 /** Safety notes for the lobby, plus the parent link until a parent or guardian has said OK. */
 function GroupSafety() {
   const { consent } = useConsent();
-  if (needsParent(consent)) return <ParentConsentCard />;
+  if (needsParent(consent)) return <ParentConsentCard compact />;
   return (
     <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#22B29E]" />

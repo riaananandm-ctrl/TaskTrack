@@ -29,6 +29,12 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: { unoptimized: true },
+  // pdf.js (used to read uploaded PDFs in the browser) has an optional Node-only
+  // 'canvas' dependency that is never used on the web.
+  webpack: (config) => {
+    config.resolve.alias = { ...config.resolve.alias, canvas: false };
+    return config;
+  },
   // Don't advertise the framework version.
   poweredByHeader: false,
   async headers() {

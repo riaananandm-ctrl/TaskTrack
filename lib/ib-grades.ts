@@ -163,3 +163,12 @@ export function focusTip(summaries: SubjectSummary[]): string | null {
   if (weakest.predicted >= 7) return 'Every subject is predicted a 7. Keep it up!';
   return `${weakest.subject} is your lowest at a predicted ${weakest.predicted}. Ask your teacher which skill would move it to a ${weakest.predicted + 1}.`;
 }
+
+/**
+ * Whether a year group is in the IB Diploma (Grades 11-12 / Years 12-13).
+ * Returns null when we can't tell (no year group, or "Other").
+ */
+export function isDpYear(yearGroup: string | null | undefined): boolean | null {
+  if (!yearGroup || yearGroup === 'Other') return null;
+  return /DP|Grade 1[12]\b|Year 1[23]\b/.test(yearGroup);
+}

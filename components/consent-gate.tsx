@@ -71,12 +71,6 @@ function ConsentScreen() {
                 </button>
               ))}
             </div>
-            {age && (
-              <p className="mt-3 rounded-lg bg-primary/5 p-3 text-sm text-muted-foreground">
-                You can use TaskTrack right away. To use <strong>Group Study</strong>, a parent or guardian needs to say
-                it’s OK. We’ll give you a link to send them.
-              </p>
-            )}
           </div>
 
           <label className="flex items-start gap-3 text-sm leading-6">
@@ -135,6 +129,20 @@ export function ParentConsentCard({ compact }: { compact?: boolean }) {
       // Clipboard blocked: the link is still visible to copy by hand.
     }
   };
+
+  const [open, setOpen] = useState(!compact);
+
+  if (!open) {
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+        <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+          Group chat with other students needs a quick OK from a parent. Everything else works without it.
+        </p>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Get the link</Button>
+      </div>
+    );
+  }
 
   const message = url
     ? `Hi! I use TaskTrack for my school deadlines. To use its Group Study feature I need a parent or guardian to say it's OK. Please open this link: ${url}`

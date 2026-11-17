@@ -17,15 +17,18 @@ import { addGrades, deleteGrade, listGrades, localToday } from '@/lib/ib-data';
 
 const PROGRAMME_KEY = 'tasktrack.ib.programme';
 
-function readProgramme(): Programme {
+/** The last programme the student picked, or a guess from their year group. */
+function readProgramme(fallback: Programme): Programme {
   try {
-    return window.localStorage.getItem(PROGRAMME_KEY) === 'DP' ? 'DP' : 'MYP';
+    const saved = window.localStorage.getItem(PROGRAMME_KEY);
+    if (saved === 'DP' || saved === 'MYP') return saved;
   } catch {
-    return 'MYP';
+    // storage blocked: use the fallback
   }
+  return fallback;
 }
 
-export function GradesTab({ subjectNames }: { subjectNames: string[] }) {
+export function GradesTab({ subjectNames, defaultProgramme = 'MYP' }: { subjectNames: string[]; defaultProgramme?: Programme }) {
   const [grades, setGrades] = useState<GradeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export function GradesTab({ subjectNames }: { subjectNames: string[] }) {
         </>
       )}
 
-      <AddMarksDialog open={adding} onClose={() => setAdding(false)} onSaved={load} subjectNames={subjectNames} />
+      <AddMarksDialog open={adding} onClose={() => setAdding(false)} onSaved={load} subjectNames={subjectNames} defaultProgramme={defaultProgramme} />
     </div>
   );
 }
@@ -210,8 +213,8 @@ function SubjectCard({ summary, entries, onChanged }: { summary: SubjectSummary;
 }
 
 function AddMarksDialog({
-  open, onClose, onSaved, subjectNames,
-}: { open: boolean; onClose: () => void; onSaved: () => void; subjectNames: string[] }) {
+  open, onClose, onSaved, subjectNames, defaultProgramme,
+}: { open: boolean; onClose: () => void; onSaved: () => void; subjectNames: string[]; defaultProgramme: Programme }) {
   const [programme, setProgramme] = useState<Programme>('MYP');
   const [subject, setSubject] = useState('');
   const [assessment, setAssessment] = useState('');
@@ -224,14 +227,14 @@ function AddMarksDialog({
 
   useEffect(() => {
     if (open) {
-      setProgramme(readProgramme());
+      setProgramme(readProgramme(defaultProgramme));
       setAssessment('');
       setMyp({ A: '', B: '', C: '', D: '' });
       setDp('');
       setDate(localToday());
       setError(null);
     }
-  }, [open]);
+  }, [open, defaultProgramme]);
 
   const chooseProgramme = (p: Programme) => {
     setProgramme(p);

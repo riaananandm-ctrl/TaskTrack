@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Flame, CalendarClock, Layers, ArrowRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { isDpYear } from '@/lib/ib-grades';
 import { GradesTab } from '@/components/ib/grades-tab';
 import { ExamsTab, countdownLabel } from '@/components/ib/exams-tab';
 import { ProjectsTab } from '@/components/ib/projects-tab';
@@ -21,6 +23,9 @@ type Tab = (typeof TABS)[number];
  */
 export default function IbHubPage() {
   const router = useRouter();
+  const { profile } = useAuth();
+  // IA & EE are Diploma (Grade 11-12) work, so younger students see them as "later", not as a to-do.
+  const dp = isDpYear(profile?.year_group);
   const [tab, setTab] = useState<Tab>('grades');
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
 
@@ -55,11 +60,21 @@ export default function IbHubPage() {
         <TabsList className="grid w-full grid-cols-3 sm:inline-grid sm:w-auto">
           <TabsTrigger value="grades">Grades</TabsTrigger>
           <TabsTrigger value="exams">Exams</TabsTrigger>
-          <TabsTrigger value="projects">IA &amp; EE</TabsTrigger>
+          <TabsTrigger value="projects">
+            IA &amp; EE
+            {dp === false && <span className="ml-1.5 rounded bg-muted px-1 text-[10px] font-semibold text-muted-foreground">DP</span>}
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="grades" className="mt-4"><GradesTab subjectNames={names} /></TabsContent>
+        <TabsContent value="grades" className="mt-4"><GradesTab subjectNames={names} defaultProgramme={dp ? 'DP' : 'MYP'} /></TabsContent>
         <TabsContent value="exams" className="mt-4"><ExamsTab subjectNames={names} /></TabsContent>
-        <TabsContent value="projects" className="mt-4"><ProjectsTab subjects={subjects} /></TabsContent>
+        <TabsContent value="projects" className="mt-4 space-y-4">
+          {dp === false && (
+            <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
+              The IA and Extended Essay are part of the IB Diploma (Grades 11–12). You don’t need this yet, but you’re welcome to plan ahead.
+            </p>
+          )}
+          <ProjectsTab subjects={subjects} />
+        </TabsContent>
       </Tabs>
     </div>
   );

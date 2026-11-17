@@ -132,3 +132,39 @@ describe('daily review', () => {
     expect(pickDailyReview(many, [], now)).toHaveLength(15);
   });
 });
+
+describe('grader file text', () => {
+  it('reads Word paragraphs, tabs, breaks and entities, skipping deletions', async () => {
+    const { docxXmlToText, fileKind } = await import('@/lib/extract-text');
+    const xml =
+      '<w:document><w:body>' +
+      '<w:p><w:r><w:t>Intro: </w:t></w:r><w:r><w:t xml:space="preserve">cats &amp; dogs</w:t></w:r></w:p>' +
+      '<w:p><w:r><w:t>A</w:t><w:tab/><w:t>B</w:t><w:br/><w:t>C</w:t></w:r></w:p>' +
+      '<w:p><w:del><w:r><w:t>gone</w:t></w:r></w:del><w:r><w:t>kept</w:t></w:r></w:p>' +
+      '</w:body></w:document>';
+    expect(docxXmlToText(xml)).toBe('Intro: cats & dogs\nA\tB\nC\nkept');
+    expect(fileKind('Essay.DOCX')).toBe('docx');
+    expect(fileKind('scan.png')).toBe('other');
+  });
+});
+
+describe('pdf line joining', () => {
+  it('joins wrapped lines into paragraphs and repairs hyphenation', async () => {
+    const { joinPdfLines } = await import('@/lib/extract-text');
+    expect(joinPdfLines(['Title', '', 'Light helps plants grow and the', 'second plant turned yel-', 'low over time. It needed light.', '', 'Next paragraph.'])).toBe(
+      'Title\n\nLight helps plants grow and the second plant turned yellow over time. It needed light.\n\nNext paragraph.',
+    );
+  });
+});
+
+describe('DP year detection', () => {
+  it('knows DP years from MYP years', async () => {
+    const { isDpYear } = await import('@/lib/ib-grades');
+    expect(isDpYear('Year 12 (IB DP Year 1)')).toBe(true);
+    expect(isDpYear('Grade 11')).toBe(true);
+    expect(isDpYear('Grade 10')).toBe(false);
+    expect(isDpYear('MYP Year 5')).toBe(false);
+    expect(isDpYear('Year 11')).toBe(false);
+    expect(isDpYear(null)).toBeNull();
+  });
+});

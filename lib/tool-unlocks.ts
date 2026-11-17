@@ -12,7 +12,7 @@ export interface ToolAccess {
   resetsAt: string | null;
 }
 
-export const EMPTY_ACCESS: ToolAccess = { unlocked: [], premium: false, polishUsed: 0, polishLimit: 3, detectorUsed: 0, detectorLimit: 5, resetsAt: null };
+export const EMPTY_ACCESS: ToolAccess = { unlocked: [], premium: false, polishUsed: 0, polishLimit: 3, detectorUsed: 0, detectorLimit: 15, resetsAt: null };
 export const TOOL_ACCESS_EVENT = 'tasktrack:tool-access-changed';
 
 export async function getToolAccess(): Promise<ToolAccess> {

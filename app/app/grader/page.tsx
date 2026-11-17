@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertCircle, ArrowUpRight, Check, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Check, FileUp, Loader2, RotateCcw, Sparkles, X } from 'lucide-react';
+import { ACCEPT, extractText, ExtractError } from '@/lib/extract-text';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import type { Subject, Task } from '@/lib/types';
@@ -42,6 +43,28 @@ export default function GraderPage() {
   const [grading, setGrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  /** Reads the file in the browser and puts its text in "Your work". Nothing is uploaded. */
+  const loadFile = async (file: File | undefined) => {
+    if (!file) return;
+    setReading(true);
+    setError(null);
+    try {
+      const text = await extractText(file);
+      setWork(text.slice(0, MAX_WORK));
+      setFileName(file.name);
+      if (!title.trim()) setTitle(file.name.replace(/\.[^.]+$/, '').slice(0, 200));
+    } catch (e) {
+      setError(e instanceof ExtractError ? e.message : 'That file couldn’t be read. Try saving it as .docx or PDF.');
+    } finally {
+      setReading(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -101,7 +124,7 @@ export default function GraderPage() {
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">AI Grader</h1>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            Paste your draft and get feedback against the IB criteria before you hand it in: an estimated level for each criterion, what&rsquo;s working, and what to fix.
+            Paste or upload your draft and get feedback against the IB criteria before you hand it in: an estimated level for each criterion, what&rsquo;s working, and what to fix.
           </p>
         </div>
       </div>
@@ -180,12 +203,34 @@ export default function GraderPage() {
                 {words} {words === 1 ? 'word' : 'words'}
               </span>
             </div>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files?.[0]); }}
+              className={cn('flex flex-wrap items-center gap-3 rounded-lg border-2 border-dashed px-3 py-3 transition-colors', dragging ? 'border-primary bg-primary/5' : 'border-border')}
+            >
+              <input ref={fileInput} type="file" accept={ACCEPT} className="hidden" onChange={(e) => loadFile(e.target.files?.[0])} />
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={reading} className="gap-1.5">
+                {reading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                {reading ? 'Reading…' : 'Upload a file'}
+              </Button>
+              {fileName ? (
+                <span className="flex min-w-0 items-center gap-1.5 text-sm">
+                  <span className="truncate font-medium">{fileName}</span>
+                  <button type="button" onClick={() => { setFileName(null); setWork(''); }} aria-label="Remove file" className="tap-target rounded p-0.5 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Word (.docx), PDF or text. Or drop it here. Read on your device, not stored.</span>
+              )}
+            </div>
             <Textarea
               id="grader-work"
               value={work}
               onChange={(e) => setWork(e.target.value.slice(0, MAX_WORK))}
               rows={12}
-              placeholder="Paste your essay, report or draft here."
+              placeholder="Paste your essay, report or draft here, or upload a file above."
               className="leading-relaxed"
             />
             {work.length >= MAX_WORK && <p className="text-xs text-amber-600">That&rsquo;s the maximum length. Only the first {MAX_WORK.toLocaleString()} characters are assessed.</p>}
