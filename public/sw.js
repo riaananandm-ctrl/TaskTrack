@@ -37,14 +37,17 @@ self.addEventListener('push', (event) => {
         : '/app/notifications';
 
   // `tag` collapses repeat notifications for the same reminder into one, so a
-  // student never sees the same reminder stacked up.
+  // student never sees the same reminder stacked up. `renotify` makes a replacement
+  // still pop up and make a sound: without it, a new notification that reuses an
+  // older one's tag (e.g. a second "Test notification") is swapped in silently.
+  const tag = typeof payload.tag === 'string' ? payload.tag : undefined;
   const options = {
     body,
     icon: '/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png',
     badge: '/assets/images/Screenshot_2026-09-28_at_9.58.09_AM-removebg-preview.png',
     data: { url: target },
-    tag: typeof payload.tag === 'string' ? payload.tag : undefined,
-    renotify: false,
+    tag,
+    renotify: Boolean(tag),
     // Ask for a non-silent notification. The final sound is controlled by the
     // browser and the operating system, which TaskTrack cannot override.
     silent: false,
