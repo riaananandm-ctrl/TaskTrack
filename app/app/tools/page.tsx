@@ -39,6 +39,11 @@ export default function ToolsPage() {
   const [active, setActive] = useState<Tool>('calculator');
   const [whiteboardKey, setWhiteboardKey] = useState(0);
 
+  // /app/tools?tool=redeem opens straight to Redeem Code (used by Christmas prize codes).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tool') === 'redeem') setActive('redeem');
+  }, []);
+
   const [access, setAccess] = useState<ToolAccess>(EMPTY_ACCESS);
 
   const resetWhiteboard = useCallback(() => {

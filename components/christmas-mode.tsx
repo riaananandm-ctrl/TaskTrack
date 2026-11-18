@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TOOL_ACCESS_EVENT, getToolAccess } from '@/lib/tool-unlocks';
 import { CHRISTMAS_EVENT, CHRISTMAS_TOOL, christmasSwitchedOff } from '@/lib/christmas';
+import { supabase } from '@/lib/supabase/client';
 
 /**
  * Christmas mode, unlocked with a redeem code. Snow that drifts away from the
@@ -60,6 +61,13 @@ const MESSAGES = [
   'Merry Christmas from the TaskTrack elves 🎁',
 ];
 
+const PRIZE_NAMES: Record<string, string> = {
+  polish: 'Polish my writing',
+  detector: 'AI Detector',
+};
+
+interface Prize { code: string; unlocks: string }
+
 interface Particle {
   x: number; y: number; vx: number; vy: number;
   life: number; max: number; size: number; color: string; kind: 'spark' | 'confetti' | 'star';
@@ -85,6 +93,8 @@ function ChristmasScene() {
   const [mode, setMode] = useState<LightMode>('twinkle');
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [prize, setPrize] = useState<Prize | null>(null);
+  const [copied, setCopied] = useState(false);
   const [shake, setShake] = useState(false);
   const [sleighOn, setSleighOn] = useState(false);
 
@@ -153,11 +163,39 @@ function ChristmasScene() {
   };
 
   // ---------------------------------------------------------------- gifts
-  const openGift = (g: Gift, e: React.MouseEvent<HTMLButtonElement>) => {
+  // About 1 in 100 presents hides a secret redeem code. The server rolls the dice,
+  // so the codes never live in the app; anything else is a festive note.
+  const openGift = async (g: Gift, e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    burst(r.left + r.width / 2, r.top + r.height / 2, 'confetti', 60);
-    say(r.left + r.width / 2, r.top - 8, randomMessage());
-    setGifts((list) => list.filter((x) => x.id !== g.id));
+    const x = r.left + r.width / 2;
+    burst(x, r.top + r.height / 2, 'confetti', 60);
+    setGifts((list) => list.filter((y) => y.id !== g.id));
+    let won: Prize | null = null;
+    try {
+      const { data } = await supabase.rpc('open_christmas_present');
+      const res = data as { prize?: boolean; code?: string; unlocks?: string } | null;
+      if (res?.prize && res.code && res.unlocks) won = { code: res.code, unlocks: res.unlocks };
+    } catch {
+      // Offline or busy: it's just a note this time.
+    }
+    if (won) {
+      burst(window.innerWidth / 2, window.innerHeight / 2, 'star', 80);
+      burst(window.innerWidth / 2, window.innerHeight / 2, 'confetti', 120);
+      setCopied(false);
+      setPrize(won);
+    } else {
+      say(x, r.top - 8, randomMessage());
+    }
+  };
+
+  const copyPrize = async () => {
+    if (!prize) return;
+    try {
+      await navigator.clipboard.writeText(prize.code);
+      setCopied(true);
+    } catch {
+      // Clipboard blocked: the code is on screen to copy by hand.
+    }
   };
 
   // ---------------------------------------------------------------- Santa
@@ -349,6 +387,9 @@ function ChristmasScene() {
         >
           <span className="inline-block -scale-x-100">🦌🦌🛷</span>
           <span className="absolute -top-3 left-1 text-2xl sm:text-3xl">🎅</span>
+          <span className="absolute bottom-full left-0 mb-4 w-max max-w-[230px] whitespace-normal rounded-2xl border border-red-200 bg-white/95 px-3 py-1.5 text-left text-xs font-semibold leading-snug text-slate-800 shadow-lg dark:border-red-900 dark:bg-slate-900/95 dark:text-slate-100 sm:text-sm">
+            Ho ho ho! There might be a secret redeem code in my presents… or just a note 🎁
+          </span>
         </button>
       )}
 
@@ -386,6 +427,38 @@ function ChristmasScene() {
           {n.text}
         </div>
       ))}
+
+      {prize && (
+        <div className="pointer-events-auto fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setPrize(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="xmas-prize-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm space-y-3 rounded-2xl border-2 border-red-300 bg-white p-5 text-center shadow-2xl dark:border-red-800 dark:bg-slate-900"
+          >
+            <p className="text-4xl" aria-hidden>🎁✨</p>
+            <h2 id="xmas-prize-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">You found a secret code!</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              It unlocks <strong>{PRIZE_NAMES[prize.unlocks] ?? 'a hidden tool'}</strong>. Only about 1 in 100 presents has one.
+            </p>
+            <p className="select-all rounded-lg border border-dashed border-red-300 bg-red-50 px-3 py-2 font-mono text-lg font-bold tracking-wider text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+              {prize.code}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button type="button" onClick={copyPrize} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800">
+                {copied ? 'Copied ✓' : 'Copy code'}
+              </button>
+              <a href="/app/tools?tool=redeem" className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700">
+                Redeem it now
+              </a>
+              <button type="button" onClick={() => setPrize(null)} className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
