@@ -84,8 +84,9 @@ export function ManageBacCard() {
     const next = await getManageBacStatus();
     setStatus(next);
     if (next.connected) {
-      setEvents(await listManageBacEvents());
-      setChanges(await listSyncChanges());
+      const [nextEvents, nextChanges] = await Promise.all([listManageBacEvents(), listSyncChanges()]);
+      setEvents(nextEvents);
+      setChanges(nextChanges);
     } else {
       setEvents([]);
       setChanges([]);
@@ -192,9 +193,8 @@ export function ManageBacCard() {
     setVerified(null);
     setVerifyFeedback(null);
     setConverted(false);
-    await refresh();
-    setFeedback({ kind: 'ok', text: 'ManageBac Calendar connected. Press Sync now to import your first events.' });
-    setBusy(null);
+    // Import straight away, so there's no extra "Sync now" step after connecting.
+    await handleSync();
   };
 
   const handleSync = async () => {

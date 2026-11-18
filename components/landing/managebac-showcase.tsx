@@ -27,7 +27,7 @@ const STEPS = [
   },
   {
     icon: UpcomingIcon,
-    title: 'Deadlines sync every 10 minutes',
+    title: 'Deadlines sync every 5 minutes',
     body: 'New and changed deadlines appear on their own. If you’ve edited a task, your version is kept.',
   },
   {
@@ -69,7 +69,7 @@ function SyncVisual() {
           )}
         >
           <RefreshCw className={cn('h-3.5 w-3.5', play && 'animate-[spin_2.4s_linear_infinite] motion-reduce:animate-none')} />
-          Syncs every 10 min
+          Syncs every 5 min
         </span>
       </div>
 

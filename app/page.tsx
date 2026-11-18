@@ -310,7 +310,7 @@ export default function LandingPage() {
                 },
                 {
                   q: 'Does TaskTrack alert me when teachers change something?',
-                  a: 'ManageBac and Google Classroom both sync every 10 minutes, so changed due dates show up quickly. If you already edited a task yourself, your edit is kept. There are no instant alerts when a teacher changes something.',
+                  a: 'ManageBac syncs every 5 minutes and Google Classroom every 10 minutes, so changed due dates show up quickly. If you already edited a task yourself, your edit is kept. There are no instant alerts when a teacher changes something.',
                 },
                 {
                   q: 'How do AI credits work?',

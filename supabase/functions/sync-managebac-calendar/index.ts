@@ -288,36 +288,63 @@ function diffEvents(
   return changes;
 }
 
-/**
- * Record a change-inbox row for this detection. Idempotent per (user, uid, kind,
- * detection time): a retry of the same sync never double-writes. Failure to record
- * is logged but never blocks the sync itself.
- */
-async function recordChange(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  connectionId: string,
-  event: ParsedEvent,
-  taskId: string | null,
-  kind: 'new' | 'edited',
-  changes: Array<{ field: string; label: string; previous: string | null; next: string | null }>
-): Promise<boolean> {
-  const { error } = await admin.from('sync_change_inbox').insert({
-    user_id: userId,
-    connection_id: connectionId,
-    external_uid: event.uid,
-    task_id: taskId,
-    change_kind: kind,
-    changes,
+/** Run async work over a list with at most `limit` in flight at once. */
+async function runPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      await fn(item);
+    }
   });
-  if (error) {
-    console.error('change-inbox insert failed:', error.code ?? 'unknown');
-    return false;
-  }
-  return true;
+  await Promise.all(workers);
 }
 
-/** Sync one student's connection. Returns counts, or throws with a safe category. */
+type ChangeList = Array<{ field: string; label: string; previous: string | null; next: string | null }>;
+
+function taskRow(userId: string, event: ParsedEvent, hash: string) {
+  return {
+    user_id: userId,
+    title: event.summary || 'ManageBac calendar entry',
+    description: event.description,
+    due_date: event.dueAt ? event.dueAt.slice(0, 10) : null,
+    due_time: event.dueHasTime && event.dueAt ? event.dueAt.slice(11, 16) : null,
+    // The feed carries no category or priority. Priority comes from title keywords
+    // (Summative / Formative / Task 3); subject and estimated duration stay blank.
+    category: 'other',
+    priority: autoPriority(event.summary),
+    status: 'not_started',
+    external_source: 'managebac_calendar',
+    external_uid: event.uid,
+    external_hash: hash,
+  };
+}
+
+function reminderRow(userId: string, event: ParsedEvent, taskId: string | null) {
+  return {
+    user_id: userId,
+    task_id: taskId,
+    title: event.summary || 'ManageBac calendar entry',
+    message: 'Imported from ManageBac Calendar',
+    reminder_type: 'task_due',
+    scheduled_for: event.dueAt,
+    repeat_rule: 'none',
+    is_enabled: true,
+    is_read: false,
+    dedupe_key: `managebac:${event.uid}`,
+  };
+}
+
+const isFuture = (iso: string | null) => Boolean(iso) && new Date(iso as string).getTime() > Date.now();
+
+/**
+ * Sync one student's connection. Returns counts, or throws with a safe category.
+ *
+ * Everything is batched: one read of what is already imported, one insert for all new
+ * tasks, one for their calendar rows, one for reminders and one for the change inbox.
+ * Only entries that changed in ManageBac are handled individually (a few at a time,
+ * in parallel). The old one-entry-at-a-time version took ~30 s for a first sync.
+ */
 async function syncConnection(
   admin: ReturnType<typeof createClient>,
   connection: { id: string; user_id: string; enc_feed_url: string },
@@ -355,198 +382,194 @@ async function syncConnection(
   const text = (await res.text()).slice(0, 3_000_000);
   if (!text.includes('BEGIN:VCALENDAR')) throw new Error('MALFORMED');
 
-  const events = parseCalendar(text);
+  // A feed can repeat a UID; the last copy wins, as it did before.
+  const byUid = new Map<string, ParsedEvent>();
+  for (const e of parseCalendar(text)) byUid.set(e.uid, e);
+  const events = [...byUid.values()];
+  const hashes = new Map<string, string>(
+    await Promise.all(events.map(async (e) => [e.uid, await hashEvent(e)] as [string, string]))
+  );
+
+  const userId = connection.user_id;
   const result: SyncResult = { imported: 0, updated: 0, unchanged: 0, sparse: false, newChanges: 0 };
   const nowIso = new Date().toISOString();
+  if (events.some((e) => !e.description)) result.sparse = true;
 
-  for (const event of events) {
-    const newHash = await hashEvent(event);
-    if (!event.description) result.sparse = true;
-
-    const { data: existing } = await admin
+  // ---- 1. Everything already imported for this student, in one read.
+  const existingByUid = new Map<string, Record<string, any>>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await admin
       .from('managebac_calendar_events')
-      .select('id, task_id, disposition, content_hash, summary, description, location, start_at, end_at, due_at')
-      .eq('user_id', connection.user_id)
-      .eq('external_uid', event.uid)
-      .maybeSingle();
+      .select('id, external_uid, task_id, disposition, content_hash, summary, description, location, start_at, end_at, due_at')
+      .eq('user_id', userId)
+      .range(from, from + 999);
+    if (error) throw new Error('UNAVAILABLE');
+    for (const row of data ?? []) existingByUid.set(row.external_uid, row);
+    if (!data || data.length < 1000) break;
+  }
 
-    if (!existing) {
-      // New entry: record it, and (by default) create a task so it shows up as work to do.
-      const { data: inserted } = await admin
-        .from('managebac_calendar_events')
-        .insert({
-          user_id: connection.user_id,
+  const fresh = events.filter((e) => !existingByUid.has(e.uid));
+  const changed = events.filter((e) => {
+    const ex = existingByUid.get(e.uid);
+    return ex && ex.content_hash !== hashes.get(e.uid);
+  });
+  result.unchanged = events.length - fresh.length - changed.length;
+
+  // Existing reminders for every entry we might touch, in one read.
+  const reminderByKey = new Map<string, { id: string; scheduled_for: string }>();
+  const touchedKeys = [...fresh, ...changed].filter((e) => isFuture(e.dueAt)).map((e) => `managebac:${e.uid}`);
+  for (let i = 0; i < touchedKeys.length; i += 200) {
+    const { data } = await admin
+      .from('reminders')
+      .select('id, scheduled_for, dedupe_key')
+      .eq('user_id', userId)
+      .in('dedupe_key', touchedKeys.slice(i, i + 200));
+    for (const r of data ?? []) reminderByKey.set(r.dedupe_key, { id: r.id, scheduled_for: r.scheduled_for });
+  }
+
+  const inbox: Array<Record<string, unknown>> = [];
+  const newReminders: Array<Record<string, unknown>> = [];
+
+  // ---- 2. New entries: tasks, calendar rows, reminders, all in bulk.
+  if (fresh.length > 0) {
+    const taskIdByUid = new Map<string, string>();
+    const { data: createdTasks, error: taskErr } = await admin
+      .from('tasks')
+      .insert(fresh.map((e) => taskRow(userId, e, hashes.get(e.uid)!)))
+      .select('id, external_uid');
+    if (!taskErr) {
+      for (const t of createdTasks ?? []) taskIdByUid.set(t.external_uid, t.id);
+    } else {
+      // One bad row (or a sync running at the same moment) fails the batch; fall back
+      // to one at a time so every other entry still imports.
+      await runPool(fresh, 8, async (e) => {
+        const { data } = await admin
+          .from('tasks')
+          .insert(taskRow(userId, e, hashes.get(e.uid)!))
+          .select('id')
+          .maybeSingle();
+        if (data?.id) taskIdByUid.set(e.uid, data.id);
+      });
+    }
+
+    const { data: insertedEvents } = await admin
+      .from('managebac_calendar_events')
+      .upsert(
+        fresh.map((e) => ({
+          user_id: userId,
           connection_id: connection.id,
-          external_uid: event.uid,
-          summary: event.summary,
-          description: event.description,
-          location: event.location,
-          start_at: event.startAt,
-          end_at: event.endAt,
-          due_at: event.dueAt,
-          last_modified_at: event.lastModifiedAt,
+          external_uid: e.uid,
+          summary: e.summary,
+          description: e.description,
+          location: e.location,
+          start_at: e.startAt,
+          end_at: e.endAt,
+          due_at: e.dueAt,
+          last_modified_at: e.lastModifiedAt,
           disposition: 'task',
+          content_hash: hashes.get(e.uid),
+          task_id: taskIdByUid.get(e.uid) ?? null,
+          updated_at: nowIso,
+        })),
+        { onConflict: 'user_id,external_uid', ignoreDuplicates: true }
+      )
+      .select('external_uid');
+    const insertedUids = new Set((insertedEvents ?? []).map((r: { external_uid: string }) => r.external_uid));
+
+    for (const e of fresh) {
+      // Skip entries another sync imported at the same moment.
+      if (!insertedUids.has(e.uid)) continue;
+      const taskId = taskIdByUid.get(e.uid) ?? null;
+      if (isFuture(e.dueAt) && !reminderByKey.has(`managebac:${e.uid}`)) newReminders.push(reminderRow(userId, e, taskId));
+      inbox.push({
+        user_id: userId,
+        connection_id: connection.id,
+        external_uid: e.uid,
+        task_id: taskId,
+        change_kind: 'new',
+        changes: [{ field: 'summary', label: 'Title', previous: null, next: e.summary }],
+      });
+      result.imported += 1;
+    }
+  }
+
+  // ---- 3. Entries ManageBac changed: diff, refresh, and update untouched tasks.
+  if (changed.length > 0) {
+    const taskIds = changed.map((e) => existingByUid.get(e.uid)!.task_id).filter(Boolean);
+    const taskHash = new Map<string, string | null>();
+    for (let i = 0; i < taskIds.length; i += 200) {
+      const { data } = await admin.from('tasks').select('id, external_hash').in('id', taskIds.slice(i, i + 200));
+      for (const t of data ?? []) taskHash.set(t.id, t.external_hash);
+    }
+
+    await runPool(changed, 8, async (e) => {
+      const existing = existingByUid.get(e.uid)!;
+      const newHash = hashes.get(e.uid)!;
+      const fieldChanges: ChangeList = diffEvents(existing, e);
+      await admin
+        .from('managebac_calendar_events')
+        .update({
+          summary: e.summary,
+          description: e.description,
+          location: e.location,
+          start_at: e.startAt,
+          end_at: e.endAt,
+          due_at: e.dueAt,
+          last_modified_at: e.lastModifiedAt,
           content_hash: newHash,
           updated_at: nowIso,
         })
-        .select('id')
-        .maybeSingle();
-
-      const taskId = await createImportedTask(admin, connection.user_id, event, newHash);
-      if (taskId && inserted?.id) {
-        await admin.from('managebac_calendar_events').update({ task_id: taskId }).eq('id', inserted.id);
-      }
-      await ensureReminder(admin, connection.user_id, event, taskId);
-      const recorded = await recordChange(
-        admin,
-        connection.user_id,
-        connection.id,
-        event,
-        taskId,
-        'new',
-        [{ field: 'summary', label: 'Title', previous: null, next: event.summary }]
-      );
-      if (recorded) result.newChanges += 1;
-      result.imported += 1;
-      continue;
-    }
-
-    if (existing.content_hash === newHash) {
-      result.unchanged += 1;
-      continue;
-    }
-
-    // The feed changed for this entry. Diff field-by-field BEFORE overwriting, then
-    // refresh the stored copy of the feed fields.
-    const fieldChanges = diffEvents(existing, event);
-    await admin
-      .from('managebac_calendar_events')
-      .update({
-        summary: event.summary,
-        description: event.description,
-        location: event.location,
-        start_at: event.startAt,
-        end_at: event.endAt,
-        due_at: event.dueAt,
-        last_modified_at: event.lastModifiedAt,
-        content_hash: newHash,
-        updated_at: nowIso,
-      })
-      .eq('id', existing.id);
-
-    if (existing.task_id) {
-      const { data: task } = await admin
-        .from('tasks')
-        .select('id, external_hash')
-        .eq('id', existing.task_id)
-        .maybeSingle();
+        .eq('id', existing.id);
 
       // Only overwrite when the task still holds exactly what the last import wrote.
       // If the student has edited it, their version wins and is left untouched.
-      if (task && task.external_hash === existing.content_hash) {
+      if (existing.task_id && taskHash.has(existing.task_id) && taskHash.get(existing.task_id) === existing.content_hash) {
         await admin
           .from('tasks')
           .update({
-            title: event.summary || 'ManageBac calendar entry',
-            description: event.description,
-            due_date: event.dueAt ? event.dueAt.slice(0, 10) : null,
-            due_time: event.dueHasTime && event.dueAt ? event.dueAt.slice(11, 16) : null,
+            title: e.summary || 'ManageBac calendar entry',
+            description: e.description,
+            due_date: e.dueAt ? e.dueAt.slice(0, 10) : null,
+            due_time: e.dueHasTime && e.dueAt ? e.dueAt.slice(11, 16) : null,
             external_hash: newHash,
             updated_at: nowIso,
           })
-          .eq('id', task.id);
-        await ensureReminder(admin, connection.user_id, event, task.id);
+          .eq('id', existing.task_id);
+        if (isFuture(e.dueAt)) {
+          const rem = reminderByKey.get(`managebac:${e.uid}`);
+          if (!rem) newReminders.push(reminderRow(userId, e, existing.task_id));
+          else if (rem.scheduled_for !== e.dueAt) {
+            await admin.from('reminders').update({ scheduled_for: e.dueAt, updated_at: nowIso }).eq('id', rem.id);
+          }
+        }
       }
+      inbox.push({
+        user_id: userId,
+        connection_id: connection.id,
+        external_uid: e.uid,
+        task_id: existing.task_id,
+        change_kind: 'edited',
+        changes: fieldChanges,
+      });
+      result.updated += 1;
+    });
+  }
+
+  // ---- 4. Reminders and the change inbox, in bulk. Failures never block the sync.
+  if (newReminders.length > 0) {
+    const { error } = await admin.from('reminders').insert(newReminders);
+    if (error) {
+      // A duplicate from a parallel sync fails the batch; insert the rest one by one.
+      await runPool(newReminders, 8, async (r) => { await admin.from('reminders').insert(r); });
     }
-    const recorded = await recordChange(
-      admin,
-      connection.user_id,
-      connection.id,
-      event,
-      existing.task_id,
-      'edited',
-      fieldChanges
-    );
-    if (recorded) result.newChanges += 1;
-    result.updated += 1;
+  }
+  if (inbox.length > 0) {
+    const { error } = await admin.from('sync_change_inbox').insert(inbox);
+    if (error) console.error('change-inbox insert failed:', error.code ?? 'unknown');
+    else result.newChanges = inbox.length;
   }
 
   return result;
-}
-
-async function createImportedTask(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  event: ParsedEvent,
-  hash: string
-): Promise<string | null> {
-  const { data: created, error } = await admin
-    .from('tasks')
-    .insert({
-      user_id: userId,
-      title: event.summary || 'ManageBac calendar entry',
-      description: event.description,
-      due_date: event.dueAt ? event.dueAt.slice(0, 10) : null,
-      due_time: event.dueHasTime && event.dueAt ? event.dueAt.slice(11, 16) : null,
-      // The feed carries no category or priority. Priority comes from title keywords
-      // (Summative / Formative / Task 3); subject and estimated duration stay blank.
-      category: 'other',
-      priority: autoPriority(event.summary),
-      status: 'not_started',
-      external_source: 'managebac_calendar',
-      external_uid: event.uid,
-      external_hash: hash,
-    })
-    .select('id')
-    .maybeSingle();
-
-  if (error) return null;
-  return created?.id ?? null;
-}
-
-/**
- * Make sure a future imported entry has exactly one reminder. The dedupe key means a
- * second sync never creates another, so the student is never notified twice.
- */
-async function ensureReminder(
-  admin: ReturnType<typeof createClient>,
-  userId: string,
-  event: ParsedEvent,
-  taskId: string | null
-): Promise<void> {
-  if (!event.dueAt) return;
-  if (new Date(event.dueAt).getTime() <= Date.now()) return;
-
-  const dedupeKey = `managebac:${event.uid}`;
-  const { data: existing } = await admin
-    .from('reminders')
-    .select('id, scheduled_for')
-    .eq('user_id', userId)
-    .eq('dedupe_key', dedupeKey)
-    .maybeSingle();
-
-  if (existing) {
-    if (existing.scheduled_for !== event.dueAt) {
-      await admin
-        .from('reminders')
-        .update({ scheduled_for: event.dueAt, updated_at: new Date().toISOString() })
-        .eq('id', existing.id);
-    }
-    return;
-  }
-
-  await admin.from('reminders').insert({
-    user_id: userId,
-    task_id: taskId,
-    title: event.summary || 'ManageBac calendar entry',
-    message: 'Imported from ManageBac Calendar',
-    reminder_type: 'task_due',
-    scheduled_for: event.dueAt,
-    repeat_rule: 'none',
-    is_enabled: true,
-    is_read: false,
-    dedupe_key: dedupeKey,
-  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -596,7 +619,7 @@ Deno.serve(async (req: Request) => {
       let synced = 0;
       let failed = 0;
 
-      for (const connection of connections ?? []) {
+      await runPool<{ id: string; user_id: string; enc_feed_url: string }>(connections ?? [], 4, async (connection) => {
         try {
           const result = await syncConnection(admin, connection, secrets.enc_key);
           await admin
@@ -623,7 +646,7 @@ Deno.serve(async (req: Request) => {
             })
             .eq('id', connection.id);
         }
-      }
+      });
 
       return json({ ok: true, synced, failed });
     }
