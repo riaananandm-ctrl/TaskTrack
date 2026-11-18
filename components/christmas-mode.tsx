@@ -82,7 +82,7 @@ const BULB_COLOURS = ['#ef4444', '#facc15', '#22c55e', '#3b82f6', '#f97316'];
 function Lights() {
   const bulbs = 24;
   return (
-    <svg className="absolute inset-x-0 top-0 h-9 w-full" viewBox="0 0 1200 36" preserveAspectRatio="none">
+    <svg className="absolute inset-x-0 top-0 h-5 w-full opacity-90 sm:h-6" viewBox="0 0 1200 36" preserveAspectRatio="none">
       <path d="M0 6 Q 25 22 50 6 T 100 6 T 150 6 T 200 6 T 250 6 T 300 6 T 350 6 T 400 6 T 450 6 T 500 6 T 550 6 T 600 6 T 650 6 T 700 6 T 750 6 T 800 6 T 850 6 T 900 6 T 950 6 T 1000 6 T 1050 6 T 1100 6 T 1150 6 T 1200 6"
         fill="none" stroke="#14532d" strokeWidth="2" />
       {Array.from({ length: bulbs }, (_, i) => {
