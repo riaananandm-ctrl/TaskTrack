@@ -369,8 +369,8 @@ html.christmas.dark .app-backdrop {
   position: absolute;
   top: -12px;
   border-radius: 9999px;
-  background: #fff;
-  box-shadow: 0 0 4px rgba(148, 163, 184, 0.9);
+  background: radial-gradient(circle at 35% 35%, #fff 0%, #eef6ff 60%, #cfe3f7 100%);
+  box-shadow: 0 0 0 1px rgba(125, 160, 200, 0.35), 0 1px 6px rgba(100, 140, 190, 0.45);
   animation: xmasFall linear infinite;
 }
 .xmas-bulb { animation: xmasTwinkle 1.8s ease-in-out infinite; }
