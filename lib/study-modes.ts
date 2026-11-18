@@ -2,7 +2,20 @@
 // The server asks Gemini for strict JSON in these modes; everything here validates
 // the payload before it reaches the UI so malformed data never breaks rendering.
 
-export type StudyMode = 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides' | 'practice' | 'videos';
+export type StudyMode =
+  | 'chat' | 'explain' | 'quiz' | 'flashcards' | 'plan' | 'examples' | 'slides' | 'practice' | 'videos'
+  | 'hints' | 'teachback' | 'commandterms' | 'mistakes' | 'speed' | 'memory' | 'debate' | 'essayplan'
+  | 'language' | 'summarise';
+
+/** Who the student is talking to. Santa only appears while Christmas mode is on. */
+export type AiPersona = 'friend' | 'teacher' | 'hype' | 'santa';
+
+export const PERSONAS: { id: AiPersona; label: string; emoji: string; blurb: string }[] = [
+  { id: 'friend', label: 'Chill friend', emoji: '😎', blurb: 'Relaxed, jokes a bit' },
+  { id: 'teacher', label: 'Strict teacher', emoji: '📚', blurb: 'No fluff, pushes you' },
+  { id: 'hype', label: 'Hype coach', emoji: '🔥', blurb: 'Big energy, celebrates wins' },
+  { id: 'santa', label: 'Santa', emoji: '🎅', blurb: 'Ho ho ho, festive help' },
+];
 
 export interface StudyTask {
   taskId?: string | null;
@@ -90,7 +103,35 @@ export const MODE_OPTIONS: ModeOption[] = [
     prompt: 'Suggest YouTube videos to help me learn this topic.',
     structured: true,
   },
+  { id: 'hints', label: 'Help me figure it out', prompt: 'Help me figure this out myself. Don’t give me the answer, just hints.', structured: false },
+  { id: 'teachback', label: 'Teach it back', prompt: 'I want to explain this topic back to you so you can check my understanding.', structured: false },
+  { id: 'commandterms', label: 'Command terms coach', prompt: 'Coach me on the IB command terms for this task.', structured: false },
+  { id: 'mistakes', label: 'Mistake doctor', prompt: 'I want to find where my answer went wrong.', structured: false },
+  { id: 'speed', label: 'Speed round', prompt: 'Start a 60-second speed round on this topic!', structured: true },
+  { id: 'memory', label: 'Memory tricks', prompt: 'Give me memory tricks to remember this topic.', structured: false },
+  { id: 'debate', label: 'Debate me', prompt: 'Debate me on this topic. Take the other side.', structured: false },
+  { id: 'essayplan', label: 'Essay planner', prompt: 'Help me plan my essay for this task.', structured: false },
+  { id: 'language', label: 'Language partner', prompt: 'Let’s practise this language with a conversation at my level.', structured: false },
+  { id: 'summarise', label: 'Summarise my notes', prompt: 'I want to summarise my notes.', structured: false },
 ];
+
+/** One-line description for each study tool, shown in the suggestion pop-up and tool list. */
+export const MODE_BLURBS: Partial<Record<StudyMode, string>> = {
+  explain: 'A clear, simple explanation of the topic.',
+  quiz: 'A quick multiple-choice quiz that earns XP.',
+  practice: 'Exam-style questions marked like an IB examiner.',
+  hints: 'Hints and guiding questions, so you crack it yourself.',
+  teachback: 'Explain it in your own words and the AI checks what you missed.',
+  commandterms: 'Learn what Describe, Explain, Evaluate and the rest really want.',
+  mistakes: 'Paste a wrong answer and find the exact step that went wrong.',
+  speed: '10 rapid-fire questions in 60 seconds. Earns XP.',
+  memory: 'Mnemonics and silly stories that make facts stick.',
+  debate: 'The AI argues the other side so your argument gets stronger.',
+  essayplan: 'Thesis, structure and evidence. You do the writing.',
+  language: 'A conversation in the language at your level, with gentle corrections.',
+  summarise: 'Paste your notes and get a one-page summary.',
+  videos: 'Educational videos you can watch right here.',
+};
 
 export function getModeOption(mode: StudyMode): ModeOption | undefined {
   return MODE_OPTIONS.find((m) => m.id === mode);
@@ -110,6 +151,16 @@ export const MODE_SELECT_OPTIONS: { id: StudyMode; label: string }[] = [
   { id: 'examples', label: 'Worked examples' },
   { id: 'slides', label: 'Study slides' },
   { id: 'videos', label: 'Videos' },
+  { id: 'hints', label: 'Help me figure it out' },
+  { id: 'teachback', label: 'Teach it back' },
+  { id: 'commandterms', label: 'Command terms coach' },
+  { id: 'mistakes', label: 'Mistake doctor' },
+  { id: 'speed', label: 'Speed round' },
+  { id: 'memory', label: 'Memory tricks' },
+  { id: 'debate', label: 'Debate me' },
+  { id: 'essayplan', label: 'Essay planner' },
+  { id: 'language', label: 'Language partner' },
+  { id: 'summarise', label: 'Summarise my notes' },
 ];
 
 export function modeLabel(mode: StudyMode): string {
@@ -321,6 +372,7 @@ export function parseSlides(v: unknown): SlidesData | null {
 export function parseStructuredResult(mode: StudyMode, v: unknown): unknown | null {
   switch (mode) {
     case 'quiz':
+    case 'speed':
       return parseQuiz(v);
     case 'flashcards':
       return parseFlashcards(v);
@@ -342,6 +394,7 @@ export const STRUCTURED_VIEW_MODES: Set<StudyMode> = new Set<StudyMode>([
   'plan',
   'slides',
   'videos',
+  'speed',
 ]);
 
 /** True when text is a JSON blob rather than something a student should read. */
@@ -371,4 +424,97 @@ export function quizXp(score: number, total: number): number {
   const t = Math.min(Math.max(total, 0), 20);
   const sc = Math.min(Math.max(score, 0), t);
   return sc * 5 + (t >= 3 && sc === t ? 10 : 0);
+}
+
+// ---------------------------------------------------------------------------
+// Suggesting a study tool from the task
+// ---------------------------------------------------------------------------
+
+const LANGUAGE_WORDS = /\b(spanish|espa[nñ]ol|french|fran[cç]ais|german|deutsch|italian|mandarin|chinese|japanese|korean|hindi|arabic|portuguese|latin|language acquisition|language b|ab initio)\b/i;
+const ESSAY_WORDS = /\b(essay|commentary|extended essay|ee|tok|written task|literary|analysis|analyse|analyze|report|write[- ]?up|reflection|ia|internal assessment)\b/i;
+const DEBATE_WORDS = /\b(debate|argument|argumentative|persuasive|speech|to what extent|discuss|global politics|ethics|controversy|opinion)\b/i;
+const MEMORY_WORDS = /\b(vocab|vocabulary|definitions?|key terms|memori[sz]e|recall|periodic table|dates|glossary|formulae|formulas)\b/i;
+const TEST_WORDS = /\b(test|exam|quiz|paper\s*\d|summative|mock|assessment)\b/i;
+const MATHS_WORDS = /\b(math|maths|mathematics|physics|chemistry|calculus|algebra|equation|problem set|worksheet|calculate)\b/i;
+const NOTES_WORDS = /\b(notes|reading|chapter|textbook|article)\b/i;
+
+/**
+ * Picks the one study tool most likely to help with this task, from its subject,
+ * title and description. Pure, so it's testable.
+ */
+export function suggestMode(task: Pick<StudyTask, 'title' | 'subject' | 'description' | 'category'>): StudyMode {
+  const subject = task.subject ?? '';
+  const text = `${task.title ?? ''} ${task.description ?? ''}`.slice(0, 2000);
+  const all = `${subject} ${text}`;
+  if (LANGUAGE_WORDS.test(subject) || /\blanguage\b/i.test(subject)) return 'language';
+  if (DEBATE_WORDS.test(text)) return 'debate';
+  if (ESSAY_WORDS.test(text) || task.category === 'project') return 'essayplan';
+  if (MEMORY_WORDS.test(all)) return 'memory';
+  if (MATHS_WORDS.test(all)) return TEST_WORDS.test(text) ? 'practice' : 'hints';
+  if (TEST_WORDS.test(text) || task.category === 'summative_assessment') return 'speed';
+  if (NOTES_WORDS.test(text)) return 'summarise';
+  return 'teachback';
+}
+
+/** Why the suggestion fits, in a few words, for the pop-up. */
+export function suggestionReason(mode: StudyMode, task: Pick<StudyTask, 'subject'>): string {
+  const subject = task.subject?.trim();
+  switch (mode) {
+    case 'language': return `Practise ${subject || 'the language'} by actually chatting in it.`;
+    case 'debate': return 'This task is about arguing a point. Test yours against the AI.';
+    case 'essayplan': return 'Get your thesis and structure sorted before you write.';
+    case 'memory': return 'Lots to remember here. Tricks make it stick.';
+    case 'practice': return 'Exam questions, marked like the real thing.';
+    case 'hints': return 'Work through problems with hints instead of answers.';
+    case 'speed': return 'A test is coming. A 60-second speed round shows what you know.';
+    case 'summarise': return 'Turn your notes into a one-page summary.';
+    default: return 'Explaining it in your own words is the fastest way to learn it.';
+  }
+}
+
+/** Short follow-up replies shown under the AI's latest answer. */
+export function replyChips(mode: StudyMode | null): { label: string; text: string; mode?: StudyMode }[] {
+  switch (mode) {
+    case 'hints': return [
+      { label: 'Another hint', text: 'Give me another hint.' },
+      { label: 'Next step', text: 'What’s the next step? Still don’t give me the full answer.' },
+      { label: 'Give me a similar one', text: 'Give me a similar problem to try.' },
+    ];
+    case 'practice': return [
+      { label: 'Hint please', text: 'Can I have a hint?' },
+      { label: 'Next question', text: 'Next question please.' },
+      { label: 'Harder', text: 'Make the next one harder.' },
+    ];
+    case 'language': return [
+      { label: 'Correct me', text: 'Correct all my mistakes so far and explain them briefly.' },
+      { label: 'Harder', text: 'Make it a bit harder.' },
+      { label: 'Translate that', text: 'Translate your last message into English.' },
+    ];
+    case 'debate': return [
+      { label: 'Argue harder', text: 'Push back harder on my argument.' },
+      { label: 'Who’s winning?', text: 'Judge the debate so far. Whose argument is stronger and why?' },
+      { label: 'Switch sides', text: 'Switch sides. Now I’ll argue against what I said.' },
+    ];
+    case 'teachback': return [
+      { label: 'What did I miss?', text: 'What did I miss or get wrong?' },
+      { label: 'Ask me something', text: 'Ask me a question to test me.' },
+    ];
+    case 'commandterms': return [
+      { label: 'Test me', text: 'Give me a question with a command term and check my answer.' },
+      { label: 'Next term', text: 'Teach me the next command term.' },
+    ];
+    case 'memory': return [
+      { label: 'Another trick', text: 'Give me a different memory trick.' },
+      { label: 'Test me', text: 'Quiz me on this.', mode: 'quiz' },
+    ];
+    case 'essayplan': return [
+      { label: 'Check my thesis', text: 'Here is my thesis, is it strong enough?' },
+      { label: 'Next part', text: 'What should I plan next?' },
+    ];
+    default: return [
+      { label: 'Simpler please', text: 'Explain that more simply.' },
+      { label: 'Give me an example', text: 'Give me an example.' },
+      { label: 'Quiz me on this', text: 'Quiz me on this.', mode: 'quiz' },
+    ];
+  }
 }

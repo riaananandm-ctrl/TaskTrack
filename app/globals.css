@@ -422,3 +422,13 @@ html.christmas.dark .app-backdrop {
 @media (prefers-reduced-motion: reduce) {
   .xb, .xmas-star, .xmas-halo, .xmas-shake, .xmas-note { animation: none !important; }
 }
+
+/* Study tool suggestion pop-up */
+.animate-suggest-in { animation: suggestIn 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@keyframes suggestIn {
+  from { opacity: 0; transform: translate(-50%, 24px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-suggest-in { animation: none; }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlan, parseQuiz, parseVideos, quizXp, youtubeSearchUrl } from '@/lib/study-modes';
+import { parsePlan, parseQuiz, parseVideos, quizXp, replyChips, suggestMode, youtubeSearchUrl } from '@/lib/study-modes';
 
 describe('study plan parsing', () => {
   it('keeps videos, practice and check, capped at 2 videos', () => {
@@ -71,5 +71,41 @@ describe('quiz XP', () => {
     expect(quizXp(2, 2)).toBe(10); // no bonus under 3 questions
     expect(quizXp(999, 999)).toBe(110); // clamped to 20 questions
     expect(quizXp(0, 5)).toBe(0);
+  });
+});
+
+describe('suggestMode', () => {
+  const t = (o: Partial<{ title: string; subject: string | null; description: string | null; category: string | null }>) =>
+    ({ title: '', subject: null, description: null, category: null, ...o });
+  it('suggests the language partner for language subjects', () => {
+    expect(suggestMode(t({ title: 'Criterion D - Writing Summative', subject: 'Spanish' }))).toBe('language');
+    expect(suggestMode(t({ title: 'Oral', subject: 'Language Acquisition' }))).toBe('language');
+  });
+  it('suggests debate for argument tasks', () => {
+    expect(suggestMode(t({ title: 'Persuasive speech on climate policy', subject: 'English' }))).toBe('debate');
+  });
+  it('suggests the essay planner for essays', () => {
+    expect(suggestMode(t({ title: 'Comparative essay', subject: 'English' }))).toBe('essayplan');
+  });
+  it('suggests practice for maths tests and hints for maths homework', () => {
+    expect(suggestMode(t({ title: 'Unit test', subject: 'Maths' }))).toBe('practice');
+    expect(suggestMode(t({ title: 'Problem set 4', subject: 'Maths' }))).toBe('hints');
+  });
+  it('suggests memory tricks for vocabulary', () => {
+    expect(suggestMode(t({ title: 'Learn key terms for cells', subject: 'Biology' }))).toBe('memory');
+  });
+  it('suggests a speed round for other tests', () => {
+    expect(suggestMode(t({ title: 'Unit 3 test', subject: 'Biology' }))).toBe('speed');
+  });
+  it('falls back to teach it back', () => {
+    expect(suggestMode(t({ title: 'Photosynthesis', subject: 'Biology' }))).toBe('teachback');
+  });
+});
+
+describe('replyChips', () => {
+  it('gives mode-specific quick replies', () => {
+    expect(replyChips('language').map((c) => c.label)).toContain('Correct me');
+    expect(replyChips('debate').map((c) => c.label)).toContain('Switch sides');
+    expect(replyChips(null).find((c) => c.label === 'Quiz me on this')?.mode).toBe('quiz');
   });
 });

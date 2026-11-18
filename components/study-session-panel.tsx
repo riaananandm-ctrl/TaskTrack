@@ -9,8 +9,9 @@ import {
   ChevronDown, CalendarDays, Clock, CalendarPlus, Paperclip, FileText,
   ShieldAlert, Sparkles, Crown, BookOpen, ListChecks, Presentation,
   Lightbulb, CalendarRange, MessageSquare, PenLine,
-  PlayCircle,
+  PlayCircle, Brain, Target, Stethoscope, Zap, Puzzle, Scale, NotebookPen, Languages, ScrollText, GraduationCap,
 } from 'lucide-react';
+import { VideoPlayerProvider } from '@/components/video-player';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { Logo } from '@/components/logo';
 import { QuizView, FlashcardsView, PlanView, SlidesView, VideosView } from '@/components/study-views';
@@ -29,12 +30,14 @@ import {
   type AiOptionId,
 } from '@/lib/ai-options';
 import {
-  MODE_OPTIONS, MODE_SELECT_OPTIONS,
+  MODE_OPTIONS, MODE_SELECT_OPTIONS, MODE_BLURBS, PERSONAS,
+  suggestMode, suggestionReason, replyChips,
   toTaskContext,
   parseStructuredResult,
   displayContent,
   modeLabel,
   type StudyMode,
+  type AiPersona,
   type StudyTask,
   type QuizData,
   type FlashcardsData,
@@ -110,7 +113,22 @@ const TOOL_ICONS: Record<StudyMode, ReactNode> = {
   practice: <PenLine className="w-4 h-4" />,
   slides: <Presentation className="w-4 h-4" />,
   videos: <PlayCircle className="w-4 h-4" />,
+  hints: <Brain className="w-4 h-4" />,
+  teachback: <GraduationCap className="w-4 h-4" />,
+  commandterms: <Target className="w-4 h-4" />,
+  mistakes: <Stethoscope className="w-4 h-4" />,
+  speed: <Zap className="w-4 h-4" />,
+  memory: <Puzzle className="w-4 h-4" />,
+  debate: <Scale className="w-4 h-4" />,
+  essayplan: <NotebookPen className="w-4 h-4" />,
+  language: <Languages className="w-4 h-4" />,
+  summarise: <ScrollText className="w-4 h-4" />,
 };
+
+const PERSONA_KEY = 'tasktrack.ai.persona';
+const SUGGEST_KEY = 'tasktrack.ai.suggested';
+/** The original tools; the rest are listed under "More ways to study". */
+const CORE_MODES = new Set<StudyMode>(['explain', 'flashcards', 'quiz', 'plan', 'practice', 'examples', 'slides', 'videos']);
 
 function toDisplay(row: StudySessionMessage): DisplayMessage {
   const mode = (row.mode as StudyMode | null) ?? null;
@@ -156,6 +174,9 @@ export function StudySessionPanel({
   const [selectedAi, setSelectedAi] = useState<AiOptionId>('tasktrack-ai');
   // The mode applied to the NEXT message. Changing it never sends a message.
   const [selectedMode, setSelectedMode] = useState<StudyMode>('chat');
+  const [persona, setPersona] = useState<AiPersona>('friend');
+  const [christmasOn, setChristmasOn] = useState(false);
+  const [suggestion, setSuggestion] = useState<StudyMode | null>(null);
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
   const [aiNotice, setAiNotice] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -170,6 +191,28 @@ export function StudySessionPanel({
   // Portals need a browser-side target; rendering them on the server would throw.
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => setPortalReady(true), []);
+
+  // The chosen personality is remembered on this device. Santa only exists while
+  // Christmas mode is on.
+  useEffect(() => {
+    const xmas = document.documentElement.classList.contains('christmas');
+    setChristmasOn(xmas);
+    try {
+      const saved = window.localStorage.getItem(PERSONA_KEY) as AiPersona | null;
+      if (saved && PERSONAS.some((p) => p.id === saved) && (saved !== 'santa' || xmas)) setPersona(saved);
+    } catch {
+      // fine
+    }
+  }, [open]);
+
+  const choosePersona = (p: AiPersona) => {
+    setPersona(p);
+    try {
+      window.localStorage.setItem(PERSONA_KEY, p);
+    } catch {
+      // fine
+    }
+  };
 
   // Lock background scrolling while the workspace covers the viewport.
   useEffect(() => {
@@ -194,6 +237,34 @@ export function StudySessionPanel({
     estimatedMinutes: task?.estimated_minutes ?? null,
     priority: task?.priority ?? null,
   };
+
+  // Suggest the one study tool that fits this task best, once per task.
+  useEffect(() => {
+    if (!open || loadingHistory) return;
+    const key = task?.id || session.id;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(window.localStorage.getItem(SUGGEST_KEY) || '[]');
+    } catch {
+      seen = [];
+    }
+    if (!Array.isArray(seen) || seen.includes(key)) return;
+    const t = window.setTimeout(() => {
+      setSuggestion(suggestMode({
+        title: task?.title || session.title,
+        subject: task?.subject?.name ?? null,
+        description: task?.description ?? null,
+        category: task?.category ?? null,
+      }));
+      try {
+        window.localStorage.setItem(SUGGEST_KEY, JSON.stringify([...seen, key].slice(-200)));
+      } catch {
+        // fine
+      }
+    }, 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loadingHistory, session.id, task?.id]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollRef.current) {
@@ -389,6 +460,7 @@ export function StudySessionPanel({
             messages: history.map((m) => ({ role: m.role, content: m.content })),
             task: taskContext,
             mode,
+            persona,
             aiOption: selectedAi,
             attachmentIds: attachments
               .filter((a) => a.status === 'ready' && a.documentId)
@@ -504,6 +576,15 @@ export function StudySessionPanel({
     }
   };
 
+  const startMode = (mode: StudyMode) => {
+    const option = MODE_OPTIONS.find((o) => o.id === mode);
+    if (!option) return;
+    setSuggestion(null);
+    setSelectedMode(mode);
+    setMobileChatOpen(true);
+    sendMessage(option.prompt, mode);
+  };
+
   const toggleComplete = async () => {
     const next = status === 'completed' ? 'active' : 'completed';
     try {
@@ -559,7 +640,44 @@ export function StudySessionPanel({
 
   const subjectColour = task?.subject?.colour || '#315EDB';
 
+  const suggestionOption = suggestion ? MODE_OPTIONS.find((o) => o.id === suggestion) : null;
   const workspace = (
+    <VideoPlayerProvider>
+    {suggestionOption && (
+      <div
+        role="dialog"
+        aria-label="Suggested study tool"
+        className="fixed bottom-5 left-1/2 z-[60] w-[min(92vw,420px)] -translate-x-1/2 animate-suggest-in rounded-2xl border border-primary/30 bg-card p-4 shadow-2xl"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            {TOOL_ICONS[suggestionOption.id]}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">💡 Try this for this task</p>
+            <p className="mt-0.5 font-semibold">{suggestionOption.label}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {suggestionReason(suggestionOption.id, { subject: task?.subject?.name ?? null })}
+            </p>
+          </div>
+          <button onClick={() => setSuggestion(null)} aria-label="Close suggestion" className="tap-target rounded p-1 text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 flex justify-end gap-2">
+          <button onClick={() => setSuggestion(null)} className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent">
+            Not now
+          </button>
+          <button
+            onClick={() => startMode(suggestionOption.id)}
+            disabled={loading || limitReached}
+            className="rounded-lg bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            Try it
+          </button>
+        </div>
+      </div>
+    )}
     <div className="fixed inset-0 z-50 bg-background animate-fade-in overflow-y-auto lg:overflow-hidden">
       <div className="min-h-full lg:h-full flex flex-col">
         {/* Workspace header: navy identity bar */}
@@ -689,7 +807,7 @@ export function StudySessionPanel({
                   Study tools
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {MODE_OPTIONS.map((option) => (
+                  {MODE_OPTIONS.filter((o) => CORE_MODES.has(o.id)).map((option) => (
                     <button
                       key={option.id}
                       onClick={() => {
@@ -706,6 +824,28 @@ export function StudySessionPanel({
                         </span>
                         <span className="text-[13px] font-medium text-foreground">{option.label}</span>
                       </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h3 className="mt-5 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+                  More ways to study
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {MODE_OPTIONS.filter((o) => !CORE_MODES.has(o.id)).map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => startMode(option.id)}
+                      disabled={loading || limitReached}
+                      className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-muted-foreground group-hover:text-primary transition-colors">{TOOL_ICONS[option.id]}</span>
+                        <span className="text-[13px] font-medium text-foreground">{option.label}</span>
+                      </span>
+                      {MODE_BLURBS[option.id] && (
+                        <span className="mt-0.5 block pl-6 text-[11px] leading-snug text-muted-foreground">{MODE_BLURBS[option.id]}</span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -840,11 +980,12 @@ export function StudySessionPanel({
             >
               {showGreeting && (
                 <div className="px-1 py-1">
-                  <p className="text-sm font-medium text-foreground">Choose how you want to study.</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {persona === 'santa' ? 'Ho ho ho! 🎅 ' : persona === 'hype' ? 'LET’S GO! 🔥 ' : 'Hey! 👋 '}
+                    I&rsquo;ve already read this task{task?.subject ? ` (${task.subject.name})` : ''}.
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    I already know this task&rsquo;s details
-                    {task?.subject ? ` (${task.subject.name})` : ''}. Pick a study tool on the left,
-                    upload a document, or ask me anything below.
+                    Ask me anything, or pick a way to study on the left. Talk to me however you like, I&rsquo;ll keep up.
                   </p>
                 </div>
               )}
@@ -871,11 +1012,32 @@ export function StudySessionPanel({
                     {msg.role === 'user' ? (
                       <p>{displayContent(msg.mode, msg.content, Boolean(msg.structured))}</p>
                     ) : (
-                      <StructuredMessage message={msg} onQuizFinished={saveAttempt} onPractice={practiseSession} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
+                      <StructuredMessage message={msg} compact={msg.mode === 'speed' && msg.id === latestStructured?.id} onQuizFinished={saveAttempt} onPractice={practiseSession} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
                     )}
                   </div>
                 </div>
               ))}
+
+              {!loading && !limitReached && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].structured && (
+                <div className="flex flex-wrap gap-1.5 pl-1" aria-label="Quick replies">
+                  {replyChips(selectedMode).map((chip) => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => {
+                        if (chip.mode) {
+                          startMode(chip.mode);
+                        } else {
+                          sendMessage(chip.text, selectedMode);
+                        }
+                      }}
+                      className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {loading && (
                 <div className="flex justify-start" role="status" aria-label="TaskTrack AI is thinking">
@@ -979,6 +1141,27 @@ export function StudySessionPanel({
 
               {/* Selectors live BELOW the typing area */}
               <div className="px-4 pb-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Who you’re talking to">
+                  <span className="text-[11px] text-muted-foreground mr-0.5">Talk to</span>
+                  {PERSONAS.filter((p) => p.id !== 'santa' || christmasOn).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={persona === p.id}
+                      title={p.blurb}
+                      onClick={() => choosePersona(p.id)}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                        persona === p.id
+                          ? 'border-primary/50 bg-primary/10 text-primary'
+                          : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                      )}
+                    >
+                      <span aria-hidden>{p.emoji}</span>{p.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                   {AI_OPTIONS.map((option) => {
                     const selected = selectedAi === option.id;
@@ -1067,6 +1250,7 @@ export function StudySessionPanel({
         )}
       </div>
     </div>
+    </VideoPlayerProvider>
   );
 
   return portalReady ? createPortal(workspace, document.body) : workspace;
@@ -1265,8 +1449,11 @@ function StructuredMessage({
   onQuizFinished,
   onPractice,
   deckDefaults,
+  compact,
 }: {
   message: DisplayMessage;
+  /** Show a pointer instead of a second copy (used for the speed round in the chat). */
+  compact?: boolean;
   onQuizFinished?: (result: QuizResult) => void;
   /** Starts an exam-practice round for one session of a study plan. */
   onPractice?: (session: PlanSession) => void;
@@ -1281,6 +1468,13 @@ function StructuredMessage({
         </p>
         {message.mode === 'quiz' && (
           <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} />
+        )}
+        {message.mode === 'speed' && (
+          compact ? (
+            <p className="text-sm text-muted-foreground">⚡ Your speed round is ready in <strong>Current activity</strong>.</p>
+          ) : (
+            <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} timeLimitSec={60} />
+          )
         )}
         {message.mode === 'flashcards' && (
           <FlashcardsView

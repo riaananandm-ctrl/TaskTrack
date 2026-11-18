@@ -130,6 +130,8 @@ const FALLBACK_LIMITS = { daily_ai_messages: 20, max_message_chars: 2000 };
  */
 const CREDIT_COST: Record<string, number> = {
   chat: 1, explain: 1, examples: 1, practice: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3, videos: 1,
+  hints: 1, teachback: 1, commandterms: 1, mistakes: 1, speed: 2, memory: 1, debate: 1, essayplan: 1,
+  language: 1, summarise: 1,
 };
 
 const corsHeaders = {
@@ -262,7 +264,7 @@ const MODE_COUNTS: Record<'free' | 'pro', ModeCounts> = {
  * Modes that produce topic-specific material. When the task does not name a real
  * topic these must ask for clarification rather than inventing content.
  */
-const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan', 'practice', 'videos']);
+const CLARIFICATION_MODES = new Set(['explain', 'examples', 'flashcards', 'quiz', 'slides', 'plan', 'practice', 'videos', 'speed', 'memory', 'debate']);
 
 /**
  * Words that appear in study tasks but do NOT identify a topic. A task made up
@@ -356,11 +358,14 @@ const CLARIFICATION_FOLLOW_UPS: Record<string, string> = {
   plan: 'What specific topic, chapter, or subject should the study plan cover?',
   practice: 'What specific topic, chapter, or skill do you want to practise?',
   videos: 'What specific topic, chapter, or skill should the videos cover?',
+  speed: 'What topic should the speed round cover?',
+  memory: 'What do you need to remember? A list, some definitions, a process?',
+  debate: 'What claim or question should we debate?',
 };
 
 function buildClarificationReply(mode: string): string {
   const followUp = CLARIFICATION_FOLLOW_UPS[mode] || CLARIFICATION_FOLLOW_UPS.explain;
-  return `I don't have enough information to explain this topic accurately. Please add more details to the task description or tell me the exact topic you want to study.\n\n${followUp}`;
+  return `I can't tell the exact topic from this task yet, and I don't want to guess and get it wrong.\n\n${followUp}`;
 }
 
 /**
@@ -369,7 +374,71 @@ function buildClarificationReply(mode: string): string {
  */
 function modeInstructions(mode: string, counts: ModeCounts): Record<string, string> {
   return {
-    chat: 'The student is chatting freely. Answer their latest message directly and helpfully.',
+    chat: 'The student is chatting freely. Answer their latest message directly, like a friend who knows the subject.',
+    hints: `Help the student work it out THEMSELVES. Never give the final answer, even if they ask.
+- First ask what they already know or what they have tried, unless they already said.
+- Then give ONE small hint or ONE guiding question at a time, and wait for their reply.
+- If they get a step right, say so briefly and nudge them to the next step.
+- If they are really stuck after a few hints, show just the next single step, not the rest.
+- When they reach the answer themselves, celebrate it in a sentence and ask them to explain why it works.`,
+    teachback: `The student will explain the topic in their own words (the Feynman technique).
+- If they have not explained yet: ask them, in one or two friendly sentences, to explain the topic
+  as if teaching a younger student. Suggest what to cover (e.g. "what it is, why it happens, one example").
+- When they have explained: say what they got right first (be specific), then what is missing or
+  wrong, as a short list. Fix each misconception in one clear sentence. Give a rough score like
+  "7/10 understanding". Then ask ONE follow-up question that targets the biggest gap.`,
+    commandterms: `Coach the IB command terms that matter for this task.
+- Pick the 2 or 3 command terms most likely in this task's questions (from the subject and task).
+- For each: what it really asks for, how many marks it usually carries, and a tiny model answer
+  on THIS topic that shows the difference (e.g. Describe vs Explain on the same idea).
+- Then give the student one question using a command term and ask them to answer it.
+- When they answer: say whether it does what the command term asks, and how to lift it to full marks.`,
+    mistakes: `Act like a mistake doctor.
+- If the student has not pasted their answer yet: ask them to paste the question and their answer
+  (and the correct answer if they have it).
+- When they have: find the EXACT step or sentence where it went wrong. Quote it. Say what kind of
+  mistake it is (misconception, calculation slip, misread command term, missing unit, etc.), why it
+  is wrong, and how to fix it. Show the corrected step only, not a whole new answer.
+- Finish with one quick similar question so they can prove they've fixed it.`,
+    speed: `Make a speed round: exactly 10 quick multiple-choice questions the student can answer in
+about 6 seconds each. Keep questions and options SHORT (options a few words). Mix easy and medium.
+Exactly 4 options per question, one correct. Explanations at most one short sentence. Add the weak
+topics list.`,
+    memory: `Give memory tricks for the key things to remember in this topic.
+- Pick the 3 to 5 facts, lists or processes students most often forget here.
+- For each, give one strong trick: a mnemonic or acronym, a vivid silly story, a rhyme, a visual
+  image, or a link to something familiar. Make them memorable and a bit funny, but accurate.
+- Keep each one short. End by asking the student to try recalling one of them without looking.`,
+    debate: `Run a friendly debate.
+- If the student has not stated a position: suggest the debatable question from this task in one
+  line, and ask them which side they take.
+- Then take the OPPOSITE side. Make one strong counter-argument at a time, with evidence or an
+  example, in 3 to 5 sentences. Then challenge them with one pointed question.
+- Stay respectful and fair. Never use made-up quotes or statistics; say "for example" if unsure.
+- If they ask who is winning, judge honestly: strongest point on each side, and how they could
+  make their argument stronger (counter-claims, evidence, evaluation).`,
+    essayplan: `Help the student PLAN their essay. You must NOT write the essay or any paragraphs of it.
+- Work in steps and ask before moving on: (1) understand the question and command term,
+  (2) a thesis (help them sharpen THEIR thesis; you may suggest what a strong one needs, not write it),
+  (3) a structure: 3 to 4 body sections as short headings with the point each one makes,
+  (4) which evidence or examples go where, (5) a counter-argument to address.
+- Use short bullet outlines only. If they ask you to write it, say you'll help them plan and
+  check it instead, and ask for their draft of the next part.
+- Point to the assessment criteria the plan should hit.`,
+    language: `Be a conversation partner in the language the student is learning (from the subject or
+task; if unclear, ask which language).
+- Write mostly IN that language, at the student's level: simple sentences for beginners, richer
+  for advanced. Keep each message to 1 to 3 short sentences and end with a question so they reply.
+- Relate the conversation to the task's topic or theme when there is one.
+- When they make mistakes, carry on the conversation but add a short "✏️ Correction:" line in
+  English with the fixed version and a few-word reason. Max 2 corrections per message.
+- If they seem lost, add a short English translation in brackets.`,
+    summarise: `Summarise the student's notes.
+- If they have not pasted notes or attached a document yet: ask them to paste their notes (or
+  upload them) in one friendly sentence.
+- When they have: make a one-page summary: a one-line big idea, the key points as short bullets
+  grouped under 3 to 5 bold headings, the key terms with one-line definitions, and the 3 things
+  most likely to come up in a test. Use only what is in their notes; flag anything that looks wrong.`,
     explain: `Explain the topic clearly and simply, in student-friendly language.
 - Start with a one-line summary, then break down the key ideas.
 - Include a concrete example or analogy where it helps, and name the common misconception if there is one.
@@ -441,7 +510,8 @@ or worked examples.
 }
 
 /** Every mode the assistant supports. Anything else falls back to free chat. */
-const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides', 'practice', 'videos']);
+const DEFINED_MODES = new Set(['chat', 'explain', 'quiz', 'flashcards', 'plan', 'examples', 'slides', 'practice', 'videos',
+  'hints', 'teachback', 'commandterms', 'mistakes', 'speed', 'memory', 'debate', 'essayplan', 'language', 'summarise']);
 
 /** Modes that must never show raw JSON to the student. */
 const STRUCTURED_MODES: Record<string, { schema: string }> = {
@@ -494,6 +564,15 @@ Every date must be AFTER today's date shown above. Never output a date in the pa
 }
 Provide 6 to 10 slides of 3 to 5 bullets each. The final slide's heading should be "Recap".`,
   },
+  speed: {
+    schema: `{
+  "questions": [
+    { "question": "short question", "options": ["A", "B", "C", "D"], "answerIndex": 0, "explanation": "one short sentence" }
+  ],
+  "weakTopics": ["short revision topic"]
+}
+Exactly 10 questions, each with exactly 4 short options. answerIndex is 0-based.`,
+  },
   videos: {
     schema: `{
   "videos": [
@@ -544,13 +623,26 @@ What you know about IB:
   (Maths), and Khan Academy for fundamentals. If unsure a resource exists, describe what to
   search for instead.`;
 
+const PERSONAS: Record<string, string> = {
+  friend: `Your personality: a chill, friendly older student who is great at this subject. Relaxed and
+warm, the odd light joke or emoji, never cringe. Talk like a real person texting a friend they're helping.`,
+  teacher: `Your personality: a strict but fair IB teacher. Direct, no fluff, no emojis, high standards.
+Point out sloppy thinking straight away and push the student to be precise. Praise only real progress.`,
+  hype: `Your personality: a high-energy hype coach. Enthusiastic, motivating, celebrate every right
+answer ("LET'S GO! 🔥"), turn mistakes into "next rep" moments. Keep the energy up but the content accurate.`,
+  santa: `Your personality: Santa Claus helping with homework in December. Jolly, warm, the occasional
+"Ho ho ho", elves, reindeer and cocoa references, but keep it light: the studying comes first and the
+content must be accurate.`,
+};
+
 function buildSystemPrompt(
   task: TaskContext | null,
   mode: string,
   today: string,
   generalOverview: boolean,
   counts: ModeCounts,
-  hasHistory: boolean
+  hasHistory: boolean,
+  persona = 'friend',
 ): string {
   const taskLines = describeTask(task);
   const modeInstruction = modeInstructions(mode, counts);
@@ -572,7 +664,10 @@ Give a general overview only, and begin by clearly saying that it is a general o
 not based on the student's exact assignment. Do not pretend to know their specific questions.`
     : '';
 
-  return `You are TaskTrack AI, a patient and encouraging study companion for school students.
+  const personality = PERSONAS[persona] ?? PERSONAS.friend;
+  return `You are TaskTrack AI, a study buddy for school students.
+
+${personality}
 
 ${IB_TEACHING_GUIDE}
 
@@ -582,9 +677,17 @@ Today's date is ${today}.
 What to do now:
 ${modeInstruction}
 
-Style:
-- Be concise and student-friendly. Short clear answers; more detail only if asked.
-${structured ? '' : '- Use markdown: "- " for bullets, numbered steps, and **bold** for key terms.\n'}- Never invent facts about the student, their school, or their deadlines.
+How to sound (very important):
+- Sound like a real person, not a textbook or a corporate chatbot. Use plain, everyday words.
+- Match the student: if they write short and casual, reply short and casual. If they write a lot, you can too.
+- Keep it short by default: usually 2 to 6 sentences. Give more only when the mode needs it or they ask.
+- Never start with filler like "Great question!", "Certainly!", "Sure!", "Absolutely!" or "As an AI".
+  Just get into it.
+- Don't use headings for a normal chat reply. Use a short list only when it genuinely helps.
+- Usually end with ONE natural follow-up: a quick check question or an offer of the next step.
+  Never stack several questions.
+- Vary how you start and end replies so you don't sound repetitive.
+${structured ? '' : '- Formatting: markdown is fine: "- " bullets, numbered steps, **bold** for key terms.\n'}- Never invent facts about the student, their school, or their deadlines.
 - If the student asks something unrelated to studying, gently steer them back.${jsonRule}${overviewRule}${historyRule}`.trim();
 }
 
@@ -745,7 +848,7 @@ function structuredToText(mode: string, value: unknown): string {
   const arr = (x: unknown) => (Array.isArray(x) ? x : []);
   const letter = (i: number) => String.fromCharCode(65 + i);
 
-  if (mode === 'quiz') {
+  if (mode === 'quiz' || mode === 'speed') {
     const lines: string[] = [];
     arr(v.questions).forEach((q0, i) => {
       const q = q0 as Record<string, unknown>;
@@ -1000,6 +1103,7 @@ Deno.serve(async (req: Request) => {
       aiOption?: string;
       attachmentIds?: string[];
       mode?: string;
+      persona?: string;
     };
     try {
       body = await req.json();
@@ -1191,7 +1295,8 @@ Deno.serve(async (req: Request) => {
       today,
       generalOverview,
       counts,
-      body.messages.length > 1
+      body.messages.length > 1,
+      typeof body.persona === 'string' && ['friend', 'teacher', 'hype', 'santa'].includes(body.persona) ? body.persona : 'friend',
     );
     // System prompt plus this session's own history, so context is never repeated.
     // Attached ready documents contribute grounded, page-referenced context.

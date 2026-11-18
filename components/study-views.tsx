@@ -5,6 +5,7 @@ import { Check, CheckCircle2, X, ExternalLink, Layers, Loader2, Download, PenLin
 import { downloadSlidesPptx } from '@/lib/export-slides';
 import { cn } from '@/lib/utils';
 import { saveDeck } from '@/lib/spaced-review';
+import { useVideoPlayer } from '@/components/video-player';
 import { quizXp, youtubeSearchUrl, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData, type VideosData } from '@/lib/study-modes';
 
 // ---------------------------------------------------------------------------
@@ -20,10 +21,15 @@ interface QuizViewProps {
     answers: { question: string; chosen: string; chosenIndex: number; correct: boolean }[];
     weakTopics: string[];
   }) => void;
+  /** Speed round: the whole quiz must be finished within this many seconds. */
+  timeLimitSec?: number;
 }
 
-export function QuizView({ data, onFinish }: QuizViewProps) {
+export function QuizView({ data, onFinish, timeLimitSec }: QuizViewProps) {
+  const watch = useVideoPlayer();
   const [index, setIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(timeLimitSec ?? 0);
+  const [started, setStarted] = useState(!timeLimitSec);
   const [selected, setSelected] = useState<number | null>(null);
   const [answers, setAnswers] = useState<{ chosen: number; correct: boolean }[]>([]);
   const [finished, setFinished] = useState(false);
@@ -51,12 +57,27 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
   };
 
   const restart = () => {
+    setTimeLeft(timeLimitSec ?? 0);
+    setStarted(!timeLimitSec);
     reportedRef.current = false;
     setIndex(0);
     setSelected(null);
     setAnswers([]);
     setFinished(false);
   };
+
+  // Speed round clock: when it hits zero, every unanswered question counts as wrong.
+  useEffect(() => {
+    if (!timeLimitSec || !started || index >= total) return;
+    if (timeLeft <= 0) {
+      setAnswers((prev) => [...prev, ...Array.from({ length: Math.max(0, total - prev.length) }, () => ({ chosen: -1, correct: false }))]);
+      setFinished(false);
+      setIndex(total);
+      return;
+    }
+    const t = window.setTimeout(() => setTimeLeft((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [timeLimitSec, started, timeLeft, index, total]);
 
   // The results screen is only reached once per round; useEffect keeps the
   // report out of render so StrictMode double-invocations cannot double-save.
@@ -90,7 +111,9 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
     return (
       <div className="space-y-4">
         <div className="rounded-xl border border-border bg-card p-5 text-center">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Quiz complete</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {timeLimitSec ? (timeLeft <= 0 ? '⏱️ Time’s up!' : `⚡ Done with ${timeLeft}s to spare`) : 'Quiz complete'}
+          </p>
           <p className="text-4xl font-bold mt-1">{score}/{total}</p>
           <p className="text-sm text-muted-foreground mt-1">{percent}% correct</p>
           {quizXp(score, total) > 0 && (
@@ -107,14 +130,13 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
               {weakTopics.map((t, i) => (
                 <li key={i} className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
                   <span>- {t}</span>{' '}
-                  <a
-                    href={youtubeSearchUrl({ title: '', channel: '', search: `${t.slice(0, 90)} explained` })}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => watch({ search: `${t.slice(0, 90)} explained`, label: t.slice(0, 90) })}
                     className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-red-700 underline-offset-2 hover:underline dark:text-red-400"
                   >
                     <PlayCircle className="w-3.5 h-3.5" /> Watch a video
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -136,6 +158,19 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
   const answer = answers[index];
   const revealed = Boolean(answer);
 
+  if (timeLimitSec && !started) {
+    return (
+      <div className="rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-5 text-center dark:border-amber-900 dark:from-amber-950/30 dark:to-orange-950/30">
+        <p className="text-3xl">⚡</p>
+        <p className="mt-1 text-lg font-bold">Speed round</p>
+        <p className="mt-1 text-sm text-muted-foreground">{total} questions, {timeLimitSec} seconds. Go fast, earn XP.</p>
+        <button onClick={() => setStarted(true)} className="mt-4 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+          Start!
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -146,12 +181,24 @@ export function QuizView({ data, onFinish }: QuizViewProps) {
           Score {answers.filter((a) => a.correct).length}/{answers.length}
         </p>
       </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full gradient-blue transition-all duration-300"
-          style={{ width: `${(index / total) * 100}%` }}
-        />
-      </div>
+      {timeLimitSec ? (
+        <div className="flex items-center gap-2">
+          <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
+            <div
+              className={cn('h-full transition-all duration-1000 ease-linear', timeLeft <= 10 ? 'bg-red-500' : 'bg-amber-500')}
+              style={{ width: `${(timeLeft / timeLimitSec) * 100}%` }}
+            />
+          </div>
+          <span className={cn('w-10 text-right text-sm font-bold tabular-nums', timeLeft <= 10 && 'text-red-600')}>{timeLeft}s</span>
+        </div>
+      ) : (
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full gradient-blue transition-all duration-300"
+            style={{ width: `${(index / total) * 100}%` }}
+          />
+        </div>
+      )}
 
       <p className="text-sm font-medium leading-relaxed">{question.question}</p>
 
@@ -340,6 +387,7 @@ export function FlashcardsView({ data, deckDefaults }: FlashcardsViewProps) {
 // ---------------------------------------------------------------------------
 
 export function PlanView({ data, onPractice }: { data: StudyPlanData; onPractice?: (session: PlanSession) => void }) {
+  const watch = useVideoPlayer();
   return (
     <div className="space-y-4">
       {data.summary && <p className="text-sm leading-relaxed">{data.summary}</p>}
@@ -384,14 +432,14 @@ export function PlanView({ data, onPractice }: { data: StudyPlanData; onPractice
                     <div className="min-w-0 space-y-1">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">1 · Watch</p>
                       {s.videos!.map((v, k) => (
-                        <a key={k} href={youtubeSearchUrl(v)} target="_blank" rel="noopener noreferrer"
-                          className="group flex items-start gap-1.5 text-xs font-medium text-foreground hover:text-primary">
+                        <button key={k} type="button" onClick={() => watch({ search: v.search || [v.title, v.channel].filter(Boolean).join(' '), label: v.title || v.search })}
+                          className="group flex items-start gap-1.5 text-left text-xs font-medium text-foreground hover:text-primary">
                           <span className="text-muted-foreground">Video {k + 1}:</span>
                           <span className="underline decoration-dotted underline-offset-2 group-hover:decoration-solid">
                             {v.title || v.search}{v.channel ? ` · ${v.channel}` : ''}
                           </span>
-                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 opacity-60" />
-                        </a>
+                          <PlayCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-600" />
+                        </button>
                       ))}
                     </div>
                   </li>
@@ -508,15 +556,15 @@ export function SlidesView({ data }: { data: SlidesData }) {
 // ---------------------------------------------------------------------------
 
 export function VideosView({ data }: { data: VideosData }) {
+  const watch = useVideoPlayer();
   return (
     <div className="space-y-2.5">
       {data.videos.map((v, i) => (
-        <a
+        <button
           key={i}
-          href={youtubeSearchUrl(v)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-red-300 hover:bg-red-50/40 dark:hover:border-red-900 dark:hover:bg-red-950/20"
+          type="button"
+          onClick={() => watch({ search: v.search || [v.title, v.channel].filter(Boolean).join(' '), label: v.title || v.search })}
+          className="group flex w-full gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-red-300 hover:bg-red-50/40 dark:hover:border-red-900 dark:hover:bg-red-950/20"
         >
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
             <PlayCircle className="h-5 w-5" aria-hidden />
@@ -535,11 +583,11 @@ export function VideosView({ data }: { data: VideosData }) {
               </p>
             )}
           </div>
-          <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-red-600" aria-hidden />
-        </a>
+          <span className="self-center rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white opacity-90 group-hover:opacity-100">Watch</span>
+        </button>
       ))}
       <p className="text-[11px] text-muted-foreground">
-        Each link opens a YouTube search picked by the AI, so you can choose the clearest video. Then take a quiz to check you&rsquo;ve got it.
+        Videos play right here in TaskTrack. Only safe-search educational videos are shown. Then take a quiz to check you&rsquo;ve got it.
       </p>
     </div>
   );
