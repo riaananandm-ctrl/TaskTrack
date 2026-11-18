@@ -66,7 +66,9 @@ export async function deleteGrade(id: string): Promise<void> {
 // ---------------------------------------------------------------- exams + revision
 
 export interface Exam extends PlanExam {
-  kind: 'mock' | 'final' | 'test';
+  kind: 'mock' | 'final' | 'test' | 'summative';
+  /** Set when the exam comes from a summative or urgent task; it follows that task. */
+  task_id?: string | null;
 }
 
 export interface RevisionSession {
@@ -81,7 +83,7 @@ export interface RevisionSession {
 export async function listExams(): Promise<Exam[]> {
   const { data, error } = await supabase
     .from('ib_exams')
-    .select('id, subject_name, paper, kind, exam_date')
+    .select('id, subject_name, paper, kind, exam_date, task_id')
     .order('exam_date');
   if (error) throw friendly(error, 'Your exams could not be loaded.');
   return (data ?? []) as Exam[];
@@ -96,6 +98,35 @@ export async function listRevisionSessions(): Promise<RevisionSession[]> {
     .limit(500);
   if (error) throw friendly(error, 'Your revision plan could not be loaded.');
   return (data ?? []) as RevisionSession[];
+}
+
+const PLAN_SIG_KEY = 'tasktrack.ib.planSig';
+
+/**
+ * Summatives and urgent tasks become exams in the database. When that set (or a
+ * date) has changed since the plan was last built on this device, rebuild it.
+ */
+export async function ensurePlanCurrent(exams: Exam[], maxPerDay = 3): Promise<boolean> {
+  const today = localToday();
+  const sig = exams
+    .filter((e) => e.exam_date > today)
+    .map((e) => `${e.id}@${e.exam_date}`)
+    .sort()
+    .join(',');
+  let prev: string | null = null;
+  try {
+    prev = window.localStorage.getItem(PLAN_SIG_KEY);
+  } catch {
+    // storage blocked: just rebuild
+  }
+  if (prev === sig) return false;
+  await rebuildRevisionPlan(maxPerDay);
+  try {
+    window.localStorage.setItem(PLAN_SIG_KEY, sig);
+  } catch {
+    // fine
+  }
+  return true;
 }
 
 export async function addExams(exams: Omit<Exam, 'id'>[]): Promise<void> {

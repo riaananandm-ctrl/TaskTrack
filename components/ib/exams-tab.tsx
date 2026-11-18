@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Trash2, CalendarClock, Loader2, Check } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Trash2, CalendarClock, Loader2, Check, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,12 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { daysBetween } from '@/lib/revision-plan';
 import {
-  addExams, deleteExam, listExams, listRevisionSessions, localToday, rebuildRevisionPlan, setSessionDone,
+  addExams, deleteExam, ensurePlanCurrent, listExams, listRevisionSessions, localToday, rebuildRevisionPlan, setSessionDone,
   type Exam, type RevisionSession,
 } from '@/lib/ib-data';
 
 const PER_DAY_KEY = 'tasktrack.ib.perDay';
-const KIND_LABEL: Record<Exam['kind'], string> = { mock: 'Mock', final: 'Final', test: 'Test' };
+const KIND_LABEL: Record<Exam['kind'], string> = { mock: 'Mock', final: 'Final', test: 'Test', summative: 'Summative' };
 
 function readPerDay(): number {
   try {
@@ -49,7 +50,10 @@ export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; 
 
   const load = useCallback(async () => {
     try {
-      const [e, s] = await Promise.all([listExams(), listRevisionSessions()]);
+      const e = await listExams();
+      // Summatives and urgent tasks arrive as exams on their own; plan for any new ones.
+      await ensurePlanCurrent(e, readPerDay()).catch(() => false);
+      const s = await listRevisionSessions();
       setExams(e);
       setSessions(s);
       setError(null);
@@ -118,8 +122,8 @@ export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; 
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground max-w-xl">
-          Add your mock and final exam dates. TaskTrack plans revision backwards from each one, spacing topics out so
-          they stick, and ends with a timed past paper.
+          Every summative and urgent task shows here as an exam automatically. Add mocks and finals too. TaskTrack plans
+          revision backwards from each one, spacing topics out so they stick, and ends with a timed past paper.
         </p>
         <Button onClick={() => setAdding(true)} className="gap-2">
           <Plus className="w-4 h-4" /> Add exam
@@ -134,7 +138,7 @@ export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; 
         <div className="rounded-xl border border-border bg-card p-10 text-center">
           <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
           <h3 className="font-semibold">No exams yet</h3>
-          <p className="text-sm text-muted-foreground mt-1">Add one and your revision timetable appears here.</p>
+          <p className="text-sm text-muted-foreground mt-1">Summatives and urgent tasks appear here on their own. You can also add an exam yourself.</p>
           <Button onClick={() => setAdding(true)} className="mt-4 gap-2"><Plus className="w-4 h-4" /> Add your first exam</Button>
         </div>
       ) : (
@@ -152,9 +156,15 @@ export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; 
                     <p className="text-sm font-semibold truncate">{e.subject_name}{e.paper ? ` · ${e.paper}` : ''}</p>
                     <p className="text-xs text-muted-foreground">{KIND_LABEL[e.kind]} &middot; {format(parseISO(e.exam_date), 'EEE d MMM')} &middot; {countdownLabel(days)}</p>
                   </div>
-                  <button onClick={() => remove(e.id)} aria-label={`Delete ${e.subject_name} exam`} className="tap-target p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {e.task_id ? (
+                    <Link href={`/app/tasks/${e.task_id}`} aria-label={`Open the ${e.subject_name} task`} title="From your tasks. Complete the task to remove it." className="tap-target p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  ) : (
+                    <button onClick={() => remove(e.id)} aria-label={`Delete ${e.subject_name} exam`} className="tap-target p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               );
             })}

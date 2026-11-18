@@ -105,7 +105,7 @@ export default function ParentSummaryPage() {
               {data.exams.length > 0 && (
                 <Section title="Exams in the next 30 days" icon={<CalendarClock className="h-4 w-4 text-red-500" />}>
                   {data.exams.map((e, i) => (
-                    <Row key={i} title={`${e.subject}${e.paper ? ` · ${e.paper}` : ''}`} subject={e.kind === 'mock' ? 'Mock' : e.kind === 'final' ? 'Final' : 'Test'} date={day(e.date)} />
+                    <Row key={i} title={`${e.subject}${e.paper ? ` · ${e.paper}` : ''}`} subject={e.kind === 'mock' ? 'Mock' : e.kind === 'final' ? 'Final' : e.kind === 'summative' ? 'Summative' : 'Test'} date={day(e.date)} />
                   ))}
                 </Section>
               )}
