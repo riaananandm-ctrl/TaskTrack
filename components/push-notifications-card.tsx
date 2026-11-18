@@ -25,7 +25,7 @@ import { playDing, markAudioUnlocked } from '@/lib/reminder-sound';
  * call that can raise the browser prompt is Enable Study Notifications.
  */
 
-type Busy = null | 'enabling' | 'testing' | 'disabling';
+type Busy = null | 'enabling' | 'testing' | 'disabling' | 'local';
 
 interface Feedback {
   kind: 'ok' | 'warn' | 'error';
@@ -89,6 +89,9 @@ export function PushNotificationsCard() {
 
   useEffect(() => {
     refresh();
+    // Pick up the newest service worker straight away, so fixes to how
+    // notifications are shown apply without waiting for the browser's own check.
+    navigator.serviceWorker?.getRegistration().then((reg) => reg?.update()).catch(() => {});
   }, [refresh]);
 
   const handleEnable = async () => {
@@ -138,6 +141,38 @@ export function PushNotificationsCard() {
       patchUserSettingsCache(auth.user.id, { reminder_sound_enabled: next });
     }
     setSoundSaving(false);
+  };
+
+  // Shows a notification straight from this browser, without the internet or the
+  // push service. If this one appears but "Test notification" doesn't, delivery is
+  // the problem; if neither appears, the computer is hiding the browser's notifications.
+  const handleLocalTest = async () => {
+    if (busy !== null) return;
+    setBusy('local');
+    setFeedback(null);
+    try {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+        setFeedback({ kind: 'error', text: 'This browser is not allowed to show notifications for TaskTrack. Allow them in the site settings (the icon left of the address bar).' });
+        return;
+      }
+      const reg = await navigator.serviceWorker.getRegistration();
+      const title = 'TaskTrack check';
+      const options = {
+        body: 'If you can see this, your computer lets this browser show TaskTrack notifications.',
+        tag: `tasktrack-local-${Date.now()}`,
+        silent: false,
+      };
+      if (reg) await reg.showNotification(title, options);
+      else new Notification(title, options);
+      setFeedback({
+        kind: 'ok',
+        text: 'Shown straight from this browser. Nothing on screen? Your computer is hiding it: on a Mac open System Settings → Notifications → your browser (e.g. Google Chrome), turn on Allow notifications and choose Alerts, and switch off Focus / Do Not Disturb.',
+      });
+    } catch {
+      setFeedback({ kind: 'error', text: 'This browser refused to show a notification. Check its notification settings for TaskTrack.' });
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleTestSound = () => {
@@ -232,6 +267,12 @@ export function PushNotificationsCard() {
               {busy === 'testing' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 : <Send className="w-4 h-4 mr-2" />}
               Test notification
+            </Button>
+
+            <Button variant="outline" onClick={handleLocalTest} disabled={busy !== null}>
+              {busy === 'local' ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                : <BellRing className="w-4 h-4 mr-2" />}
+              Show one now (this browser)
             </Button>
 
             <Button variant="ghost" onClick={handleDisable} disabled={busy !== null}>
