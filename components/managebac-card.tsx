@@ -210,9 +210,12 @@ export function ManageBacCard() {
     await refresh();
     setSparse(Boolean(result.sparse));
     const total = (result.imported ?? 0) + (result.updated ?? 0);
-    const changeNote = result.changesDetected
-      ? ` ${result.changesDetected} change${result.changesDetected === 1 ? '' : 's'} recorded in “What changed” below.`
+    const doneNote = result.completed
+      ? ` ${result.completed} handed-in task${result.completed === 1 ? '' : 's'} marked done.`
       : '';
+    const changeNote = (result.changesDetected
+      ? ` ${result.changesDetected} change${result.changesDetected === 1 ? '' : 's'} recorded in “What changed” below.`
+      : '') + doneNote;
     setFeedback({
       kind: total > 0 ? 'ok' : 'info',
       text:
@@ -277,6 +280,10 @@ export function ManageBacCard() {
 
   const changeSummary = (change: SyncChange): string => {
     if (change.change_kind === 'new') return 'New entry appeared in your calendar feed.';
+    if (change.change_kind === 'submitted') {
+      const title = change.changes[0]?.previous;
+      return `${title ? `“${title}”` : 'A task'} was handed in on ManageBac, so it's marked done here.`;
+    }
     const fields = change.changes.map((c) => c.label).join(', ');
     return fields ? `Changed: ${fields}.` : 'Content changed in your calendar feed.';
   };
@@ -612,7 +619,7 @@ export function ManageBacCard() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="text-sm font-medium">
-                                  {change.change_kind === 'new' ? 'New' : 'Updated'}
+                                  {change.change_kind === 'new' ? 'New' : change.change_kind === 'submitted' ? 'Handed in ✓' : 'Updated'}
                                   {' \u00b7 '}
                                   {changeSummary(change)}
                                 </p>

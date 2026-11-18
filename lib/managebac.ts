@@ -41,7 +41,7 @@ export interface SyncChange {
   id: string;
   external_uid: string;
   task_id: string | null;
-  change_kind: 'new' | 'edited';
+  change_kind: 'new' | 'edited' | 'submitted';
   changes: Array<{ field: string; label: string; previous: string | null; next: string | null }>;
   detected_at: string;
   is_read: boolean;
@@ -142,6 +142,7 @@ export async function syncManageBac(): Promise<{
   unchanged?: number;
   sparse?: boolean;
   changesDetected?: number;
+  completed?: number;
 }> {
   const result = await callFunction('sync-managebac-calendar', { action: 'manual' });
   return {
@@ -152,6 +153,7 @@ export async function syncManageBac(): Promise<{
     unchanged: typeof result.unchanged === 'number' ? result.unchanged : undefined,
     sparse: result.sparse === true,
     changesDetected: typeof result.changesDetected === 'number' ? result.changesDetected : undefined,
+    completed: typeof result.completed === 'number' ? result.completed : undefined,
   };
 }
 
@@ -179,7 +181,7 @@ export async function listSyncChanges(limit = 30): Promise<SyncChange[]> {
     .limit(limit);
   return ((data ?? []) as SyncChange[]).map((row) => ({
     ...row,
-    change_kind: row.change_kind === 'edited' ? 'edited' : 'new',
+    change_kind: row.change_kind === 'edited' || row.change_kind === 'submitted' ? row.change_kind : 'new',
     changes: Array.isArray(row.changes) ? row.changes : [],
   }));
 }

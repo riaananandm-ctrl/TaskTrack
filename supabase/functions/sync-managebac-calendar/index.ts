@@ -19,6 +19,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
  *  - Local edits are preserved: a feed change only overwrites fields the student has not
  *    touched since the last import.
  *  - Nothing is ever deleted because it disappeared from the feed.
+ *  - Handed-in work is marked done: ManageBac drops a task from the feed once it is
+ *    submitted, so a task that leaves the feed is completed in TaskTrack, and reopened
+ *    if the entry comes back (e.g. the teacher returns it).
  */
 
 const corsHeaders = {
@@ -255,6 +258,7 @@ interface SyncResult {
   unchanged: number;
   sparse: boolean;
   newChanges: number;
+  completed: number;
 }
 
 /** Feed fields we track, with student-facing labels for the change inbox. */
@@ -391,7 +395,7 @@ async function syncConnection(
   );
 
   const userId = connection.user_id;
-  const result: SyncResult = { imported: 0, updated: 0, unchanged: 0, sparse: false, newChanges: 0 };
+  const result: SyncResult = { imported: 0, updated: 0, unchanged: 0, sparse: false, newChanges: 0, completed: 0 };
   const nowIso = new Date().toISOString();
   if (events.some((e) => !e.description)) result.sparse = true;
 
@@ -400,7 +404,7 @@ async function syncConnection(
   for (let from = 0; ; from += 1000) {
     const { data, error } = await admin
       .from('managebac_calendar_events')
-      .select('id, external_uid, task_id, disposition, content_hash, summary, description, location, start_at, end_at, due_at')
+      .select('id, external_uid, task_id, disposition, content_hash, summary, description, location, start_at, end_at, due_at, left_feed_at, auto_completed_at')
       .eq('user_id', userId)
       .range(from, from + 999);
     if (error) throw new Error('UNAVAILABLE');
@@ -555,7 +559,82 @@ async function syncConnection(
     });
   }
 
-  // ---- 4. Reminders and the change inbox, in bulk. Failures never block the sync.
+  // ---- 4. Handed in on ManageBac. The feed has no "submitted" field; a task simply
+  // leaves the feed once it is submitted. Complete it here, and reopen it if it returns.
+  const feedUids = new Set(events.map((e) => e.uid));
+  const existingRows = [...existingByUid.values()];
+  const leftRows = existingRows.filter((r) => !feedUids.has(r.external_uid) && !r.left_feed_at);
+  const backRows = existingRows.filter((r) => feedUids.has(r.external_uid) && r.left_feed_at);
+  // An empty or suddenly much smaller feed is far more likely a ManageBac hiccup than a
+  // burst of submissions, so that case completes nothing (and is retried next sync).
+  const feedLooksWhole = events.length > 0 && !(leftRows.length > 5 && leftRows.length > existingRows.length / 2);
+
+  if (leftRows.length > 0 && feedLooksWhole) {
+    await admin
+      .from('managebac_calendar_events')
+      .update({ left_feed_at: nowIso })
+      .in('id', leftRows.map((r) => r.id));
+
+    const taskIds = leftRows.map((r) => r.task_id).filter(Boolean) as string[];
+    if (taskIds.length > 0) {
+      const { data: done } = await admin
+        .from('tasks')
+        .update({ status: 'completed', completed_at: nowIso, updated_at: nowIso })
+        .eq('user_id', userId)
+        .in('id', taskIds)
+        .neq('status', 'completed')
+        .select('id');
+      const doneIds = new Set((done ?? []).map((t: { id: string }) => t.id));
+      const doneRows = leftRows.filter((r) => r.task_id && doneIds.has(r.task_id));
+      if (doneRows.length > 0) {
+        await admin
+          .from('managebac_calendar_events')
+          .update({ auto_completed_at: nowIso })
+          .in('id', doneRows.map((r) => r.id));
+        // No more "due soon" pings for work that is already in.
+        await admin
+          .from('reminders')
+          .update({ is_enabled: false, updated_at: nowIso })
+          .eq('user_id', userId)
+          .in('dedupe_key', doneRows.map((r) => `managebac:${r.external_uid}`));
+        for (const r of doneRows) {
+          inbox.push({
+            user_id: userId,
+            connection_id: connection.id,
+            external_uid: r.external_uid,
+            task_id: r.task_id,
+            change_kind: 'submitted',
+            changes: [{ field: 'status', label: 'Status', previous: r.summary ?? null, next: 'Done' }],
+          });
+        }
+        result.completed = doneRows.length;
+      }
+    }
+  }
+
+  if (backRows.length > 0) {
+    await admin
+      .from('managebac_calendar_events')
+      .update({ left_feed_at: null, auto_completed_at: null })
+      .in('id', backRows.map((r) => r.id));
+    // Only undo our own automatic tick; a task the student completed themselves stays done.
+    const reopenIds = backRows.filter((r) => r.auto_completed_at && r.task_id).map((r) => r.task_id as string);
+    if (reopenIds.length > 0) {
+      await admin
+        .from('tasks')
+        .update({ status: 'not_started', completed_at: null, updated_at: nowIso })
+        .eq('user_id', userId)
+        .in('id', reopenIds)
+        .eq('status', 'completed');
+      await admin
+        .from('reminders')
+        .update({ is_enabled: true, updated_at: nowIso })
+        .eq('user_id', userId)
+        .in('dedupe_key', backRows.filter((r) => r.auto_completed_at).map((r) => `managebac:${r.external_uid}`));
+    }
+  }
+
+  // ---- 5. Reminders and the change inbox, in bulk. Failures never block the sync.
   if (newReminders.length > 0) {
     const { error } = await admin.from('reminders').insert(newReminders);
     if (error) {
@@ -695,6 +774,7 @@ Deno.serve(async (req: Request) => {
         unchanged: result.unchanged,
         sparse: result.sparse,
         changesDetected: result.newChanges,
+        completed: result.completed,
       });
     } catch (err) {
       const message = safeMessageFor(err);
