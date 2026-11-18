@@ -10,6 +10,7 @@ import { PriorityAlertBanner } from '@/components/priority-alert-banner';
 import { ReminderSoundWatcher } from '@/components/reminder-sound-watcher';
 import { NotificationPrompt } from '@/components/notification-prompt';
 import { TimezoneSync } from '@/components/timezone-sync';
+import { ChristmasMode } from '@/components/christmas-mode';
 
 /** localStorage key for the remembered desktop sidebar preference. */
 const SIDEBAR_PREF_KEY = 'tasktrack.sidebar.collapsed';
@@ -80,6 +81,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <AccountSheet open={accountOpen} onOpenChange={setAccountOpen} />
+      <ChristmasMode />
     </>
   );
 }

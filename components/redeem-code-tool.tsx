@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Gift, Instagram, CheckCircle2, Loader2 } from 'lucide-react';
 import { redeemCode } from '@/lib/tool-unlocks';
+import { CHRISTMAS_EVENT, CHRISTMAS_TOOL, christmasSwitchedOff, setChristmasOn } from '@/lib/christmas';
 
 const TOOL_NAMES: Record<string, string> = { polish: 'Polish my writing', detector: 'AI Detector' };
 
@@ -12,6 +13,15 @@ export function RedeemCodeTool({ unlocked, onOpenTool }: { unlocked: string[]; o
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ tool: string; already: boolean } | null>(null);
+  const [xmasOn, setXmasOn] = useState(true);
+  const hasXmas = unlocked.includes(CHRISTMAS_TOOL) || success?.tool === CHRISTMAS_TOOL;
+
+  useEffect(() => {
+    setXmasOn(!christmasSwitchedOff());
+    const onToggle = (e: Event) => setXmasOn((e as CustomEvent<boolean>).detail);
+    window.addEventListener(CHRISTMAS_EVENT, onToggle);
+    return () => window.removeEventListener(CHRISTMAS_EVENT, onToggle);
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +31,7 @@ export function RedeemCodeTool({ unlocked, onOpenTool }: { unlocked: string[]; o
     const res = await redeemCode(code);
     setBusy(false);
     if (res.ok) {
+      if (res.tool === CHRISTMAS_TOOL) setChristmasOn(true);
       setSuccess({ tool: res.tool, already: res.already });
       setCode('');
     } else {
@@ -61,7 +72,13 @@ export function RedeemCodeTool({ unlocked, onOpenTool }: { unlocked: string[]; o
       </form>
 
       {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-      {success && (
+      {success?.tool === CHRISTMAS_TOOL && (
+        <div className="rounded-xl border border-red-200 dark:border-red-900 bg-gradient-to-br from-red-50 to-emerald-50 dark:from-red-950/30 dark:to-emerald-950/30 p-4 text-center space-y-1">
+          <p className="text-lg font-bold">🎄 Merry Christmas! 🎁</p>
+          <p className="text-sm">TaskTrack is dressed up for the holidays. You can switch it off below any time.</p>
+        </div>
+      )}
+      {success && success.tool !== CHRISTMAS_TOOL && (
         <div className="rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-center space-y-2">
           <p className="flex items-center justify-center gap-2 font-semibold text-emerald-700 dark:text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
@@ -91,6 +108,23 @@ export function RedeemCodeTool({ unlocked, onOpenTool }: { unlocked: string[]; o
             )}
           </div>
         ))}
+        {hasXmas && (
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+            <div>
+              <p className="text-sm font-medium">🎄 Christmas mode</p>
+              <p className="text-xs text-muted-foreground">Snow, lights and a tree across the app</p>
+            </div>
+            <Button
+              size="sm"
+              variant={xmasOn ? 'default' : 'outline'}
+              role="switch"
+              aria-checked={xmasOn}
+              onClick={() => setChristmasOn(!xmasOn)}
+            >
+              {xmasOn ? 'On' : 'Off'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
