@@ -219,6 +219,23 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
         </div>
       </div>
 
+      <section className="rounded-xl border border-border p-4 space-y-3" aria-labelledby="other-tools-heading">
+        <div>
+          <h2 id="other-tools-heading" className="text-sm font-semibold">Want a second opinion? These tools are great too</h2>
+          <p className="text-xs text-muted-foreground">They all have a free version and help you improve writing that’s yours.</p>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {OTHER_WRITING_TOOLS.map((t) => (
+            <li key={t.name}>
+              <a href={t.url} target="_blank" rel="noopener noreferrer" className="group flex h-full flex-col rounded-lg border border-border bg-card px-3 py-2 hover:border-primary/40 hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="flex items-center gap-1.5 text-sm font-medium">{t.name}<ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground" aria-hidden /></span>
+                <span className="text-xs text-muted-foreground">{t.what}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {draft && (
         <div className="rounded-xl border border-border p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -405,23 +422,6 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
           </div>
         </div>
       )}
-
-      <section className="rounded-xl border border-border p-4 space-y-3" aria-labelledby="other-tools-heading">
-        <div>
-          <h2 id="other-tools-heading" className="text-sm font-semibold">Want a second opinion? These tools are great too</h2>
-          <p className="text-xs text-muted-foreground">They all have a free version and help you improve writing that’s yours.</p>
-        </div>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {OTHER_WRITING_TOOLS.map((t) => (
-            <li key={t.name}>
-              <a href={t.url} target="_blank" rel="noopener noreferrer" className="group flex h-full flex-col rounded-lg border border-border bg-card px-3 py-2 hover:border-primary/40 hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="flex items-center gap-1.5 text-sm font-medium">{t.name}<ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground" aria-hidden /></span>
-                <span className="text-xs text-muted-foreground">{t.what}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
 
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
