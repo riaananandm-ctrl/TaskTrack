@@ -313,12 +313,12 @@ function ChristmasScene() {
           sleigh.current = null;
           setSleighOn(false);
         } else {
-          const x = -260 + p * (w + 520);
+          const x = -300 + p * (w + 600);
           const y = s.y + Math.sin(p * Math.PI * 4) * 18;
           el.style.transform = `translate(${x}px, ${y}px) rotate(${Math.cos(p * Math.PI * 4) * -4}deg)`;
           if (t % 2 === 0) {
             particles.current.push({
-              x: x + 6, y: y + 34 + Math.random() * 8, vx: -0.6 - Math.random(), vy: 0.3 + Math.random() * 0.6,
+              x: x + 10, y: y + el.offsetHeight * 0.82 + Math.random() * 6, vx: -0.6 - Math.random(), vy: 0.3 + Math.random() * 0.6,
               life: 0, max: 45 + Math.random() * 25, size: 1.2 + Math.random() * 2,
               color: SPARK_COLOURS[Math.floor(Math.random() * SPARK_COLOURS.length)], kind: 'spark', rot: 0, vr: 0,
             });
@@ -382,11 +382,10 @@ function ChristmasScene() {
           type="button"
           onClick={tapSanta}
           aria-label="Santa’s sleigh: tap for presents"
-          className="pointer-events-auto absolute left-0 top-0 select-none whitespace-nowrap text-3xl sm:text-4xl drop-shadow-md will-change-transform"
+          className="pointer-events-auto absolute left-0 top-0 select-none drop-shadow-lg will-change-transform"
           style={{ transform: 'translate(-300px, 100px)' }}
         >
-          <span className="inline-block -scale-x-100">🦌🦌🛷</span>
-          <span className="absolute -top-3 left-1 text-2xl sm:text-3xl">🎅</span>
+          <SantaSleigh />
           <span className="absolute bottom-full left-0 mb-4 w-max max-w-[230px] whitespace-normal rounded-2xl border border-red-200 bg-white/95 px-3 py-1.5 text-left text-xs font-semibold leading-snug text-slate-800 shadow-lg dark:border-red-900 dark:bg-slate-900/95 dark:text-slate-100 sm:text-sm">
             Ho ho ho! There might be a secret redeem code in my presents… or just a note 🎁
           </span>
@@ -460,6 +459,114 @@ function ChristmasScene() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Santa sitting in his sleigh with the reins, pulled by two galloping reindeer. */
+function SantaSleigh() {
+  return (
+    <svg viewBox="0 0 270 100" className="h-[64px] w-[173px] sm:h-[84px] sm:w-[227px] overflow-visible" aria-hidden>
+      <defs>
+        <linearGradient id="xs-sleigh" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ef4444" />
+          <stop offset="1" stopColor="#991b1b" />
+        </linearGradient>
+        <linearGradient id="xs-coat" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ef4444" />
+          <stop offset="1" stopColor="#b91c1c" />
+        </linearGradient>
+        <linearGradient id="xs-deer" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#a16207" />
+          <stop offset="1" stopColor="#713f12" />
+        </linearGradient>
+      </defs>
+
+      {/* Reins from Santa's hands to the reindeer */}
+      <path d="M100 47 C 130 40, 150 44, 172 46" stroke="#7c2d12" strokeWidth="1.6" fill="none" />
+      <path d="M100 47 C 150 36, 200 40, 228 42" stroke="#7c2d12" strokeWidth="1.6" fill="none" />
+
+      {/* Reindeer (back one first so the front one overlaps) */}
+      <Reindeer x={160} y={44} />
+      <Reindeer x={214} y={36} lead />
+
+      {/* Sack of presents behind Santa */}
+      <path d="M22 58 C 14 40, 22 22, 38 20 C 50 18, 56 30, 54 58 Z" fill="#15803d" />
+      <path d="M30 22 C 34 16, 42 16, 44 21" stroke="#fde68a" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <rect x="30" y="10" width="13" height="11" rx="1.5" fill="#2563eb" />
+      <rect x="35.5" y="10" width="2.5" height="11" fill="#fde68a" />
+
+      {/* Santa */}
+      <g>
+        {/* body */}
+        <path d="M54 62 C 52 42, 60 32, 72 32 C 86 32, 92 44, 90 62 Z" fill="url(#xs-coat)" />
+        <path d="M71 34 L71 62" stroke="#fff" strokeWidth="3" />
+        {/* arm reaching forward with the reins */}
+        <path d="M80 42 C 88 44, 94 46, 99 47" stroke="url(#xs-coat)" strokeWidth="8" strokeLinecap="round" fill="none" />
+        <circle cx="93" cy="45.5" r="4.2" fill="#fff" />
+        <circle cx="100" cy="47" r="3.8" fill="#1f2937" />
+        {/* head */}
+        <circle cx="73" cy="24" r="9" fill="#f6c7a1" />
+        {/* beard */}
+        <path d="M63 25 C 63 40, 72 44, 76 42 C 84 40, 84 30, 82 25 C 79 30, 67 30, 63 25 Z" fill="#fff" />
+        <path d="M70 29 C 72 27.5, 76 27.5, 78 29" stroke="#e5e7eb" strokeWidth="2" fill="none" strokeLinecap="round" />
+        {/* face */}
+        <circle cx="77" cy="21.5" r="1.2" fill="#1f2937" />
+        <circle cx="79.5" cy="25" r="2" fill="#fca5a5" opacity="0.9" />
+        <circle cx="80.5" cy="23.5" r="1.6" fill="#f4a582" />
+        {/* hat, flopping back in the wind */}
+        <path d="M63 19 C 64 8, 76 5, 83 15 C 74 11, 64 14, 56 22 Z" fill="url(#xs-coat)" />
+        <circle cx="55" cy="23" r="3.6" fill="#fff" />
+        <rect x="62" y="15" width="22" height="5.5" rx="2.75" fill="#fff" transform="rotate(8 73 18)" />
+      </g>
+
+      {/* Sleigh body, in front of Santa's legs */}
+      <path
+        d="M14 56 C 12 48, 18 44, 24 48 L 30 54 L 102 54 C 112 54, 118 46, 124 40 C 128 37, 133 41, 129 46 C 122 56, 116 72, 98 74 L 30 74 C 20 74, 15 66, 14 56 Z"
+        fill="url(#xs-sleigh)"
+      />
+      <path d="M22 60 L 108 60" stroke="#fbbf24" strokeWidth="2" />
+      <circle cx="40" cy="66" r="3" fill="#fbbf24" />
+      <circle cx="64" cy="66" r="3" fill="#fbbf24" />
+      <circle cx="88" cy="66" r="3" fill="#fbbf24" />
+      {/* runners */}
+      <path d="M30 74 L 30 82 M 92 74 L 92 82" stroke="#d4a017" strokeWidth="2.5" />
+      <path d="M10 84 L 120 84 C 130 84, 134 76, 128 74" stroke="#fbbf24" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Reindeer({ x, y, lead = false }: { x: number; y: number; lead?: boolean }) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      {/* back legs */}
+      <g className="xmas-leg-a" style={{ transformOrigin: 'right top' }}>
+        <path d="M6 12 L 0 24" stroke="#713f12" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      <g className="xmas-leg-b" style={{ transformOrigin: 'right top' }}>
+        <path d="M10 12 L 6 25" stroke="#5b3410" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      {/* front legs */}
+      <g className="xmas-leg-b" style={{ transformOrigin: 'left top' }}>
+        <path d="M30 12 L 40 22" stroke="#713f12" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      <g className="xmas-leg-a" style={{ transformOrigin: 'left top' }}>
+        <path d="M27 12 L 34 25" stroke="#5b3410" strokeWidth="3" strokeLinecap="round" />
+      </g>
+      {/* body and tail */}
+      <ellipse cx="18" cy="9" rx="17" ry="8" fill="url(#xs-deer)" />
+      <ellipse cx="2" cy="5" rx="3.5" ry="2.5" fill="#fff" />
+      {/* harness with a bell */}
+      <path d="M8 3 C 12 14, 24 14, 28 3" stroke="#b91c1c" strokeWidth="2.5" fill="none" />
+      <circle cx="18" cy="13" r="2.2" fill="#fbbf24" />
+      {/* neck and head */}
+      <path d="M28 6 C 32 -2, 34 -6, 36 -8 L 41 -5 C 38 0, 36 6, 33 10 Z" fill="url(#xs-deer)" />
+      <ellipse cx="42" cy="-8" rx="7" ry="4.2" fill="#8a5a1c" transform="rotate(15 42 -8)" />
+      <circle cx="49" cy="-6" r={lead ? 2.4 : 1.8} fill={lead ? '#ef4444' : '#3f2a14'} />
+      <circle cx="41" cy="-10" r="1" fill="#111827" />
+      <path d="M36 -11 L 33 -14" stroke="#713f12" strokeWidth="2.5" strokeLinecap="round" />
+      {/* antlers */}
+      <path d="M39 -12 C 37 -20, 33 -24, 28 -25 M 35 -19 L 30 -18 M 41 -12 C 42 -20, 46 -24, 50 -26 M 44 -20 L 48 -18" stroke="#a16207" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+    </g>
   );
 }
 

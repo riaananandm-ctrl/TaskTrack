@@ -432,3 +432,10 @@ html.christmas.dark .app-backdrop {
 @media (prefers-reduced-motion: reduce) {
   .animate-suggest-in { animation: none; }
 }
+
+/* Reindeer legs galloping under Santa's sleigh. */
+@keyframes xmasLegA { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
+@keyframes xmasLegB { 0%, 100% { transform: rotate(22deg); } 50% { transform: rotate(-22deg); } }
+.xmas-leg-a { animation: xmasLegA 0.45s ease-in-out infinite; transform-box: fill-box; }
+.xmas-leg-b { animation: xmasLegB 0.45s ease-in-out infinite; transform-box: fill-box; }
+@media (prefers-reduced-motion: reduce) { .xmas-leg-a, .xmas-leg-b { animation: none; } }
