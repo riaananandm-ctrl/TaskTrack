@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Check, X, Loader2, PenLine, RotateCcw, Save, Trash2, Info, ChevronDown, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, PenLine, RotateCcw, Save, Trash2, Info, ChevronDown, Lightbulb, ExternalLink } from 'lucide-react';
 import {
   COACH_MAX_WORDS,
   COACH_MIN_WORDS,
@@ -43,6 +43,15 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 type Decision = 'accepted' | 'rejected';
+
+const OTHER_WRITING_TOOLS = [
+  { name: 'Grammarly', url: 'https://www.grammarly.com', what: 'Spelling, grammar and punctuation as you type. Free plan.' },
+  { name: 'Hemingway Editor', url: 'https://hemingwayapp.com', what: 'Highlights long, hard-to-read sentences. Free in the browser.' },
+  { name: 'QuillBot Grammar Checker', url: 'https://quillbot.com/grammar-check', what: 'Quick grammar and spelling check. Free.' },
+  { name: 'LanguageTool', url: 'https://languagetool.org', what: 'Grammar checking in English, Spanish, French, German and more. Free plan.' },
+  { name: 'Purdue OWL', url: 'https://owl.purdue.edu/owl/purdue_owl.html', what: 'Clear guides on essay structure, grammar and referencing. Free.' },
+  { name: 'Scribbr Citation Generator', url: 'https://www.scribbr.com/citation/generator/', what: 'Builds MLA and APA references for your sources. Free.' },
+];
 
 export default function RewriteCoachPage({ params }: { params: { id: string } }) {
   const taskId = params.id;
@@ -396,6 +405,23 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
           </div>
         </div>
       )}
+
+      <section className="rounded-xl border border-border p-4 space-y-3" aria-labelledby="other-tools-heading">
+        <div>
+          <h2 id="other-tools-heading" className="text-sm font-semibold">Want a second opinion? These tools are great too</h2>
+          <p className="text-xs text-muted-foreground">They all have a free version and help you improve writing that’s yours.</p>
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {OTHER_WRITING_TOOLS.map((t) => (
+            <li key={t.name}>
+              <a href={t.url} target="_blank" rel="noopener noreferrer" className="group flex h-full flex-col rounded-lg border border-border bg-card px-3 py-2 hover:border-primary/40 hover:bg-accent/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="flex items-center gap-1.5 text-sm font-medium">{t.name}<ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground" aria-hidden /></span>
+                <span className="text-xs text-muted-foreground">{t.what}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
