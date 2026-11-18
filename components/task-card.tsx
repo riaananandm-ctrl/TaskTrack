@@ -272,6 +272,13 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
               )}
               Study Session
             </button>
+            <Link
+              href={`/app/tasks/${task.id}/coach`}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 -mx-1.5 text-xs text-navy-600 dark:text-sky-300 hover:bg-primary/10 font-semibold transition-colors"
+            >
+              <PenLine className="w-3 h-3" />
+              Rewrite Coach
+            </Link>
           </div>
 
           {(studyError || completeError) && (
