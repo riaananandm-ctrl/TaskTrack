@@ -568,6 +568,10 @@ export function StudySessionPanel({
         ...prev,
         { ...display, structured: structured ?? undefined, mode: structured ? mode : null },
       ]);
+      // One-off activities (speed round, quiz, flashcards, slides, plan, videos) are
+      // done once their result arrives, so the next typed message is a normal chat
+      // rather than another round of the same activity.
+      if (structured) setSelectedMode('chat');
       onActivity?.();
     } catch {
       setError('Something went wrong. Please try again.');
