@@ -196,7 +196,7 @@ function SidebarBody({
             </div>
             <p className="relative text-xs font-bold text-sky-200 mb-0.5">₹699 for 3 months</p>
             <div className="relative flex items-center text-[11px] text-slate-300 font-medium">
-              Coming soon <ChevronRight className="w-3 h-3" />
+              Get it on WhatsApp <ChevronRight className="w-3 h-3" />
             </div>
           </div>
         </Link>

@@ -24,6 +24,7 @@ import { FONT_OPTIONS, DEFAULT_FONT_ID } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-provider';
 import { isRememberDevice, REMEMBER_DEVICE_NOTICE } from '@/lib/remember-device';
 import { PlanComparison } from '@/components/plan-comparison';
+import { openPremiumWhatsApp } from '@/lib/premium-contact';
 import { ProFeatureGate } from '@/components/pro-feature-gate';
 import { getProfileEntitlements } from '@/lib/entitlements';
 import { PushNotificationsCard } from '@/components/push-notifications-card';
@@ -82,11 +83,10 @@ export default function SettingsPage() {
 
   const entitlements = getProfileEntitlements(profile);
 
-  // Payment processing is not connected yet, so this must not imply a purchase.
+  // Premium is bought over WhatsApp: open a chat with the greeting typed in.
   const handleUpgrade = () => {
-    setPlanNotice(
-      'Checkout isn\u2019t connected yet, so no payment has been taken and no charge will be made. Your plan is unchanged.'
-    );
+    openPremiumWhatsApp();
+    setPlanNotice('WhatsApp should open in a new tab. Send the message to get started with Premium.');
   };
 
   const [profileForm, setProfileForm] = useState({

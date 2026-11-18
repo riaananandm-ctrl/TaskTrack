@@ -41,7 +41,7 @@ const PRO_FEATURES: { label: string; included: boolean }[] = [
 ];
 
 interface PlanComparisonProps {
-  /** Called when the student clicks Upgrade. Payment is not wired up yet. */
+  /** Called when the student clicks Upgrade (opens WhatsApp). */
   onUpgrade?: () => void;
   upgrading?: boolean;
   upgradeNotice?: string | null;
@@ -171,10 +171,10 @@ function PlanCard({
                 ) : (
                   <Sparkles className="w-4 h-4 mr-2" />
                 )}
-                Upgrade to Premium
+                Get Premium on WhatsApp
               </Button>
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                Coming soon — payment is not connected yet, so no charge will be made.
+                Opens a chat with TaskTrack on WhatsApp. Pay by UPI and we&rsquo;ll switch Premium on.
               </p>
             </>
           )}

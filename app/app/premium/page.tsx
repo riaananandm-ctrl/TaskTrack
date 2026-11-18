@@ -5,6 +5,7 @@ import { Sparkles, Crown } from 'lucide-react';
 import { PlanComparison } from '@/components/plan-comparison';
 import { useAuth } from '@/lib/auth-context';
 import { getProfileEntitlements, getPlanLabel, planPriceLine } from '@/lib/entitlements';
+import { openPremiumWhatsApp } from '@/lib/premium-contact';
 
 export default function PremiumPage() {
   const { profile } = useAuth();
@@ -13,12 +14,10 @@ export default function PremiumPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [upgrading] = useState(false);
 
-  // Payment processing is not connected yet. This must not claim a purchase
-  // succeeded — it only records intent so the real checkout can be wired in.
+  // Premium is bought over WhatsApp: open a chat with the greeting typed in.
   const handleUpgrade = () => {
-    setNotice(
-      'Checkout isn\u2019t connected yet, so no payment has been taken and no charge will be made. Your plan is unchanged.'
-    );
+    openPremiumWhatsApp();
+    setNotice('WhatsApp should open in a new tab. Send the message to get started with Premium.');
   };
 
   return (
@@ -48,7 +47,7 @@ export default function PremiumPage() {
       />
 
       <p className="text-xs text-muted-foreground text-center pb-4">
-        Prices shown in Indian rupees. No payment processing is active yet — no charges will be made.
+        Prices shown in Indian rupees. Premium is bought through a chat with TaskTrack on WhatsApp.
       </p>
     </div>
   );
