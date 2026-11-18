@@ -157,7 +157,7 @@ export function ExamsTab({ subjectNames, onChanged }: { subjectNames: string[]; 
                     <p className="text-xs text-muted-foreground">{KIND_LABEL[e.kind]} &middot; {format(parseISO(e.exam_date), 'EEE d MMM')} &middot; {countdownLabel(days)}</p>
                   </div>
                   {e.task_id ? (
-                    <Link href={`/app/tasks/${e.task_id}`} aria-label={`Open the ${e.subject_name} task`} title="From your tasks. Complete the task to remove it." className="tap-target p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
+                    <Link href={`/app/tasks?task=${e.task_id}`} aria-label={`Open the ${e.subject_name} task`} title="From your tasks. Complete the task to remove it." className="tap-target p-1.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
                       <ExternalLink className="w-4 h-4" />
                     </Link>
                   ) : (
