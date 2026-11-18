@@ -365,29 +365,60 @@ html.christmas.dark .app-backdrop {
     radial-gradient(60rem 28rem at 15% -8rem, rgba(248, 113, 113, 0.12), transparent 70%),
     radial-gradient(40rem 22rem at 100% -6rem, rgba(34, 197, 94, 0.10), transparent 70%);
 }
-.xmas-flake {
-  position: absolute;
-  top: -12px;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 35% 35%, #fff 0%, #eef6ff 60%, #cfe3f7 100%);
-  box-shadow: 0 0 0 1px rgba(125, 160, 200, 0.35), 0 1px 6px rgba(100, 140, 190, 0.45);
-  animation: xmasFall linear infinite;
-}
-.xmas-bulb { animation: xmasTwinkle 1.8s ease-in-out infinite; }
-.xmas-star { transform-origin: 55px 14px; animation: xmasStar 2.4s ease-in-out infinite; }
-@keyframes xmasFall {
-  from { transform: translate(0, -12px); }
-  to { transform: translate(var(--drift, 0), 105vh); }
-}
+/* bulbs: data-xmode on the scene picks the pattern */
+[data-xmode='twinkle'] .xb { animation: xmasTwinkle 1.7s ease-in-out infinite; animation-delay: calc(var(--i) * -0.41s); }
+[data-xmode='chase'] .xb { animation: xmasChase 1.4s linear infinite; animation-delay: calc(var(--i) * 0.07s); }
+[data-xmode='rainbow'] .xb { animation: xmasHue 2.6s linear infinite; animation-delay: calc(var(--i) * -0.12s); }
+[data-xmode='steady'] .xb { opacity: 1; }
+.xmas-star { transform-box: fill-box; transform-origin: center; animation: xmasStar 2.4s ease-in-out infinite; }
+.xmas-halo { transform-box: fill-box; transform-origin: center; animation: xmasHalo 2.4s ease-in-out infinite; }
+.xmas-tree-btn { transition: transform 0.25s ease; transform-origin: 50% 100%; cursor: pointer; border-radius: 1rem; }
+.xmas-tree-btn:hover { transform: scale(1.05) rotate(-1.5deg); }
+.xmas-tree-btn:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 4px; }
+.xmas-shake { animation: xmasShake 0.6s ease; }
+.xmas-gift { transform: translateY(-110px); animation-name: xmasGiftFall; animation-timing-function: linear; animation-fill-mode: forwards; cursor: pointer; }
+.xmas-gift:hover { filter: brightness(1.1) drop-shadow(0 0 8px rgba(250, 204, 21, 0.8)); }
+.xmas-note { animation: xmasNote 3.2s ease forwards; pointer-events: none; }
 @keyframes xmasTwinkle {
-  0%, 100% { opacity: 1; filter: brightness(1.15); }
-  50% { opacity: 0.45; filter: brightness(0.8); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes xmasChase {
+  0%, 18% { opacity: 1; }
+  30%, 100% { opacity: 0.25; }
+}
+@keyframes xmasHue {
+  from { filter: hue-rotate(0deg) brightness(1.2); }
+  to { filter: hue-rotate(360deg) brightness(1.2); }
 }
 @keyframes xmasStar {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px #fde047); }
-  50% { transform: scale(1.12); filter: drop-shadow(0 0 7px #fde047); }
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.12) rotate(8deg); }
+}
+@keyframes xmasHalo {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@keyframes xmasShake {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-6deg); }
+  40% { transform: rotate(5deg); }
+  60% { transform: rotate(-3deg); }
+  80% { transform: rotate(2deg); }
+}
+@keyframes xmasGiftFall {
+  0% { transform: translate(0, -110px) rotate(-6deg); }
+  25% { transform: translate(28px, 22vh) rotate(6deg); }
+  50% { transform: translate(-18px, 46vh) rotate(-5deg); }
+  75% { transform: translate(22px, 70vh) rotate(5deg); }
+  100% { transform: translate(0, 105vh) rotate(-4deg); }
+}
+@keyframes xmasNote {
+  0% { opacity: 0; transform: translate(-50%, -80%) scale(0.85); }
+  10% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -100%); }
+  100% { opacity: 0; transform: translate(-50%, -125%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .xmas-flake { animation: none; display: none; }
-  .xmas-bulb, .xmas-star { animation: none; }
+  .xb, .xmas-star, .xmas-halo, .xmas-shake, .xmas-note { animation: none !important; }
 }
