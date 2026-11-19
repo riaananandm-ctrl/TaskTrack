@@ -6,7 +6,8 @@ import { downloadSlidesPptx } from '@/lib/export-slides';
 import { cn } from '@/lib/utils';
 import { saveDeck } from '@/lib/spaced-review';
 import { useVideoPlayer } from '@/components/video-player';
-import { quizXp, youtubeSearchUrl, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData, type VideosData } from '@/lib/study-modes';
+import { planPlaylist, quizXp, videoSearch, type QuizData, type FlashcardsData, type PlanSession, type StudyPlanData, type SlidesData, type SuggestedVideo, type VideosData } from '@/lib/study-modes';
+import { setVideoWatched, useWatchedVideos, videoKey } from '@/lib/video-progress';
 
 // ---------------------------------------------------------------------------
 // Quiz — one question at a time, immediate feedback, score and weak topics
@@ -388,9 +389,24 @@ export function FlashcardsView({ data, deckDefaults }: FlashcardsViewProps) {
 
 export function PlanView({ data, onPractice }: { data: StudyPlanData; onPractice?: (session: PlanSession) => void }) {
   const watch = useVideoPlayer();
+  const watched = useWatchedVideos();
+  // Videos are numbered across the whole plan: Video 1, Video 2… in the order to watch them.
+  const playlist = planPlaylist(data);
+  const firstOfSession = data.sessions.map((_, i) => playlist.findIndex((v) => v.session === i));
+  const doneCount = playlist.filter((v) => watched.has(videoKey(v.search))).length;
+  const nextUp = Math.max(0, playlist.findIndex((v) => !watched.has(videoKey(v.search))));
   return (
     <div className="space-y-4">
       {data.summary && <p className="text-sm leading-relaxed">{data.summary}</p>}
+
+      {playlist.length > 0 && (
+        <VideoPlanBar
+          total={playlist.length}
+          done={doneCount}
+          nextIndex={nextUp}
+          onPlay={(i) => watch({ ...playlist[i], playlist, index: i })}
+        />
+      )}
 
       {data.compressed && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3">
@@ -431,16 +447,23 @@ export function PlanView({ data, onPractice }: { data: StudyPlanData; onPractice
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-600"><PlayCircle className="h-3.5 w-3.5" /></span>
                     <div className="min-w-0 space-y-1">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">1 · Watch</p>
-                      {s.videos!.map((v, k) => (
-                        <button key={k} type="button" onClick={() => watch({ search: v.search || [v.title, v.channel].filter(Boolean).join(' '), label: v.title || v.search })}
+                      {s.videos!.map((v, k) => {
+                        const n = firstOfSession[i] + k;
+                        const seen = watched.has(videoKey(videoSearch(v)));
+                        return (
+                        <button key={k} type="button"
+                          onClick={() => (n >= 0 ? watch({ ...playlist[n], playlist, index: n }) : watch({ search: videoSearch(v), label: v.title || v.search }))}
                           className="group flex items-start gap-1.5 text-left text-xs font-medium text-foreground hover:text-primary">
-                          <span className="text-muted-foreground">Video {k + 1}:</span>
+                          <span className={cn('shrink-0', seen ? 'text-emerald-600' : 'text-muted-foreground')}>
+                            {seen && <Check className="mr-0.5 inline h-3 w-3" />}Video {n >= 0 ? n + 1 : k + 1}:
+                          </span>
                           <span className="underline decoration-dotted underline-offset-2 group-hover:decoration-solid">
                             {v.title || v.search}{v.channel ? ` · ${v.channel}` : ''}
                           </span>
                           <PlayCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-600" />
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </li>
                 )}
@@ -552,42 +575,111 @@ export function SlidesView({ data }: { data: SlidesData }) {
 }
 
 // ---------------------------------------------------------------------------
-// Videos: AI-picked YouTube searches, in the order to watch them
+// Video plan: Video 1, Video 2… in the order to watch them, played in the app
 // ---------------------------------------------------------------------------
+
+function VideoPlanBar({ total, done, nextIndex, onPlay }: { total: number; done: number; nextIndex: number; onPlay: (i: number) => void }) {
+  const allDone = done >= total;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50/60 p-3 dark:border-red-900/60 dark:bg-red-950/20">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">
+          {allDone ? 'Video plan done 🎉' : `Video plan · ${total} video${total === 1 ? '' : 's'}`}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-red-100 dark:bg-red-950" aria-hidden>
+            <div className="h-full rounded-full bg-red-600 transition-all" style={{ width: `${Math.round((done / total) * 100)}%` }} />
+          </div>
+          <span className="shrink-0 text-[11px] text-muted-foreground">{done} of {total} watched</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onPlay(allDone ? 0 : nextIndex)}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
+      >
+        <PlayCircle className="h-4 w-4" />
+        {allDone ? 'Watch again' : done === 0 ? 'Start with Video 1' : `Continue: Video ${nextIndex + 1}`}
+      </button>
+    </div>
+  );
+}
 
 export function VideosView({ data }: { data: VideosData }) {
   const watch = useVideoPlayer();
+  const watched = useWatchedVideos();
+  const playlist = data.videos.map((v) => ({ search: videoSearch(v), label: v.title || v.search }));
+  const isDone = (v: SuggestedVideo) => watched.has(videoKey(videoSearch(v)));
+  const done = data.videos.filter(isDone).length;
+  const nextIndex = Math.max(0, data.videos.findIndex((v) => !isDone(v)));
+  const play = (i: number) => watch({ ...playlist[i], playlist, index: i });
+  const hasDays = data.videos.some((v) => v.day);
+
   return (
-    <div className="space-y-2.5">
-      {data.videos.map((v, i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => watch({ search: v.search || [v.title, v.channel].filter(Boolean).join(' '), label: v.title || v.search })}
-          className="group flex w-full gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-red-300 hover:bg-red-50/40 dark:hover:border-red-900 dark:hover:bg-red-950/20"
-        >
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
-            <PlayCircle className="h-5 w-5" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold leading-snug">
-              <span className="text-muted-foreground">{i + 1}.</span> {v.title || v.search}
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {[v.channel, v.minutes ? `about ${v.minutes} min` : ''].filter(Boolean).join(' · ') || 'YouTube'}
-            </p>
-            {v.why && <p className="mt-1.5 text-xs leading-relaxed">{v.why}</p>}
-            {v.watchFor && (
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-semibold text-foreground">Note down:</span> {v.watchFor}
-              </p>
-            )}
-          </div>
-          <span className="self-center rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white opacity-90 group-hover:opacity-100">Watch</span>
-        </button>
-      ))}
+    <div className="space-y-3">
+      {data.summary && <p className="text-sm leading-relaxed">{data.summary}</p>}
+      <VideoPlanBar total={data.videos.length} done={done} nextIndex={nextIndex} onPlay={play} />
+
+      <ol className="space-y-2">
+        {data.videos.map((v, i) => {
+          const seen = isDone(v);
+          const newDay = hasDays && v.day && v.day !== data.videos[i - 1]?.day;
+          const dayMinutes = newDay
+            ? data.videos.filter((x) => x.day === v.day).reduce((sum, x) => sum + (x.minutes ?? 0), 0)
+            : 0;
+          return (
+            <li key={i} className="space-y-2">
+              {newDay && (
+                <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Day {v.day}{dayMinutes ? ` · about ${dayMinutes} min` : ''}
+                </p>
+              )}
+              <div
+                className={cn(
+                  'flex gap-3 rounded-xl border bg-card p-3 transition-colors',
+                  seen ? 'border-emerald-200 dark:border-emerald-900/60' : 'border-border hover:border-red-300 dark:hover:border-red-900'
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setVideoWatched(videoSearch(v), !seen)}
+                  aria-label={seen ? `Mark Video ${i + 1} as not watched` : `Mark Video ${i + 1} as watched`}
+                  className={cn(
+                    'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold',
+                    seen ? 'bg-emerald-600 text-white' : 'bg-red-600/10 text-red-700 dark:text-red-400'
+                  )}
+                >
+                  {seen ? <Check className="h-4 w-4" /> : i + 1}
+                </button>
+                <button type="button" onClick={() => play(i)} className="group min-w-0 flex-1 text-left">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-red-600">Video {i + 1}</p>
+                  <p className="text-sm font-semibold leading-snug group-hover:text-red-700 dark:group-hover:text-red-400">
+                    {v.title || v.search}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {[v.channel, v.minutes ? `about ${v.minutes} min` : ''].filter(Boolean).join(' · ') || 'YouTube'}
+                  </p>
+                  {v.why && <p className="mt-1.5 text-xs leading-relaxed">{v.why}</p>}
+                  {v.watchFor && (
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-semibold text-foreground">Note down:</span> {v.watchFor}
+                    </p>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => play(i)}
+                  className="self-center rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-700"
+                >
+                  {seen ? 'Rewatch' : 'Watch'}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
       <p className="text-[11px] text-muted-foreground">
-        Videos play right here in TaskTrack. Only safe-search educational videos are shown. Then take a quiz to check you&rsquo;ve got it.
+        Videos play right here in TaskTrack, one after another. Only safe-search educational videos are shown. When you&rsquo;re done, take a quiz to check you&rsquo;ve got it.
       </p>
     </div>
   );

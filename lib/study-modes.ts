@@ -99,8 +99,8 @@ export const MODE_OPTIONS: ModeOption[] = [
   },
   {
     id: 'videos',
-    label: 'Find videos',
-    prompt: 'Suggest YouTube videos to help me learn this topic.',
+    label: 'Video plan',
+    prompt: 'Make me a video plan for this topic: Video 1, Video 2 and so on, in the order to watch them.',
     structured: true,
   },
   { id: 'hints', label: 'Help me figure it out', prompt: 'Help me figure this out myself. Don’t give me the answer, just hints.', structured: false },
@@ -130,7 +130,7 @@ export const MODE_BLURBS: Partial<Record<StudyMode, string>> = {
   essayplan: 'Thesis, structure and evidence. You do the writing.',
   language: 'A conversation in the language at your level, with gentle corrections.',
   summarise: 'Paste your notes and get a one-page summary.',
-  videos: 'Educational videos you can watch right here.',
+  videos: 'A step-by-step video plan (Video 1, Video 2…) you watch right here.',
 };
 
 export function getModeOption(mode: StudyMode): ModeOption | undefined {
@@ -150,7 +150,7 @@ export const MODE_SELECT_OPTIONS: { id: StudyMode; label: string }[] = [
   { id: 'practice', label: 'Exam practice' },
   { id: 'examples', label: 'Worked examples' },
   { id: 'slides', label: 'Study slides' },
-  { id: 'videos', label: 'Videos' },
+  { id: 'videos', label: 'Video plan' },
   { id: 'hints', label: 'Help me figure it out' },
   { id: 'teachback', label: 'Teach it back' },
   { id: 'commandterms', label: 'Command terms coach' },
@@ -225,10 +225,40 @@ export interface SuggestedVideo extends PlanVideo {
   why: string;
   watchFor: string;
   minutes: number | null;
+  /** Which day of the video plan this one belongs to (1 = first day), if the plan has days. */
+  day?: number | null;
 }
 
+/** A video plan: Video 1, Video 2… in the order to watch them, optionally split into days. */
 export interface VideosData {
+  summary?: string;
   videos: SuggestedVideo[];
+}
+
+/** Most videos a video plan can hold. */
+export const MAX_PLAN_VIDEOS = 10;
+
+/** The words to search YouTube for, for any suggested video. */
+export function videoSearch(v: PlanVideo): string {
+  return v.search || [v.title, v.channel].filter(Boolean).join(' ');
+}
+
+/** One playable item in a video playlist. */
+export interface PlaylistVideo {
+  search: string;
+  label: string;
+}
+
+/** Every video in a study plan, numbered in order across all its sessions. */
+export function planPlaylist(plan: StudyPlanData): (PlaylistVideo & { session: number })[] {
+  const out: (PlaylistVideo & { session: number })[] = [];
+  plan.sessions.forEach((s, i) => {
+    for (const v of s.videos ?? []) {
+      const search = videoSearch(v);
+      if (search) out.push({ search, label: v.title || v.search, session: i });
+    }
+  });
+  return out;
 }
 
 export interface Slide {
@@ -339,6 +369,7 @@ export function parseVideos(v: unknown): VideosData | null {
     const search = str(x.search).slice(0, 140);
     if (!title && !search) continue;
     const minutes = typeof x.minutes === 'number' ? x.minutes : Number(x.minutes);
+    const day = typeof x.day === 'number' ? x.day : Number(x.day);
     videos.push({
       title,
       search,
@@ -346,9 +377,12 @@ export function parseVideos(v: unknown): VideosData | null {
       why: str(x.why).slice(0, 240),
       watchFor: str(x.watchFor).slice(0, 240),
       minutes: Number.isFinite(minutes) && minutes > 0 && minutes <= 120 ? Math.round(minutes) : null,
+      day: Number.isInteger(day) && day >= 1 && day <= 14 ? day : null,
     });
   }
-  return videos.length > 0 ? { videos: videos.slice(0, 6) } : null;
+  if (videos.length === 0) return null;
+  const summary = str(root.summary).slice(0, 400);
+  return { ...(summary ? { summary } : {}), videos: videos.slice(0, MAX_PLAN_VIDEOS) };
 }
 
 export function parseSlides(v: unknown): SlidesData | null {

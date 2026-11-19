@@ -573,6 +573,14 @@ export function StudySessionPanel({
 
       const { data: result, error: invokeError } = submitReply
         ? { data: { ok: true, mode, text: submitReply } as AssistantData, error: null }
+        : mode === 'videos'
+        // Video plan: an ordered Video 1, Video 2… course, made by its own small function.
+        ? await supabase.functions.invoke('video-plan', {
+            body: {
+              task: taskContext,
+              messages: history.map((m) => ({ role: m.role, content: m.content })),
+            },
+          })
         : await supabase.functions.invoke(
         'study-session-chat',
         {

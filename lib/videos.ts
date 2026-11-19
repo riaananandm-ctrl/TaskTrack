@@ -32,6 +32,8 @@ export async function findVideo(search: string): Promise<VideoLookup> {
 }
 
 /** Privacy-enhanced embed: no tracking cookies until play, related videos limited to the same channel. */
-export function embedUrl(videoId: string): string {
-  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+export function embedUrl(videoId: string, origin?: string): string {
+  // enablejsapi lets the page hear when the video ends, to move on to the next one.
+  const o = origin ? `&origin=${encodeURIComponent(origin)}` : '';
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1${o}`;
 }
