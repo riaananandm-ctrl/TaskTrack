@@ -15,6 +15,8 @@ export interface SessionTask {
   estimated_minutes: number | null;
   status: string;
   subject_id: string | null;
+  /** Where the task came from, e.g. 'managebac_calendar'. */
+  external_source?: string | null;
   subject?: { name: string; colour: string } | null;
 }
 
@@ -41,7 +43,7 @@ export interface StudySessionMessage {
   created_at: string;
 }
 
-const SESSION_SELECT = 'id, user_id, task_id, title, status, created_at, updated_at, task:tasks(id, title, description, due_date, priority, category, estimated_minutes, status, subject_id, subject:subjects(name, colour)), study_session_messages(count)';
+const SESSION_SELECT = 'id, user_id, task_id, title, status, created_at, updated_at, task:tasks(id, title, description, due_date, priority, category, estimated_minutes, status, subject_id, external_source, subject:subjects(name, colour)), study_session_messages(count)';
 
 interface RawSession {
   id: string;

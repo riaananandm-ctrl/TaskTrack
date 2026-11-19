@@ -9,11 +9,14 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
     const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
     const italicMatch = remaining.match(/\*(.+?)\*/);
     const codeMatch = remaining.match(/`(.+?)`/);
+    // Only https links are turned into anchors, so nothing else (javascript: and so on) is clickable.
+    const linkMatch = remaining.match(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/);
 
     const matches = [
       { match: boldMatch, type: 'bold', delimiter: '**' },
       { match: italicMatch, type: 'italic', delimiter: '*' },
       { match: codeMatch, type: 'code', delimiter: '`' },
+      { match: linkMatch, type: 'link', delimiter: '' },
     ].filter((m) => m.match !== null && m.match.index !== undefined);
 
     if (matches.length === 0) {
@@ -35,6 +38,18 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
       nodes.push(<strong key={`${keyPrefix}-${keyIdx++}`} className="font-semibold text-foreground">{inner}</strong>);
     } else if (first.type === 'italic') {
       nodes.push(<em key={`${keyPrefix}-${keyIdx++}`} className="italic">{inner}</em>);
+    } else if (first.type === 'link') {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-${keyIdx++}`}
+          href={first.match![2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-primary underline underline-offset-2 hover:opacity-80"
+        >
+          {inner}
+        </a>
+      );
     } else if (first.type === 'code') {
       nodes.push(
         <code key={`${keyPrefix}-${keyIdx++}`} className="px-1.5 py-0.5 rounded bg-muted text-foreground text-[0.85em] font-mono">

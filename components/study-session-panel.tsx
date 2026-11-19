@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { VideoPlayerProvider } from '@/components/video-player';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
+import { saysWorkIsDone } from '@/lib/managebac-submit';
 import { Logo } from '@/components/logo';
 import { QuizView, FlashcardsView, PlanView, SlidesView, VideosView } from '@/components/study-views';
 import { CountdownTimer } from '@/components/countdown-timer';
@@ -453,7 +454,23 @@ export function StudySessionPanel({
 
       let data: AssistantData | null = null;
 
-      const { data: result, error: invokeError } = await supabase.functions.invoke(
+      // "I'm done" on a ManageBac task that's handed in online: reply with the link
+      // to submit it on ManageBac instead of asking the AI (no credits used).
+      let submitReply: string | null = null;
+      if (mode === 'chat' && task?.id && task.external_source === 'managebac_calendar' && saysWorkIsDone(text)) {
+        try {
+          const { data: link } = await supabase.functions.invoke('managebac-submit-link', {
+            body: { taskId: task.id },
+          });
+          if (link?.ok && typeof link.text === 'string' && link.text) submitReply = link.text;
+        } catch {
+          submitReply = null;
+        }
+      }
+
+      const { data: result, error: invokeError } = submitReply
+        ? { data: { ok: true, mode, text: submitReply } as AssistantData, error: null }
+        : await supabase.functions.invoke(
         'study-session-chat',
         {
           body: {
