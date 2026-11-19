@@ -146,7 +146,9 @@ export function VideoPlayerProvider({ children }: { children: ReactNode }) {
             <DialogDescription className="line-clamp-1">
               {result?.ok
                 ? `${result.channel} · ${total > 1 ? current?.label : 'educational video, watch it right here'}`
-                : 'Finding an educational video…'}
+                : result
+                  ? total > 1 ? current?.label : 'Educational video'
+                  : 'Finding an educational video…'}
             </DialogDescription>
           </DialogHeader>
 

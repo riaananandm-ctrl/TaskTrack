@@ -51,8 +51,8 @@ Rules:
 - "minutes": a realistic length estimate (5 to 25).
 - Base it on the task and what the student said in the chat. If they named a sub-topic, focus on it.
 - If the task is a graded written piece, the videos teach the skills and content; they never give
-  the student an answer to copy, and no search asks for an example, model or sample answer to
-  the task itself.
+  the student an answer to copy. No video shows a model, sample or worked-example answer to the
+  task (or one like it), and no search asks for one.
 
 Reply with JSON only:
 {"summary": "one or two friendly sentences on what the plan covers and how long it takes",
@@ -72,7 +72,13 @@ interface PlanVideo {
   minutes: number | null;
 }
 
-function cleanPlan(raw: unknown): { summary: string; videos: PlanVideo[] } | null {
+// Graded written work (same idea as the live Google Doc guard).
+const GRADED_WORK =
+  /\b(essay|internal assessment|extended essay|\bIA\b|\bEE\b|TOK|lab report|coursework|summative|formative|criterion [a-d]|portfolio|commentary|written (task|assignment|piece)|writing (task|assessment|summative))/i;
+// A video that shows a finished answer: never in a plan for graded writing.
+const ANSWER_VIDEO = /\b(model|sample|exemplar|example|worked[\s-]*example)s?\b/i;
+
+function cleanPlan(raw: unknown, graded = false): { summary: string; videos: PlanVideo[] } | null {
   const root = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
   if (!root || !Array.isArray(root.videos)) return null;
   const seen = new Set<string>();
@@ -86,6 +92,7 @@ function cleanPlan(raw: unknown): { summary: string; videos: PlanVideo[] } | nul
     const key = search.toLowerCase();
     // Never send a student hunting for a ready-made answer.
     if (/\b(model|sample|example) (answer|essay|paragraph|response)\b/i.test(search)) continue;
+    if (graded && ANSWER_VIDEO.test(`${title} ${search}`)) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     const day = Number(x.day);
@@ -102,6 +109,9 @@ function cleanPlan(raw: unknown): { summary: string; videos: PlanVideo[] } | nul
     if (videos.length >= MAX_VIDEOS) break;
   }
   if (videos.length < 2) return null;
+  // Close gaps left by dropped videos (days 1, 3 -> 1, 2).
+  const dayOrder = [...new Set(videos.map((v) => v.day).filter((d): d is number => d !== null))].sort((a, b) => a - b);
+  videos.forEach((v) => (v.day = v.day === null ? null : dayOrder.indexOf(v.day) + 1));
   // Days must run 1, 2, 3… in order; if the AI muddled them, drop the grouping.
   const days = videos.map((v) => v.day);
   const ordered = days.every((d, i) => d !== null && (i === 0 ? d === 1 : d >= days[i - 1]! && d <= days[i - 1]! + 1));
@@ -143,6 +153,7 @@ Deno.serve(async (req: Request) => {
       task.description ? `Details: ${str(task.description, 1500)}` : '',
       `Today: ${new Date().toISOString().slice(0, 10)}`,
     ].filter(Boolean);
+    const graded = GRADED_WORK.test(`${str(task.title, 200)} ${str(task.category, 40)} ${str(task.description, 1500)}`);
     const chat = messages
       .slice(-10)
       .map((m: { role?: unknown; content?: unknown }) =>
@@ -184,7 +195,7 @@ Deno.serve(async (req: Request) => {
         }
         const data = await res.json();
         const text = String(data?.choices?.[0]?.message?.content || '').replace(/^```(?:json)?\s*|```\s*$/g, '');
-        plan = cleanPlan(JSON.parse(text));
+        plan = cleanPlan(JSON.parse(text), graded);
         if (plan) break;
       } catch (err) {
         console.error(`Video plan error (${model}):`, err instanceof Error ? err.message : 'unknown');
