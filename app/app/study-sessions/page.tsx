@@ -220,8 +220,8 @@ export default function StudySessionsPage() {
       )}
 
       <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)} className="min-w-0 max-w-full">
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="all">Recent ({counts.all})</TabsTrigger>
             <TabsTrigger value="active">Active ({counts.active})</TabsTrigger>
             <TabsTrigger value="completed">Completed ({counts.completed})</TabsTrigger>
@@ -544,11 +544,11 @@ function SessionCard({
       </div>
 
       <div className="flex items-center gap-1.5 mt-3">
-        <Button size="sm" variant="outline" className="flex-1 gap-1.5" onClick={onOpen}>
-          <Play className="w-3.5 h-3.5" /> Continue Session
+        <Button size="sm" variant="outline" className="min-w-0 flex-1 gap-1.5" onClick={onOpen}>
+          <Play className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">Continue</span>
         </Button>
-        <Button size="sm" variant="ghost" className="gap-1.5" onClick={onNewForTask}>
-          <Plus className="w-3.5 h-3.5" /> New Session
+        <Button size="sm" variant="ghost" className="flex-shrink-0 gap-1.5" onClick={onNewForTask} title="New session for this task">
+          <Plus className="w-3.5 h-3.5" /> New
         </Button>
         <button
           onClick={() =>
