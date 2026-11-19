@@ -9,11 +9,15 @@ import {
   ChevronDown, CalendarDays, Clock, CalendarPlus, Paperclip, FileText,
   ShieldAlert, Sparkles, Crown, BookOpen, ListChecks, Presentation,
   Lightbulb, CalendarRange, MessageSquare, PenLine,
-  PlayCircle, Brain, Target, Stethoscope, Zap, Puzzle, Scale, NotebookPen, Languages, ScrollText, GraduationCap,
+  PlayCircle, ExternalLink, RefreshCw, Brain, Target, Stethoscope, Zap, Puzzle, Scale, NotebookPen, Languages, ScrollText, GraduationCap,
 } from 'lucide-react';
 import { VideoPlayerProvider } from '@/components/video-player';
 import { MarkdownRenderer } from '@/components/markdown-renderer';
 import { saysWorkIsDone } from '@/lib/managebac-submit';
+import {
+  getLiveDocStatus, startGoogleDocsConnect, createLiveDoc, updateLiveDoc, unlinkLiveDoc,
+  setLiveDocAutoUpdate, type LiveDocStatus,
+} from '@/lib/google-docs';
 import { Logo } from '@/components/logo';
 import { QuizView, FlashcardsView, PlanView, SlidesView, VideosView } from '@/components/study-views';
 import { CountdownTimer } from '@/components/countdown-timer';
@@ -387,6 +391,102 @@ export function StudySessionPanel({
     sendMessage(`Give me an exam-style practice question on: ${plan.focus}${topics}.${plan.practice ? ` Plan task: ${plan.practice}` : ''}`, 'practice');
   };
 
+  // ---- Live Google Doc ----
+  const [docStatus, setDocStatus] = useState<LiveDocStatus | null>(null);
+  const [docBusy, setDocBusy] = useState<'idle' | 'connecting' | 'creating' | 'updating'>('idle');
+  const [docError, setDocError] = useState<string | null>(null);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const docRunning = useRef(false);
+  const docPending = useRef(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setDocStatus(null);
+    getLiveDocStatus(session.id).then((res) => {
+      if (!cancelled && res.ok) setDocStatus(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, session.id]);
+
+  /** Rewrite the live doc from the latest chat; overlapping requests are coalesced. */
+  const refreshDoc = useCallback(async () => {
+    if (docRunning.current) {
+      docPending.current = true;
+      return;
+    }
+    docRunning.current = true;
+    setDocBusy('updating');
+    setDocError(null);
+    try {
+      do {
+        docPending.current = false;
+        const res = await updateLiveDoc(session.id);
+        if (res.ok) {
+          setDocStatus((prev) => (prev ? { ...prev, doc: res.data.doc } : prev));
+          announceCreditsChanged();
+        } else {
+          setDocError(res.error);
+          if (res.code === 'MISSING_DOC') setDocStatus((prev) => (prev ? { ...prev, doc: null } : prev));
+          if (res.code === 'RECONNECT') setDocStatus((prev) => (prev ? { ...prev, connected: false, needsReconnect: true, doc: prev.doc } : prev));
+          break;
+        }
+      } while (docPending.current);
+    } finally {
+      docRunning.current = false;
+      setDocBusy('idle');
+    }
+  }, [session.id]);
+
+  const connectDocs = async () => {
+    setDocBusy('connecting');
+    setDocError(null);
+    const res = await startGoogleDocsConnect(session.id);
+    if (res.ok) {
+      window.location.assign(res.data.url);
+      return;
+    }
+    setDocError(res.error);
+    setDocBusy('idle');
+  };
+
+  const createDoc = async () => {
+    setDocBusy('creating');
+    setDocError(null);
+    const res = await createLiveDoc(session.id);
+    setDocBusy('idle');
+    if (!res.ok) {
+      setDocError(res.error);
+      if (res.code === 'NOT_CONNECTED' || res.code === 'RECONNECT') {
+        setDocStatus((prev) => (prev ? { ...prev, connected: false, needsReconnect: res.code === 'RECONNECT' } : prev));
+      }
+      return;
+    }
+    setDocStatus((prev) => (prev ? { ...prev, doc: res.data.doc } : prev));
+    announceCreditsChanged();
+  };
+
+  const toggleDocAuto = async (on: boolean) => {
+    setDocStatus((prev) => (prev?.doc ? { ...prev, doc: { ...prev.doc, autoUpdate: on } } : prev));
+    const saved = await setLiveDocAutoUpdate(session.id, on);
+    if (!saved) {
+      setDocStatus((prev) => (prev?.doc ? { ...prev, doc: { ...prev.doc, autoUpdate: !on } } : prev));
+      setDocError('That setting could not be saved. Please try again.');
+    }
+  };
+
+  const stopDoc = async () => {
+    const res = await unlinkLiveDoc(session.id);
+    if (res.ok) {
+      setDocStatus((prev) => (prev ? { ...prev, doc: null } : prev));
+      setDocDialogOpen(false);
+    } else {
+      setDocError(res.error);
+    }
+  };
+
   const sendMessage = async (text: string, mode: StudyMode) => {
     if (!text.trim() || loading || limitReached) return;
 
@@ -588,6 +688,8 @@ export function StudySessionPanel({
         ...prev,
         { ...display, structured: structured ?? undefined, mode: structured ? mode : null },
       ]);
+      // Keep the live Google Doc in step with the conversation.
+      if (docStatus?.doc?.autoUpdate) void refreshDoc();
       // One-off activities (speed round, quiz, flashcards, slides, plan, videos) are
       // done once their result arrives, so the next typed message is a normal chat
       // rather than another round of the same activity.
@@ -921,6 +1023,21 @@ export function StudySessionPanel({
             </div>
           </div>
           <div className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
+            <button
+              onClick={() => setDocDialogOpen(true)}
+              className={cn(
+                'relative flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                docStatus?.doc ? 'bg-sky-400/20 text-sky-100 hover:bg-sky-400/30' : 'hover:bg-white/10'
+              )}
+              aria-label="Live Google Doc"
+              title="Live Google Doc"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Live doc</span>
+              {docStatus?.doc && (
+                <span className={cn('h-1.5 w-1.5 rounded-full bg-sky-300', docBusy === 'updating' && 'animate-pulse')} />
+              )}
+            </button>
             {credits && (
               <span
                 className={cn(
@@ -1005,6 +1122,37 @@ export function StudySessionPanel({
           aria-label="Study assistant"
           className={cn('min-h-0 min-w-0 flex-1 flex-col', mobileTab === 'chat' ? 'flex' : 'hidden lg:flex')}
         >
+          {docStatus?.doc && (
+            <div className="flex flex-shrink-0 items-center gap-2 border-b border-border bg-sky-50/70 px-4 py-2 text-xs dark:bg-sky-950/20 sm:px-6">
+              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-sky-600 text-white">
+                <FileText className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-foreground">
+                <span className="font-semibold">Live doc</span>
+                <span className="text-muted-foreground">
+                  {' · '}
+                  {docBusy === 'updating'
+                    ? 'Writing your latest notes…'
+                    : docError
+                      ? docError
+                      : !docStatus.doc.autoUpdate
+                        ? 'Paused'
+                        : docStatus.doc.lastWrittenAt
+                          ? `Updated ${format(new Date(docStatus.doc.lastWrittenAt), 'h:mm a')}`
+                          : 'Updates as you chat'}
+                </span>
+              </span>
+              {docBusy === 'updating' && <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-sky-600" />}
+              <a
+                href={docStatus.doc.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-1 font-semibold text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900/40"
+              >
+                Open <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
           <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 sm:px-6">
               {showGreeting && (
@@ -1275,6 +1423,21 @@ export function StudySessionPanel({
         </section>
       </div>
 
+      {docDialogOpen && (
+        <LiveDocDialog
+          status={docStatus}
+          busy={docBusy}
+          error={docError}
+          hasMessages={messages.length > 0}
+          onClose={() => setDocDialogOpen(false)}
+          onConnect={connectDocs}
+          onCreate={createDoc}
+          onUpdate={() => void refreshDoc()}
+          onToggleAuto={toggleDocAuto}
+          onStop={stopDoc}
+        />
+      )}
+
       {uploadOpen && (
         <UploadDialog
           onClose={() => setUploadOpen(false)}
@@ -1287,6 +1450,156 @@ export function StudySessionPanel({
   );
 
   return portalReady ? createPortal(workspace, document.body) : workspace;
+}
+
+/** Set up and manage the session's live Google Doc. */
+function LiveDocDialog({
+  status,
+  busy,
+  error,
+  hasMessages,
+  onClose,
+  onConnect,
+  onCreate,
+  onUpdate,
+  onToggleAuto,
+  onStop,
+}: {
+  status: LiveDocStatus | null;
+  busy: 'idle' | 'connecting' | 'creating' | 'updating';
+  error: string | null;
+  hasMessages: boolean;
+  onClose: () => void;
+  onConnect: () => void;
+  onCreate: () => void;
+  onUpdate: () => void;
+  onToggleAuto: (on: boolean) => void;
+  onStop: () => void;
+}) {
+  const doc = status?.doc ?? null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-label="Live Google Doc"
+        className="w-full max-w-md rounded-t-2xl border border-border bg-card p-5 shadow-2xl animate-fade-in sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white shadow-sm">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-bold text-foreground">Live Google Doc</h2>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              TaskTrack writes your study notes into a Google Doc and keeps editing it as you chat.
+              Ask things like &ldquo;add a section on causes&rdquo; or &ldquo;make it shorter&rdquo;.
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="tap-target rounded p-1 text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!status ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : !status.connected ? (
+          <div className="mt-5 space-y-3">
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-sky-600" /> TaskTrack can only open the docs it creates, never the rest of your Drive.</li>
+              <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-sky-600" /> Anything you type in the doc yourself is kept.</li>
+              <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-sky-600" /> Each update uses 1 AI credit.</li>
+            </ul>
+            <button
+              onClick={onConnect}
+              disabled={busy === 'connecting'}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
+            >
+              {busy === 'connecting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {status.needsReconnect ? 'Reconnect Google' : 'Connect Google Docs'}
+            </button>
+            <p className="text-center text-[11px] text-muted-foreground">You&rsquo;ll come straight back to this session.</p>
+          </div>
+        ) : !doc ? (
+          <div className="mt-5 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Connected{status.email ? ` as ${status.email}` : ''}. Create a doc for this session
+              {hasMessages ? ' and TaskTrack will fill it with what you have covered so far.' : '.'}
+            </p>
+            <button
+              onClick={onCreate}
+              disabled={busy === 'creating'}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
+            >
+              {busy === 'creating' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {busy === 'creating' ? 'Creating your doc…' : 'Create live doc'}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-3">
+            <a
+              href={doc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-colors hover:border-sky-400"
+            >
+              <FileText className="h-5 w-5 flex-shrink-0 text-sky-600" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-foreground">{doc.title}</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {doc.lastWrittenAt ? `Last updated ${format(new Date(doc.lastWrittenAt), 'd MMM, h:mm a')}` : 'Not written yet'}
+                </span>
+              </span>
+              <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            </a>
+
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border p-3">
+              <span>
+                <span className="block text-sm font-medium text-foreground">Update as I chat</span>
+                <span className="block text-[11px] text-muted-foreground">After every reply. 1 AI credit each time.</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={doc.autoUpdate}
+                onChange={(e) => onToggleAuto(e.target.checked)}
+                className="h-5 w-5 accent-sky-600"
+              />
+            </label>
+
+            <div className="flex gap-2">
+              <button
+                onClick={onUpdate}
+                disabled={busy === 'updating' || !hasMessages}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
+              >
+                {busy === 'updating' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {busy === 'updating' ? 'Updating…' : 'Update now'}
+              </button>
+              <button
+                onClick={onStop}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                Stop
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              For graded essays and coursework the doc holds your outline, evidence and feedback, not
+              a finished piece to hand in. Stopping keeps the doc in your Google Drive.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** The small round TaskTrack AI mark shown beside each assistant reply. */

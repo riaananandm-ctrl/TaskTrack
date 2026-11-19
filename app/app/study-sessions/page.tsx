@@ -8,6 +8,7 @@ import {
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { StudySessionPanel } from '@/components/study-session-panel';
+import { LIVE_DOC_RETURN_KEY } from '@/lib/google-docs';
 import {
   listSessions, createSession, createSessionForSubject, renameSession,
   setSessionStatus, deleteSession, findActiveSessionForTask,
@@ -69,6 +70,36 @@ export default function StudySessionsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Back from Google's consent screen for a live doc: reopen the session the student
+  // was in, so they can carry on where they left off.
+  const [gdocsHandled, setGdocsHandled] = useState(false);
+  useEffect(() => {
+    if (gdocsHandled || loading) return;
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('gdocs');
+    if (!result) return;
+    setGdocsHandled(true);
+    window.history.replaceState(null, '', window.location.pathname);
+    let returnId: string | null = null;
+    try {
+      returnId = window.sessionStorage.getItem(LIVE_DOC_RETURN_KEY);
+      window.sessionStorage.removeItem(LIVE_DOC_RETURN_KEY);
+    } catch {
+      returnId = null;
+    }
+    if (result !== 'connected') {
+      const why: Record<string, string> = {
+        cancelled: 'Google Docs was not connected because the request was cancelled.',
+        blocked: 'Google blocked the connection. If this is a school account, your school may not allow it.',
+        scopes: 'Google Docs needs permission to create and edit its own docs. Please try again and allow it.',
+        expired: 'That Google sign-in took too long. Please try again.',
+      };
+      setError(why[result] || 'Google Docs could not be connected. Please try again.');
+    }
+    const back = returnId ? sessions.find((s) => s.id === returnId) : null;
+    if (back) setActive(back);
+  }, [gdocsHandled, loading, sessions]);
 
   const openPicker = async () => {
     setPickerOpen(true);
