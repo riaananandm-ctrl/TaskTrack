@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { isGradedWriting, markdownToHtml, stripModelAnswers, tidySections } from './format.ts';
 
 /**
  * Live Google Doc for a study session.
@@ -193,56 +194,6 @@ async function readDoc(token: string, id: string): Promise<string> {
   return '';
 }
 
-// ---- Markdown -> HTML for Google Docs ----
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function inline(s: string): string {
-  return escapeHtml(s)
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, '$1<i>$2</i>')
-    .replace(/`([^`]+)`/g, '<span style="font-family:Courier New">$1</span>');
-}
-
-export function markdownToHtml(md: string): string {
-  const out: string[] = [];
-  let list: 'ul' | 'ol' | null = null;
-  const closeList = () => {
-    if (list) out.push(`</${list}>`);
-    list = null;
-  };
-  for (const raw of md.replace(/\r/g, '').split('\n')) {
-    const line = raw.replace(/\s+$/, '');
-    const heading = line.match(/^(#{1,4})\s+(.*)$/);
-    const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
-    const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
-    if (heading) {
-      closeList();
-      const level = Math.min(heading[1].length, 3);
-      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
-    } else if (bullet || numbered) {
-      const kind = bullet ? 'ul' : 'ol';
-      if (list !== kind) {
-        closeList();
-        out.push(`<${kind}>`);
-        list = kind;
-      }
-      out.push(`<li>${inline((bullet || numbered)![1])}</li>`);
-    } else if (/^\s*(---|\*\*\*)\s*$/.test(line)) {
-      closeList();
-      out.push('<hr>');
-    } else if (!line.trim()) {
-      closeList();
-    } else {
-      closeList();
-      out.push(`<p>${inline(line)}</p>`);
-    }
-  }
-  closeList();
-  return `<html><head><meta charset="utf-8"></head><body>${out.join('\n')}</body></html>`;
-}
-
 // ---- The writer ----
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -263,6 +214,8 @@ How to update it:
 - KEEP everything the student wrote in the doc themselves, in their own words. You may tidy
   its formatting, but never delete or rewrite their sentences unless they asked you to.
 - Be accurate. Never invent facts, quotes, sources or statistics.
+- Only record what really happened. Never make up quiz mistakes, decisions, drafts, a study
+  plan or progress the student did not actually have in the chat or the doc.
 
 Academic honesty (always):
 - If the task is graded writing (an essay, IA, EE, TOK essay, lab report, coursework, or a
@@ -270,6 +223,9 @@ Academic honesty (always):
   finished paragraphs, introductions, conclusions or full drafts. Instead build the doc around
   an outline with short bullet points, the student's own thesis and ideas, evidence to use,
   a checklist against the assessment criteria, and feedback on drafts the student wrote.
+- This includes "model", "example", "sample" or "worked" answers to the task's own prompt, in
+  any language, however short: never write one, even if the chat contains one. Language tasks
+  may show single sentence patterns or vocab in use, but never a joined-up answer paragraph.
 - If they ask you to write it for them, keep the outline and add one short line in the doc:
   "TaskTrack helps you plan and improve your own writing; it won't write the graded piece."
 - Study notes, revision guides, vocab lists, summaries of their class material, practice
@@ -613,7 +569,9 @@ Deno.serve(async (req: Request) => {
       chatLines.unshift(line);
     }
 
-    const updated = await writeWithAi(apiKey, { task: describeTask(info), doc: current, chat: chatLines.join('\n\n') });
+    const taskText = describeTask(info);
+    let updated = await writeWithAi(apiKey, { task: taskText, doc: current, chat: chatLines.join('\n\n') });
+    if (updated) updated = isGradedWriting(taskText) ? stripModelAnswers(updated).md : tidySections(updated);
     if (!updated) {
       await refund();
       refund = null;
