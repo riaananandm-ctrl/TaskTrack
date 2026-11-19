@@ -185,10 +185,12 @@ export function StudySessionPanel({
   const [status, setStatus] = useState(session.status);
   const [nextSession, setNextSession] = useState<ScheduledStudySession | null>(null);
   const [scheduling, setScheduling] = useState(false);
-  // On small screens the assistant is a collapsible section opened by its tab.
-  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  // On phones the workspace shows either the chat or the task & tools.
+  const [mobileTab, setMobileTab] = useState<'chat' | 'tools'>('chat');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   // Portals need a browser-side target; rendering them on the server would throw.
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => setPortalReady(true), []);
@@ -381,7 +383,7 @@ export function StudySessionPanel({
     if (loading || limitReached) return;
     const topics = plan.topics.length ? ` (${plan.topics.join(', ')})` : '';
     setSelectedMode('practice');
-    setMobileChatOpen(true);
+    setMobileTab('chat');
     sendMessage(`Give me an exam-style practice question on: ${plan.focus}${topics}.${plan.practice ? ` Plan task: ${plan.practice}` : ''}`, 'practice');
   };
 
@@ -394,6 +396,7 @@ export function StudySessionPanel({
     }
 
     setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     setError(null);
     setLoading(true);
 
@@ -602,7 +605,7 @@ export function StudySessionPanel({
     if (!option) return;
     setSuggestion(null);
     setSelectedMode(mode);
-    setMobileChatOpen(true);
+    setMobileTab('chat');
     sendMessage(option.prompt, mode);
   };
 
@@ -652,23 +655,221 @@ export function StudySessionPanel({
     [session.id, task?.id]
   );
 
-  // Latest structured output (quiz, flashcards, plan, slides) to surface as
-  // "Current activity" in the workspace's main column.
-  const latestStructured =
-    [...messages].reverse().find((m) => m.role === 'assistant' && m.structured) ?? null;
-
   if (!open) return null;
 
   const subjectColour = task?.subject?.colour || '#315EDB';
+  const dueDate = task?.due_date ? parseISO(task.due_date) : null;
+  const dueValid = dueDate && isValid(dueDate) ? dueDate : null;
+  const starterModes = MODE_OPTIONS.filter((o) => ['explain', 'quiz', 'flashcards', 'plan'].includes(o.id));
+  const personaOptions = PERSONAS.filter((p) => p.id !== 'santa' || christmasOn);
+  const lastMessage = messages[messages.length - 1];
+  const showReplyChips =
+    !loading && !limitReached && lastMessage?.role === 'assistant' && !lastMessage.structured;
+  const nearLimit = input.length > maxChars * 0.8;
+
+  const chooseAi = (id: AiOptionId) => {
+    const option = AI_OPTIONS.find((o) => o.id === id);
+    if (option?.premiumOnly && !isPro) {
+      setAiNotice({
+        kind: 'info',
+        text: 'Study Bot is part of Premium. Upgrade to unlock Study Bot — it uses the same AI credits.',
+      });
+      return;
+    }
+    setSelectedAi(id);
+    setAiNotice(null);
+  };
+
+  const submitComposer = () => {
+    if (!input.trim()) return;
+    sendMessage(input, selectedMode);
+  };
 
   const suggestionOption = suggestion ? MODE_OPTIONS.find((o) => o.id === suggestion) : null;
+
+  /** Task, tools and materials: the left rail on desktop, the "Tools" tab on phones. */
+  const toolsColumn = (
+    <div className="px-4 sm:px-5 py-5 space-y-6">
+      {/* Task overview */}
+      <section aria-label="Task" className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        {task?.subject?.name && (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            style={{ background: `${subjectColour}18`, color: subjectColour }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: subjectColour }} />
+            {task.subject.name}
+          </span>
+        )}
+        <h1 className="mt-2 text-lg font-bold leading-snug tracking-tight text-foreground">
+          {task?.title || session.title}
+        </h1>
+        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+          {task?.category && (
+            <span className="rounded-md bg-muted px-2 py-0.5">
+              {CATEGORY_LABELS[task.category as TaskCategory] ?? task.category}
+            </span>
+          )}
+          {task?.priority && (
+            <span className="rounded-md bg-muted px-2 py-0.5">
+              {PRIORITY_LABELS[task.priority as Priority] ?? task.priority} priority
+            </span>
+          )}
+          {dueValid && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
+              <CalendarDays className="h-3 w-3" /> Due {format(dueValid, 'd MMM')}
+            </span>
+          )}
+          {task?.estimated_minutes ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
+              <Clock className="h-3 w-3" /> {task.estimated_minutes} min
+            </span>
+          ) : null}
+        </div>
+        {task?.description && (
+          <div className="mt-3">
+            <p className={cn('text-xs leading-relaxed text-muted-foreground', !detailsOpen && 'line-clamp-3')}>
+              {task.description}
+            </p>
+            {task.description.length > 160 && (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen((o) => !o)}
+                className="mt-1 text-xs font-medium text-primary hover:underline"
+              >
+                {detailsOpen ? 'Show less' : 'Show more'}
+              </button>
+            )}
+          </div>
+        )}
+        {task?.estimated_minutes ? (
+          <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+            <CountdownTimer minutes={task.estimated_minutes} />
+            <span className="text-[11px] text-muted-foreground">Task timer</span>
+          </div>
+        ) : null}
+      </section>
+
+      {/* Submission tasks: offer feedback on a finished draft */}
+      {task && isSubmissionTask(task) && (
+        <Link
+          href={`/app/grader?task=${encodeURIComponent(task.id)}`}
+          className="group flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+        >
+          <GraderIcon size={32} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-foreground">Got a draft?</span>
+            <span className="block text-[11px] text-muted-foreground">Check it against the criteria first.</span>
+          </span>
+          <span className="flex-shrink-0 text-xs font-semibold text-primary group-hover:underline">Grade it</span>
+        </Link>
+      )}
+
+      {/* Study tools */}
+      <section aria-label="Study tools">
+        <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Study tools</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {MODE_OPTIONS.filter((o) => CORE_MODES.has(o.id)).map((option) => (
+            <button
+              key={option.id}
+              onClick={() => startMode(option.id)}
+              disabled={loading || limitReached}
+              className="group flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-left shadow-sm transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+            >
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {TOOL_ICONS[option.id]}
+              </span>
+              <span className="text-[13px] font-medium leading-tight text-foreground">{option.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setMoreToolsOpen((o) => !o)}
+          aria-expanded={moreToolsOpen}
+          className="mt-4 flex w-full items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        >
+          More ways to study
+          <ChevronDown className={cn('h-4 w-4 transition-transform', moreToolsOpen && 'rotate-180')} />
+        </button>
+        {moreToolsOpen && (
+          <div className="mt-2 space-y-1">
+            {MODE_OPTIONS.filter((o) => !CORE_MODES.has(o.id)).map((option) => (
+              <button
+                key={option.id}
+                onClick={() => startMode(option.id)}
+                disabled={loading || limitReached}
+                className="group flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="mt-0.5 text-muted-foreground transition-colors group-hover:text-primary">{TOOL_ICONS[option.id]}</span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-medium text-foreground">{option.label}</span>
+                  {MODE_BLURBS[option.id] && (
+                    <span className="block text-[11px] leading-snug text-muted-foreground">{MODE_BLURBS[option.id]}</span>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Study materials */}
+      <section aria-label="Study materials">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Your materials</h2>
+          <button onClick={() => setUploadOpen(true)} className="text-xs font-medium text-primary hover:underline">
+            Add
+          </button>
+        </div>
+        {attachments.length === 0 ? (
+          <button
+            onClick={() => setUploadOpen(true)}
+            className="flex w-full items-center gap-2.5 rounded-xl border border-dashed border-border bg-card/60 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/50"
+          >
+            <Paperclip className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <span className="text-xs leading-snug text-muted-foreground">
+              Upload notes or a task sheet so answers use your real class materials.
+            </span>
+          </button>
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            {attachments.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
+                <FileText className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{a.name}</p>
+                  <p className={cn('text-[11px]', a.status === 'failed' ? 'text-destructive' : 'text-muted-foreground')}>
+                    {a.status === 'failed' ? 'Failed' : 'Attached'} · {formatBytes(a.size)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeAttachment(a.id)}
+                  className="tap-target rounded p-1.5 transition-colors hover:bg-accent"
+                  aria-label={`Remove ${a.name}`}
+                  title={`Remove ${a.name}`}
+                >
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* What the AI is sent — honest about its context */}
+      <AiContextDisclosure taskContext={taskContext} attachments={attachments} />
+    </div>
+  );
+
   const workspace = (
     <VideoPlayerProvider>
     {suggestionOption && (
       <div
         role="dialog"
         aria-label="Suggested study tool"
-        className="fixed bottom-5 left-1/2 z-[60] w-[min(92vw,420px)] -translate-x-1/2 animate-suggest-in rounded-2xl border border-primary/30 bg-card p-4 shadow-2xl"
+        className="fixed bottom-28 left-1/2 z-[60] w-[min(92vw,420px)] -translate-x-1/2 animate-suggest-in rounded-2xl border border-primary/30 bg-card p-4 shadow-2xl"
       >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -699,348 +900,184 @@ export function StudySessionPanel({
         </div>
       </div>
     )}
-    <div className="fixed inset-0 z-50 bg-background animate-fade-in overflow-y-auto lg:overflow-hidden">
-      <div className="min-h-full lg:h-full flex flex-col">
-        {/* Workspace header: navy identity bar */}
-        <div className="bg-navy-900 text-white flex-shrink-0 lg:flex-shrink">
-          <div className="flex items-center justify-between gap-3 px-4 sm:px-8 py-2.5">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                role="img"
-                aria-label="TaskTrack"
-                title="TaskTrack"
-                className="w-8 h-8 rounded-md bg-white/95 flex items-center justify-center flex-shrink-0"
-              >
-                <Logo size={18} tone="dark" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{session.title}</p>
-                <p className="text-[11px] text-slate-300 truncate">
-                  {task?.subject?.name || 'General'} · Learning workspace
-                </p>
-              </div>
+    <div className="fixed inset-0 z-50 flex h-[100dvh] flex-col bg-background animate-fade-in">
+      {/* Header */}
+      <header className="flex-shrink-0 bg-navy-900 text-white">
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              role="img"
+              aria-label="TaskTrack"
+              title="TaskTrack"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white/95"
+            >
+              <Logo size={18} tone="dark" />
             </div>
-            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-              {onNewSession && (
-                <button
-                  onClick={onNewSession}
-                  className="p-2 rounded-md hover:bg-white/10 transition-colors"
-                  aria-label="Start a new session for this task"
-                  title="New session"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                onClick={toggleComplete}
-                className="p-2 rounded-md hover:bg-white/10 transition-colors"
-                aria-label={status === 'completed' ? 'Reopen session' : 'Mark session complete'}
-                title={status === 'completed' ? 'Reopen session' : 'Mark complete'}
-              >
-                <CheckCircle2 className={cn('w-4 h-4', status === 'completed' && 'text-sky-300')} />
-              </button>
-              <button
-                onClick={onClose}
-                className="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
-                aria-label="Exit study session"
-                title="Exit study session"
-              >
-                <X className="w-4 h-4 flex-shrink-0" />
-                <span className="text-xs font-medium">Exit</span>
-              </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{session.title}</p>
+              <p className="truncate text-[11px] text-slate-300">
+                {task?.subject?.name || 'General'} · Study session
+              </p>
             </div>
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
+            {credits && (
+              <span
+                className={cn(
+                  'mr-1 hidden items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium sm:inline-flex',
+                  credits.remaining === 0 ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-slate-200'
+                )}
+                title={`Refills ${refillDate(credits.resetsAt)}`}
+              >
+                <Sparkles className="h-3 w-3" />
+                {credits.remaining} credits
+              </span>
+            )}
+            {onNewSession && (
+              <button
+                onClick={onNewSession}
+                className="rounded-lg p-2 transition-colors hover:bg-white/10"
+                aria-label="Start a new session for this task"
+                title="New session"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={toggleComplete}
+              className="rounded-lg p-2 transition-colors hover:bg-white/10"
+              aria-label={status === 'completed' ? 'Reopen session' : 'Mark session complete'}
+              title={status === 'completed' ? 'Reopen session' : 'Mark complete'}
+            >
+              <CheckCircle2 className={cn('h-4 w-4', status === 'completed' && 'text-sky-300')} />
+            </button>
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 py-1.5 pl-2.5 pr-3 transition-colors hover:bg-white/20"
+              aria-label="Exit study session"
+              title="Exit study session"
+            >
+              <X className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs font-medium">Exit</span>
+            </button>
           </div>
         </div>
 
-        {/* Body: study content first (left), contained assistant (right on desktop) */}
-        <div className="flex-1 lg:min-h-0 flex flex-col lg:flex-row lg:overflow-hidden">
-          {/* ---------- Main content column ---------- */}
-          <div className="flex-1 min-w-0 lg:overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 lg:py-8 space-y-8">
-
-              {/* Task overview — open section, no card */}
-              <header>
-                {task?.subject?.name && (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-xs font-medium mb-2"
-                    style={{ color: subjectColour }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: subjectColour }} />
-                    {task.subject.name}
-                  </span>
+        {/* Phones: switch between the chat and the task/tools */}
+        <div className="px-3 pb-2.5 lg:hidden" role="tablist" aria-label="Study session view">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/10 p-1">
+            {([
+              { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-3.5 w-3.5" /> },
+              { id: 'tools', label: 'Task & tools', icon: <ListChecks className="h-3.5 w-3.5" /> },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={mobileTab === t.id}
+                onClick={() => setMobileTab(t.id)}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold transition-colors',
+                  mobileTab === t.id ? 'bg-white text-navy-900 shadow-sm' : 'text-slate-200 hover:bg-white/10'
                 )}
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground leading-tight">
-                  {task?.title || session.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-xs text-muted-foreground">
-                  {task?.category && (
-                    <span>{CATEGORY_LABELS[task.category as TaskCategory] ?? task.category}</span>
-                  )}
-                  {task?.priority && (
-                    <span>· {PRIORITY_LABELS[task.priority as Priority] ?? task.priority} priority</span>
-                  )}
-                  {task?.due_date && (() => {
-                    const d = parseISO(task.due_date);
-                    return isValid(d) ? (
-                      <span className="flex items-center gap-1">
-                        · <CalendarDays className="w-3 h-3" /> {format(d, 'd MMM yyyy')}
-                      </span>
-                    ) : null;
-                  })()}
-                  {task?.estimated_minutes ? (
-                    <span className="flex items-center gap-1">
-                      · <Clock className="w-3 h-3" /> {task.estimated_minutes} min
-                    </span>
-                  ) : null}
-                  <span>· {session.message_count} {session.message_count === 1 ? 'message' : 'messages'}</span>
-                </div>
-                {task?.description && (
-                  <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-prose">
-                    {task.description}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* ---------- Task & tools rail ---------- */}
+        <aside
+          aria-label="Task and study tools"
+          className={cn(
+            'min-h-0 w-full flex-shrink-0 overflow-y-auto bg-muted/30 lg:block lg:w-[340px] lg:border-r lg:border-border xl:w-[370px]',
+            mobileTab === 'tools' ? 'block' : 'hidden'
+          )}
+        >
+          {toolsColumn}
+        </aside>
+
+        {/* ---------- Chat ---------- */}
+        <section
+          aria-label="Study assistant"
+          className={cn('min-h-0 min-w-0 flex-1 flex-col', mobileTab === 'chat' ? 'flex' : 'hidden lg:flex')}
+        >
+          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 sm:px-6">
+              {showGreeting && (
+                <div className="flex flex-col items-center px-2 pb-2 pt-6 text-center sm:pt-12">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm">
+                    <Sparkles className="h-7 w-7" />
+                  </div>
+                  <h2 className="mt-4 text-xl font-bold tracking-tight text-foreground">
+                    {persona === 'santa' ? 'Ho ho ho! 🎅' : persona === 'hype' ? 'LET’S GO! 🔥' : persona === 'teacher' ? 'Let’s get to work.' : 'Hey! 👋'}{' '}
+                    Ready when you are.
+                  </h2>
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                    I&rsquo;ve already read <span className="font-medium text-foreground">{task?.title || session.title}</span>
+                    {task?.subject ? ` (${task.subject.name})` : ''}. Ask me anything, or start with one of these.
                   </p>
-                )}
-              </header>
-
-              {/* Submission tasks: offer feedback on a finished draft */}
-              {task && isSubmissionTask(task) && (
-                <Link
-                  href={`/app/grader?task=${encodeURIComponent(task.id)}`}
-                  className="group flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3.5 transition-colors hover:bg-primary/10"
-                >
-                  <GraderIcon size={36} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-foreground">Got a draft? Want it graded?</span>
-                    <span className="block text-xs text-muted-foreground">Check it against the criteria before you hand it in.</span>
-                  </span>
-                  <span className="flex-shrink-0 text-sm font-semibold text-primary group-hover:underline">Grade my work</span>
-                </Link>
-              )}
-
-              {/* AI context disclosure — honest about what the assistant receives */}
-              <AiContextDisclosure
-                taskContext={taskContext}
-                attachments={attachments}
-              />
-
-              {/* Study tools — compact, well-labelled grid with restrained icons */}
-              <section aria-label="Study tools">
-                <h2 className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-3">
-                  Study tools
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {MODE_OPTIONS.filter((o) => CORE_MODES.has(o.id)).map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => {
-                        setSelectedMode(option.id);
-                        setMobileChatOpen(true);
-                        sendMessage(option.prompt, option.id);
-                      }}
-                      disabled={loading || limitReached}
-                      className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-muted-foreground group-hover:text-primary transition-colors">
+                  <div className="mt-6 grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
+                    {starterModes.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => startMode(option.id)}
+                        disabled={loading || limitReached}
+                        className="group flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-sm transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                      >
+                        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                           {TOOL_ICONS[option.id]}
                         </span>
-                        <span className="text-[13px] font-medium text-foreground">{option.label}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <h3 className="mt-5 mb-2 text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                  More ways to study
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {MODE_OPTIONS.filter((o) => !CORE_MODES.has(o.id)).map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => startMode(option.id)}
-                      disabled={loading || limitReached}
-                      className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:border-primary/40 hover:bg-accent/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed group"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="text-muted-foreground group-hover:text-primary transition-colors">{TOOL_ICONS[option.id]}</span>
-                        <span className="text-[13px] font-medium text-foreground">{option.label}</span>
-                      </span>
-                      {MODE_BLURBS[option.id] && (
-                        <span className="mt-0.5 block pl-6 text-[11px] leading-snug text-muted-foreground">{MODE_BLURBS[option.id]}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => setUploadOpen(true)}
-                  className="mt-2 flex items-center gap-2 text-[13px] font-medium px-3.5 py-2.5 rounded-lg border border-dashed border-border bg-card hover:border-primary/40 hover:bg-accent/50 transition-colors text-foreground"
-                >
-                  <Paperclip className="w-4 h-4 text-muted-foreground" />
-                  Upload document
-                </button>
-              </section>
-
-              {/* Study materials — real file list, honest states */}
-              <section aria-label="Study materials">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
-                    Study materials
-                  </h2>
-                  <button
-                    onClick={() => setUploadOpen(true)}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Add document
-                  </button>
-                </div>
-                {attachments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    No documents attached to this session yet. Use “Upload document” to add one —
-                    ready documents give the assistant real context from your files.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-border rounded-lg border border-border bg-card overflow-hidden">
-                    {attachments.map((a) => (
-                      <li key={a.id} className="flex items-center gap-3 px-3 py-2.5">
-                        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{a.name}</p>
-                          <p className={cn('text-[11px]', a.status === 'failed' ? 'text-destructive' : 'text-muted-foreground')}>
-                            {a.status === 'failed' ? 'Failed' : 'Attached'} · {formatBytes(a.size)}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeAttachment(a.id)}
-                          className="tap-target p-1.5 rounded hover:bg-accent transition-colors"
-                          aria-label={`Remove ${a.name}`}
-                          title={`Remove ${a.name}`}
-                        >
-                          <X className="w-3.5 h-3.5 text-muted-foreground" />
-                        </button>
-                      </li>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-foreground">{option.label}</span>
+                          {MODE_BLURBS[option.id] && (
+                            <span className="block truncate text-[11px] text-muted-foreground">{MODE_BLURBS[option.id]}</span>
+                          )}
+                        </span>
+                      </button>
                     ))}
-                  </ul>
-                )}
-              </section>
-
-              {/* Current activity — latest structured study output surfaced here */}
-              <section aria-label="Current activity">
-                <h2 className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  Current activity
-                </h2>
-                {latestStructured ? (
-                  <div className="rounded-lg border border-border bg-card p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
-                      {modeLabel(latestStructured.mode as StudyMode)}
-                    </p>
-                    <StructuredMessage
-                      message={latestStructured}
-                      onQuizFinished={saveAttempt}
-                      deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }}
-                    />
                   </div>
-                ) : messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Nothing yet. Pick a study tool above or ask the assistant — your latest quiz,
-                    flashcards, plan or slides will appear here.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Your latest exchanges live in the study assistant panel.
-                  </p>
-                )}
-              </section>
-
-              {/* Task timer row */}
-              {task?.estimated_minutes ? (
-                <div className="flex items-center gap-3 pt-2 border-t border-border">
-                  <CountdownTimer minutes={task.estimated_minutes} />
-                  <span className="text-[11px] text-muted-foreground">Task timer</span>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {/* ---------- Assistant column: contained rail on desktop, collapsible section on mobile ---------- */}
-          <section
-            aria-label="Study assistant"
-            className="flex flex-col bg-card border-t lg:border-t-0 lg:border-l border-border lg:w-[380px] xl:w-[420px] flex-shrink-0 lg:h-full lg:overflow-hidden"
-          >
-            <div className="hidden lg:flex items-center justify-between px-5 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">Study assistant</h3>
-              {credits && (
-                <span className="text-[11px] text-muted-foreground" title={`Refills ${refillDate(credits.resetsAt)}`}>
-                  {credits.remaining} of {credits.limit} credits left
-                </span>
-              )}
-            </div>
-
-            {/* Mobile tab: opens the assistant section */}
-            <button
-              onClick={() => setMobileChatOpen((s) => !s)}
-              className="lg:hidden flex items-center justify-between px-4 py-3 bg-card border-b border-border text-sm font-medium"
-              aria-expanded={mobileChatOpen}
-            >
-              <span className="flex items-center gap-2">
-                Study assistant
-                {messages.length > 0 && (
-                  <span className="text-[11px] text-muted-foreground">({messages.length})</span>
-                )}
-              </span>
-              <ChevronDown
-                className={cn('w-4 h-4 text-muted-foreground transition-transform', mobileChatOpen && 'rotate-180')}
-              />
-            </button>
-
-            <div
-              ref={scrollRef}
-              className={cn(
-                'flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-background',
-                !mobileChatOpen && 'hidden lg:block'
-              )}
-            >
-              {showGreeting && (
-                <div className="px-1 py-1">
-                  <p className="text-sm font-medium text-foreground">
-                    {persona === 'santa' ? 'Ho ho ho! 🎅 ' : persona === 'hype' ? 'LET’S GO! 🔥 ' : 'Hey! 👋 '}
-                    I&rsquo;ve already read this task{task?.subject ? ` (${task.subject.name})` : ''}.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Ask me anything, or pick a way to study on the left. Talk to me however you like, I&rsquo;ll keep up.
-                  </p>
                 </div>
               )}
 
               {loadingHistory && (
-                <div className="flex justify-center py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               )}
 
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
-                >
-                  <div
-                    className={cn(
-                      'max-w-[90%] rounded-lg px-3.5 py-2 text-sm leading-relaxed',
-                      msg.role === 'user'
-                        ? 'bg-accent text-foreground border border-primary/25'
-                        : 'bg-card text-foreground border border-border'
-                    )}
-                  >
-                    {msg.role === 'user' ? (
-                      <p>{displayContent(msg.mode, msg.content, Boolean(msg.structured))}</p>
-                    ) : (
-                      <StructuredMessage message={msg} compact={msg.mode === 'speed' && msg.id === latestStructured?.id} onQuizFinished={saveAttempt} onPractice={practiseSession} deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }} />
-                    )}
+              {messages.map((msg) =>
+                msg.role === 'user' ? (
+                  <div key={msg.id} className="flex justify-end">
+                    <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground shadow-sm">
+                      {displayContent(msg.mode, msg.content, Boolean(msg.structured))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <div key={msg.id} className="flex items-start gap-3">
+                    <AssistantAvatar />
+                    <div
+                      className={cn(
+                        'min-w-0 flex-1 text-sm leading-relaxed text-foreground',
+                        Boolean(msg.structured) && 'rounded-2xl border border-border bg-card p-4 shadow-sm'
+                      )}
+                    >
+                      <StructuredMessage
+                        message={msg}
+                        onQuizFinished={saveAttempt}
+                        onPractice={practiseSession}
+                        deckDefaults={{ taskId: task?.id ?? null, sessionId: session.id }}
+                      />
+                    </div>
+                  </div>
+                )
+              )}
 
-              {!loading && !limitReached && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].structured && (
-                <div className="flex flex-wrap gap-1.5 pl-1" aria-label="Quick replies">
+              {showReplyChips && (
+                <div className="flex flex-wrap gap-1.5 pl-11" aria-label="Quick replies">
                   {replyChips(selectedMode).map((chip) => (
                     <button
                       key={chip.label}
@@ -1052,7 +1089,7 @@ export function StudySessionPanel({
                           sendMessage(chip.text, selectedMode);
                         }
                       }}
-                      className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                      className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-primary"
                     >
                       {chip.label}
                     </button>
@@ -1061,220 +1098,244 @@ export function StudySessionPanel({
               )}
 
               {loading && (
-                <div className="flex justify-start" role="status" aria-label="TaskTrack AI is thinking">
-                  <div className="bg-card border border-border rounded-lg px-3.5 py-2.5">
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">Thinking…</p>
+                <div className="flex items-start gap-3" role="status" aria-label="TaskTrack AI is thinking">
+                  <AssistantAvatar />
+                  <div className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-muted px-4 py-3">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '0ms' }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '150ms' }} />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="flex items-start gap-2 p-2.5 rounded-md bg-destructive/10 text-destructive text-xs">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
 
               {limitReached && (
-                <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs">
-                  <Lock className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                  <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                   <span>You&rsquo;ve used all your AI credits for this month. They refill on {refillDate(credits?.resetsAt ?? null)}.</span>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Composer: attachments, typing row, selectors BELOW the input */}
-            <div className={cn('border-t border-border bg-card flex-shrink-0', !mobileChatOpen && 'hidden lg:block')}>
-              {attachments.length > 0 && (
-                <div className="px-4 pt-2.5 flex flex-wrap gap-1.5">
-                  {attachments.map((a) => (
-                    <span
-                      key={a.id}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md border',
-                        a.status === 'failed'
-                          ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                          : 'border-border bg-background text-foreground'
-                      )}
-                    >
-                      <FileText className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
-                      <span className="max-w-[140px] truncate">{a.name}</span>
-                      <span className="text-muted-foreground">{formatBytes(a.size)}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(a.id)}
-                        className="rounded hover:bg-foreground/10 p-0.5"
-                        aria-label={`Remove ${a.name} from this session`}
-                        title="Remove from session"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
+          {/* Composer */}
+          <div className="flex-shrink-0 bg-gradient-to-t from-background via-background to-background/0 px-3 pb-3 pt-2 sm:px-6 sm:pb-4">
+            <div className="mx-auto w-full max-w-3xl">
+              {aiNotice && (
+                <div
+                  className={cn(
+                    'mb-2 flex items-start gap-2 rounded-xl px-3 py-2 text-xs',
+                    aiNotice.kind === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-accent text-primary'
+                  )}
+                >
+                  {aiNotice.kind === 'error' ? (
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  ) : (
+                    <Crown className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  )}
+                  <span className="flex-1">{aiNotice.text}</span>
+                  <button onClick={() => setAiNotice(null)} aria-label="Dismiss" className="rounded p-0.5 hover:bg-foreground/10">
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               )}
 
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  sendMessage(input, selectedMode);
+                  submitComposer();
                 }}
-                className="flex items-center gap-2 px-4 py-2.5"
+                className="rounded-2xl border border-border bg-card shadow-lg shadow-black/5 transition-shadow focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/10"
               >
-                <button
-                  type="button"
-                  onClick={() => setUploadOpen(true)}
-                  className="w-9 h-9 rounded-md border border-border bg-background hover:bg-accent text-foreground flex items-center justify-center transition-colors flex-shrink-0"
-                  aria-label="Upload document"
-                  title="Upload document"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={limitReached ? 'No AI credits left this month' : 'Ask a question about this task…'}
-                  disabled={loading || limitReached}
-                  className="flex-1 min-w-0 px-3.5 py-2 rounded-md bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                />
-                <button
-                  type="submit"
-                  disabled={loading || !input.trim() || limitReached || overLimit}
-                  className="w-9 h-9 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                  aria-label="Send message"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : limitReached ? (
-                    <Lock className="w-4 h-4" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </button>
-              </form>
-
-              {/* Selectors live BELOW the typing area */}
-              <div className="px-4 pb-3 space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Who you’re talking to">
-                  <span className="text-[11px] text-muted-foreground mr-0.5">Talk to</span>
-                  {PERSONAS.filter((p) => p.id !== 'santa' || christmasOn).map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={persona === p.id}
-                      title={p.blurb}
-                      onClick={() => choosePersona(p.id)}
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                        persona === p.id
-                          ? 'border-primary/50 bg-primary/10 text-primary'
-                          : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
-                      )}
-                    >
-                      <span aria-hidden>{p.emoji}</span>{p.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                  {AI_OPTIONS.map((option) => {
-                    const selected = selectedAi === option.id;
-                    const locked = option.premiumOnly && !isPro;
-                    return (
-                      <button
-                        key={option.id}
-                        type="button"
-                        onClick={() => {
-                          if (locked) {
-                            setAiNotice({
-                              kind: 'info',
-                              text: 'Study Bot is part of Premium. Upgrade to unlock Study Bot — it uses the same AI credits.',
-                            });
-                            return;
-                          }
-                          setSelectedAi(option.id);
-                          setAiNotice(null);
-                        }}
-                        title={option.description}
-                        aria-pressed={selected}
+                {attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+                    {attachments.map((a) => (
+                      <span
+                        key={a.id}
                         className={cn(
-                          'inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md border transition-colors',
-                          selected
-                            ? 'bg-accent border-primary/40 text-primary'
-                            : 'border-border bg-background text-muted-foreground hover:text-foreground hover:bg-accent'
+                          'inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]',
+                          a.status === 'failed'
+                            ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                            : 'border-border bg-background text-foreground'
                         )}
                       >
-                        {option.id === 'study-bot' ? <Crown className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                        {option.label}
-                        {locked && <Lock className="w-2.5 h-2.5" />}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="study-mode-select" className="text-[11px] text-muted-foreground flex-shrink-0">
-                    Mode
-                  </label>
-                  <select
-                    id="study-mode-select"
-                    value={selectedMode}
-                    onChange={(e) => setSelectedMode(e.target.value as StudyMode)}
-                    disabled={loading}
-                    aria-label="Study mode for the next message"
-                    className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                  >
-                    {MODE_SELECT_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
+                        <FileText className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                        <span className="max-w-[140px] truncate">{a.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(a.id)}
+                          className="rounded p-0.5 hover:bg-foreground/10"
+                          aria-label={`Remove ${a.name} from this session`}
+                          title="Remove from session"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
                     ))}
-                  </select>
-                  <span className={cn('text-[10px] whitespace-nowrap flex-shrink-0', overLimit ? 'text-destructive' : 'text-muted-foreground')}>
-                    {input.length}/{maxChars}
-                  </span>
-                </div>
-                {aiNotice && (
-                  <div
-                    className={cn(
-                      'flex items-start gap-2 rounded-md px-2.5 py-1.5 text-[11px]',
-                      aiNotice.kind === 'error'
-                        ? 'bg-destructive/10 text-destructive'
-                        : 'bg-accent text-primary'
-                    )}
-                  >
-                    {aiNotice.kind === 'error' ? (
-                      <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <Crown className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                    )}
-                    <span>{aiNotice.text}</span>
                   </div>
                 )}
-              </div>
-            </div>
-          </section>
-        </div>
 
-        {uploadOpen && (
-          <UploadDialog
-            onClose={() => setUploadOpen(false)}
-            isPro={isPro}
-            onAttached={(chip) => setAttachments((prev) => [...prev, chip])}
-          />
-        )}
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    const el = e.target;
+                    el.style.height = 'auto';
+                    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      submitComposer();
+                    }
+                  }}
+                  placeholder={
+                    limitReached
+                      ? 'No AI credits left this month'
+                      : selectedMode === 'chat'
+                        ? 'Ask anything about this task…'
+                        : `Message · ${modeLabel(selectedMode)}`
+                  }
+                  disabled={loading || limitReached}
+                  aria-label="Message the study assistant"
+                  className="block max-h-[180px] w-full resize-none bg-transparent px-4 pb-1 pt-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
+                />
+
+                <div className="flex items-center gap-1.5 px-2 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadOpen(true)}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    aria-label="Upload document"
+                    title="Upload document"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+
+                  <ChipSelect
+                    label="Who you’re talking to"
+                    value={persona}
+                    onChange={(v) => choosePersona(v as AiPersona)}
+                    options={personaOptions.map((p) => ({ value: p.id, label: `${p.emoji} ${p.label}` }))}
+                  />
+                  <ChipSelect
+                    label="Study mode for the next message"
+                    value={selectedMode}
+                    disabled={loading}
+                    onChange={(v) => setSelectedMode(v as StudyMode)}
+                    options={MODE_SELECT_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+                    className="hidden sm:inline-flex"
+                  />
+                  <ChipSelect
+                    label="AI model"
+                    value={selectedAi}
+                    onChange={(v) => chooseAi(v as AiOptionId)}
+                    options={AI_OPTIONS.map((o) => ({
+                      value: o.id,
+                      label: `${o.id === 'study-bot' ? '👑' : '✨'} ${o.label}${o.premiumOnly && !isPro ? ' (Premium)' : ''}`,
+                    }))}
+                    className="hidden md:inline-flex"
+                  />
+
+                  <span className="flex-1" />
+                  {nearLimit && (
+                    <span className={cn('text-[10px] tabular-nums', overLimit ? 'text-destructive' : 'text-muted-foreground')}>
+                      {input.length}/{maxChars}
+                    </span>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={loading || !input.trim() || limitReached || overLimit}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Send message"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : limitReached ? (
+                      <Lock className="h-4 w-4" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </form>
+              <p className="mt-1.5 hidden text-center text-[11px] text-muted-foreground sm:block">
+                Enter to send · Shift + Enter for a new line · AI can make mistakes, so check important facts.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
+
+      {uploadOpen && (
+        <UploadDialog
+          onClose={() => setUploadOpen(false)}
+          isPro={isPro}
+          onAttached={(chip) => setAttachments((prev) => [...prev, chip])}
+        />
+      )}
     </div>
     </VideoPlayerProvider>
   );
 
   return portalReady ? createPortal(workspace, document.body) : workspace;
+}
+
+/** The small round TaskTrack AI mark shown beside each assistant reply. */
+function AssistantAvatar() {
+  return (
+    <div
+      aria-hidden
+      className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm"
+    >
+      <Sparkles className="h-4 w-4" />
+    </div>
+  );
+}
+
+/** A native select dressed as a compact pill, for the composer's settings. */
+function ChipSelect({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  className,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={cn('relative inline-flex min-w-0 items-center', className)}>
+      <select
+        aria-label={label}
+        title={label}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-8 max-w-[150px] cursor-pointer appearance-none truncate rounded-lg border border-border bg-background py-0 pl-2.5 pr-7 text-xs font-medium text-foreground transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-muted-foreground" />
+    </span>
+  );
 }
 
 /** The task details column: task facts plus the next scheduled study session. */
@@ -1470,11 +1531,8 @@ function StructuredMessage({
   onQuizFinished,
   onPractice,
   deckDefaults,
-  compact,
 }: {
   message: DisplayMessage;
-  /** Show a pointer instead of a second copy (used for the speed round in the chat). */
-  compact?: boolean;
   onQuizFinished?: (result: QuizResult) => void;
   /** Starts an exam-practice round for one session of a study plan. */
   onPractice?: (session: PlanSession) => void;
@@ -1491,11 +1549,7 @@ function StructuredMessage({
           <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} />
         )}
         {message.mode === 'speed' && (
-          compact ? (
-            <p className="text-sm text-muted-foreground">⚡ Your speed round is ready in <strong>Current activity</strong>.</p>
-          ) : (
-            <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} timeLimitSec={60} />
-          )
+          <QuizView data={message.structured as QuizData} onFinish={onQuizFinished} timeLimitSec={60} />
         )}
         {message.mode === 'flashcards' && (
           <FlashcardsView
