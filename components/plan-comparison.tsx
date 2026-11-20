@@ -69,7 +69,7 @@ export function PlanComparison({ onUpgrade, upgrading, upgradeNotice }: PlanComp
           planId="pro"
           title="Premium"
           price={planPriceLine(pro)}
-          priceNote="Billed every 3 months"
+          priceNote="Paid once by UPI, no auto-renew"
           features={PRO_FEATURES}
           isActive={active === 'pro'}
           highlighted

@@ -268,7 +268,7 @@ export default function LandingPage() {
                   <span className="rounded-full border border-[#315EDB]/30 bg-[#315EDB]/10 px-3 py-1 text-xs font-medium text-[#315EDB]">More study support</span>
                 </div>
                 <p className="mt-3 text-3xl font-bold text-[#243B64]">{planPriceLine(premium)}</p>
-                <p className="mt-1 text-sm text-slate-600">Billed every 3 months.</p>
+                <p className="mt-1 text-sm text-slate-600">Paid once. Doesn’t renew automatically.</p>
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-700">
                   {[
                     'Everything in Free',
@@ -281,9 +281,11 @@ export default function LandingPage() {
                     <li key={item} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#315EDB]" />{item}</li>
                   ))}
                 </ul>
-                <div className="mt-7 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Premium checkout is coming soon — you cannot be charged yet.
-                </div>
+                <Link href="/login?next=/app/premium"><Button className="mt-7 w-full bg-[#315EDB] text-white hover:bg-[#274DBE]">Get Premium</Button></Link>
+                <p className="mt-3 text-center text-xs text-slate-500">
+                  Pay once by UPI. Premium is switched on the same day. 7-day refund, see the{' '}
+                  <Link href="/refund-policy" className="underline hover:text-[#243B64]">refund policy</Link>.
+                </p>
               </div>
             </div>
           </div>
