@@ -127,7 +127,7 @@ async function askVision(
       { role: 'user', content: [{ type: 'text', text: question }, { type: 'image_url', image_url: { url: image } }] },
     ],
   };
-  if (model.startsWith('gemini')) payload.reasoning_effort = 'low';
+  if (model.startsWith('gemini')) payload.reasoning_effort = 'none';
   const send = async (body: Record<string, unknown>) =>
     fetch(url, {
       method: 'POST',
@@ -211,7 +211,7 @@ Teach like a teacher standing beside them: describe what you see, say what is ri
 Academic integrity: help the student learn. If it looks like graded work (an assessment, IA, test or homework to hand in), give hints, explanations and a similar worked example, but do not hand over the finished answer to their exact question.
 You may draw on the board to show things: circle a mistake, add an arrow, a guide line, a box or a short label. Use the image's pixel coordinates. Keep marks few (at most ${MAX_DRAWINGS}) and placed next to what they refer to.
 Reply with ONLY a JSON object:
-{"reply": "your explanation, plain text, short paragraphs, under 250 words",
+{"reply": "your explanation, plain text with no markdown or asterisks, short paragraphs, under 250 words",
  "drawings": [
   {"type":"circle","cx":0,"cy":0,"r":0,"color":"#ef4444"},
   {"type":"arrow","x1":0,"y1":0,"x2":0,"y2":0,"color":"#7c3aed"},

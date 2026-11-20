@@ -152,7 +152,7 @@ function hits(s: Shape, p: Pt, r: number): boolean {
 }
 
 /** Turn the tutor's marks (snapshot pixels) into board shapes. */
-function tutorShapes(drawings: TutorDrawing[], scale: number, offset: Pt): Shape[] {
+function tutorShapes(drawings: TutorDrawing[], scale: number, offset: Pt, view: { w: number; h: number }): Shape[] {
   const P = (x: number, y: number): Pt => ({ x: x * scale - offset.x, y: y * scale - offset.y });
   const base = { width: 3, alpha: 1 };
   const out: Shape[] = [];
@@ -179,7 +179,13 @@ function tutorShapes(drawings: TutorDrawing[], scale: number, offset: Pt): Shape
     } else if (d.type === 'path') {
       out.push({ kind: 'free', points: d.points.map(([x, y]) => P(x, y)), color: d.color, ...base });
     } else if (d.type === 'text') {
-      out.push({ kind: 'text', points: [P(d.x, d.y)], color: d.color, width: Math.round(d.size * scale), alpha: 1, text: d.text });
+      // Keep labels fully inside the visible board.
+      const size = Math.round(d.size * scale);
+      const p = P(d.x, d.y);
+      const textW = d.text.length * size * 0.6;
+      p.x = Math.min(Math.max(p.x, 4 - offset.x), view.w - textW - 4 - offset.x);
+      p.y = Math.min(Math.max(p.y, 4 - offset.y), view.h - size - 4 - offset.y);
+      out.push({ kind: 'text', points: [p], color: d.color, width: size, alpha: 1, text: d.text });
     }
   }
   return out;
@@ -453,10 +459,10 @@ export function WhiteboardTool({ tutorAllowed = false }: { tutorAllowed?: boolea
         setAiError(data?.error || 'The AI tutor could not respond. Please try again.');
         return;
       }
-      setAiResponse(data.reply || 'The AI tutor did not return a response.');
+      setAiResponse(String(data.reply || 'The AI tutor did not return a response.').replace(/\*\*|__/g, ''));
       const marks = Array.isArray(data.drawings) ? (data.drawings as TutorDrawing[]) : [];
       if (letTutorDraw && marks.length) {
-        commit([...shapes, ...tutorShapes(marks, scale, viewOffset)]);
+        commit([...shapes, ...tutorShapes(marks, scale, viewOffset, size)]);
         setAiNote(`The tutor drew ${marks.length} mark${marks.length === 1 ? '' : 's'} on your board. Press Undo to remove them.`);
       }
       if (data.usage?.cost) {
@@ -605,7 +611,7 @@ export function WhiteboardTool({ tutorAllowed = false }: { tutorAllowed?: boolea
               </label>
               <Button type="button" onClick={askTutor} disabled={aiLoading || !aiPrompt.trim()} className="w-full" size="sm">
                 {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                {aiLoading ? 'Looking at your board…' : 'Ask the tutor'}
+                {aiLoading ? 'Looking at your board (up to 30 s)…' : 'Ask the tutor'}
               </Button>
               <p className="text-[11px] leading-4 text-muted-foreground">
                 Sends a picture of the part of the board you can see. About 2 credits a question, a little more for long
