@@ -22,6 +22,16 @@ function json(body: unknown, status = 200): Response {
 const EDUCATIONAL_CATEGORIES = new Set(['27', '28']);
 const CACHE_DAYS = 30;
 const DAILY_LOOKUPS_PER_USER = 40;
+// Real lessons only: no Shorts (under 2 minutes) and nothing over an hour.
+const MIN_SECONDS = 120;
+const MAX_SECONDS = 3600;
+
+/** ISO 8601 duration ("PT12M30S") in seconds, or 0 if it can't be read. */
+function durationSeconds(iso: unknown): number {
+  const m = typeof iso === 'string' ? iso.match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/) : null;
+  if (!m) return 0;
+  return (Number(m[1] || 0) * 86400) + (Number(m[2] || 0) * 3600) + (Number(m[3] || 0) * 60) + Number(m[4] || 0);
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -79,7 +89,7 @@ Deno.serve(async (req) => {
   try {
     const s = new URL('https://www.googleapis.com/youtube/v3/search');
     s.search = new URLSearchParams({
-      part: 'snippet', q: query, type: 'video', maxResults: '8',
+      part: 'snippet', q: query, type: 'video', maxResults: '12',
       videoEmbeddable: 'true', videoSyndicated: 'true', safeSearch: 'strict', relevanceLanguage: 'en', key,
     }).toString();
     const sr = await fetch(s);
@@ -104,7 +114,10 @@ Deno.serve(async (req) => {
             && it.status?.privacyStatus === 'public'
             && EDUCATIONAL_CATEGORIES.has(String(it.snippet?.categoryId))
             && it.contentDetails?.contentRating?.ytRating !== 'ytAgeRestricted'
-            && it.snippet?.liveBroadcastContent === 'none';
+            && it.snippet?.liveBroadcastContent === 'none'
+            && !/#shorts?\b/i.test(`${it.snippet?.title ?? ''} ${it.snippet?.description ?? ''}`)
+            && durationSeconds(it.contentDetails?.duration) >= MIN_SECONDS
+            && durationSeconds(it.contentDetails?.duration) <= MAX_SECONDS;
           if (ok) {
             pick = { id, title: String(it.snippet?.title ?? '').slice(0, 200), channel: String(it.snippet?.channelTitle ?? '').slice(0, 100) };
             break;
