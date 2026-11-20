@@ -7,7 +7,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="17 November 2026"
+      updated="20 November 2026"
       intro={
         <p>
           These are the rules for using TaskTrack. By using it you agree to them and to our{' '}
@@ -80,22 +80,33 @@ export default function TermsPage() {
 
       <Section title="6. The service">
         <ul>
-          <li>TaskTrack is free and provided “as is”. We work hard to keep it running, but we can’t promise it will
+          <li>TaskTrack is provided “as is”. We work hard to keep it running, but we can’t promise it will
             always be available, error-free, or that reminders will always arrive on time.</li>
           <li>You are responsible for your own deadlines. Keep checking your school’s official systems.</li>
-          <li>We may change, pause or remove features. If we ever add paid plans, we’ll explain the price before you pay.</li>
+          <li>We may change, pause or remove features.</li>
+        </ul>
+      </Section>
+
+      <Section title="7. Free and Premium plans">
+        <ul>
+          <li>The Free plan costs nothing. Premium is optional and costs ₹699 for 3 months, paid once through our
+            payment partner Razorpay. It does not renew automatically.</li>
+          <li>The price and what you get are shown before you pay. Premium starts when your payment is confirmed.</li>
+          <li>Cancellations and refunds follow our{' '}
+            <Link href="/refund-policy" className="text-sky-300 underline">Refund &amp; Cancellation Policy</Link>,
+            including a full refund if you ask within 7 days of paying.</li>
           <li>As far as the law allows, we are not responsible for missed deadlines, grades, or other losses from using TaskTrack.</li>
         </ul>
       </Section>
 
-      <Section title="7. Ending your account">
+      <Section title="8. Ending your account">
         <p>
           You can delete your account at any time in Settings → Delete account. We may suspend or close accounts that
           break these terms or put other students at risk.
         </p>
       </Section>
 
-      <Section title="8. Changes, law and contact">
+      <Section title="9. Changes, law and contact">
         <p>
           If we change these terms in a meaningful way, we’ll update the date above and ask you to accept the new
           version in the app. These terms are governed by the laws of India. Questions or complaints: {CONTACT}.

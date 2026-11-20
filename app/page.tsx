@@ -358,6 +358,9 @@ export default function LandingPage() {
               <div className="mt-4 grid gap-3 text-sm text-slate-600">
                 <Link href="/terms" className="hover:text-[#243B64]">Terms of Service</Link>
                 <Link href="/privacy" className="hover:text-[#243B64]">Privacy Policy</Link>
+                <Link href="/refund-policy" className="hover:text-[#243B64]">Refund &amp; Cancellation</Link>
+                <Link href="/contact" className="hover:text-[#243B64]">Contact Us</Link>
+                <a href="#plans" className="hover:text-[#243B64]">Pricing</a>
                 <a href="#features" className="hover:text-[#243B64]">Features</a>
                 <Link href="/login" className="hover:text-[#243B64]">Login</Link>
                 <Link href="/signup" className="hover:text-[#243B64]">Sign up</Link>
