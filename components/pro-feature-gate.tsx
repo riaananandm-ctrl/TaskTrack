@@ -50,7 +50,7 @@ export function ProFeatureGate({ feature, title, description, children }: ProFea
             href="/app/premium"
             className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-primary hover:underline"
           >
-            <Sparkles className="w-3.5 h-3.5" /> Upgrade to Premium — ₹699 for 3 months
+            <Sparkles className="w-3.5 h-3.5" /> Upgrade to Premium — ₹499 for 3 months
           </Link>
         </div>
       </div>

@@ -192,9 +192,9 @@ function SidebarBody({
             <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-sky-300/20 blur-2xl" aria-hidden />
             <div className="relative flex items-center gap-2 mb-1">
               <Sparkles className="w-3.5 h-3.5 text-sky-300" />
-              <span className="text-xs font-semibold text-white">Upgrade to Premium</span>
+              <span className="text-xs font-semibold text-white">Upgrade your plan</span>
             </div>
-            <p className="relative text-xs font-bold text-sky-200 mb-0.5">₹699 for 3 months</p>
+            <p className="relative text-xs font-bold text-sky-200 mb-0.5">Premium ₹499 · Max ₹999</p>
             <div className="relative flex items-center text-[11px] text-slate-300 font-medium">
               Pay by UPI <ChevronRight className="w-3 h-3" />
             </div>

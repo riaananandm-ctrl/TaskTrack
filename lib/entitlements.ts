@@ -2,7 +2,7 @@
 // Every plan check in the app goes through this module — do not hard-code
 // plan logic in individual components.
 
-export type PlanId = 'free' | 'pro';
+export type PlanId = 'free' | 'pro' | 'max';
 
 export interface PlanEntitlements {
   id: PlanId;
@@ -28,6 +28,12 @@ export interface PlanEntitlements {
   googleSlidesExport: boolean;
   advancedAnalytics: boolean;
   prioritySupport: boolean;
+  /** Whiteboard AI tutor that can see and draw on the board. */
+  whiteboardTutor: boolean;
+  /** AI Detector without a redeem code. */
+  aiDetector: boolean;
+  /** Rewrite Coach (the AI rewriter for a student's own draft). */
+  rewriteCoach: boolean;
 }
 
 const FREE: PlanEntitlements = {
@@ -35,7 +41,7 @@ const FREE: PlanEntitlements = {
   name: 'Free',
   priceInr: 0,
   periodMonths: 0,
-  monthlyAiCredits: 60,
+  monthlyAiCredits: 50,
   maxMessageChars: 2000,
   quizQuestions: 5,
   flashcards: 5,
@@ -47,14 +53,17 @@ const FREE: PlanEntitlements = {
   googleSlidesExport: false,
   advancedAnalytics: false,
   prioritySupport: false,
+  whiteboardTutor: false,
+  aiDetector: false,
+  rewriteCoach: false,
 };
 
 const PRO: PlanEntitlements = {
   id: 'pro',
   name: 'Premium',
-  priceInr: 699,
+  priceInr: 499,
   periodMonths: 3,
-  monthlyAiCredits: 2000,
+  monthlyAiCredits: 500,
   maxMessageChars: 2000,
   quizQuestions: 8,
   flashcards: 12,
@@ -66,9 +75,26 @@ const PRO: PlanEntitlements = {
   googleSlidesExport: true,
   advancedAnalytics: true,
   prioritySupport: true,
+  whiteboardTutor: true,
+  aiDetector: true,
+  rewriteCoach: false,
 };
 
-export const PLANS: Record<PlanId, PlanEntitlements> = { free: FREE, pro: PRO };
+const MAX: PlanEntitlements = {
+  ...PRO,
+  id: 'max',
+  name: 'Max',
+  priceInr: 999,
+  monthlyAiCredits: 1000,
+  rewriteCoach: true,
+};
+
+export const PLANS: Record<PlanId, PlanEntitlements> = { free: FREE, pro: PRO, max: MAX };
+
+/** True for any paid plan (Premium or Max). */
+export function isPaidPlan(plan: PlanId): boolean {
+  return plan === 'pro' || plan === 'max';
+}
 
 export function formatPrice(plan: PlanEntitlements): string {
   if (plan.priceInr === 0) return '₹0';
@@ -90,16 +116,16 @@ interface PlanInput {
 }
 
 /**
- * Resolve a user's effective plan. A Pro plan that has passed its expiry is
+ * Resolve a user's effective plan. A Premium or Max plan that has passed its expiry is
  * treated as Free. This is the single source of truth for plan checks in the UI;
  * the server independently enforces the same rules.
  */
 export function resolvePlan(profile: PlanInput | null | undefined): PlanId {
-  if (!profile || profile.plan !== 'pro') return 'free';
+  if (!profile || (profile.plan !== 'pro' && profile.plan !== 'max')) return 'free';
   if (profile.plan_expires_at && new Date(profile.plan_expires_at).getTime() <= Date.now()) {
     return 'free';
   }
-  return 'pro';
+  return profile.plan;
 }
 
 export function getProfileEntitlements(profile: PlanInput | null | undefined): PlanEntitlements {
@@ -107,12 +133,12 @@ export function getProfileEntitlements(profile: PlanInput | null | undefined): P
 }
 
 export function getPlanLabel(plan: PlanEntitlements): string {
-  return plan.id === 'pro' ? 'Premium' : 'Free';
+  return plan.name;
 }
 
 /**
  * Exact price wording shown wherever a plan is displayed.
- * Free: "₹0". Premium: "₹699 for 3 months".
+ * Free: "₹0". Premium: "₹499 for 3 months". Max: "₹999 for 3 months".
  */
 export function planPriceLine(plan: PlanEntitlements): string {
   if (plan.priceInr === 0) return '₹0';

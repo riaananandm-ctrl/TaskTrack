@@ -24,7 +24,7 @@ import { CountdownTimer } from '@/components/countdown-timer';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useAiCredits, announceCreditsChanged, refillDate } from '@/lib/ai-credits';
-import { getProfileEntitlements, resolvePlan } from '@/lib/entitlements';
+import { getProfileEntitlements, isPaidPlan, resolvePlan } from '@/lib/entitlements';
 import {
   uploadDocument, listDocuments, getUploadUsage, deleteDocument,
   type DocumentRow,
@@ -185,7 +185,7 @@ export function StudySessionPanel({
   const [attachments, setAttachments] = useState<AttachmentChip[]>([]);
   const [aiNotice, setAiNotice] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const isPro = resolvePlan(profile) === 'pro';
+  const isPro = isPaidPlan(resolvePlan(profile));
   const [status, setStatus] = useState(session.status);
   const [nextSession, setNextSession] = useState<ScheduledStudySession | null>(null);
   const [scheduling, setScheduling] = useState(false);

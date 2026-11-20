@@ -21,6 +21,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-20',
+    date: '2026-11-20',
+    title: 'Whiteboard AI tutor and the new Max plan',
+    items: [
+      {
+        title: 'AI tutor that sees your whiteboard',
+        description:
+          'On Premium and Max, ask about your drawing or maths working. The tutor looks at the board and can circle mistakes, add arrows and labels. Press Undo to remove its marks.',
+        href: '/app/tools',
+      },
+      {
+        title: 'Premium ₹499 and Max ₹999',
+        description:
+          'Premium is now ₹499 for 3 months with 500 AI credits a month. Max is ₹999 with 1,000 credits and Rewrite Coach. Credits now follow the size of each request.',
+        href: '/app/premium',
+      },
+    ],
+  },
+  {
     id: '2026-11-17',
     date: '2026-11-17',
     title: 'IB Hub, daily review, streak buddies and a parent summary',

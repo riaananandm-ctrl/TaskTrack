@@ -42,6 +42,7 @@ export default function LandingPage() {
   const closeMenu = () => setMobileMenuOpen(false);
   const free = PLANS.free;
   const premium = PLANS.pro;
+  const max = PLANS.max;
 
   return (
     <div className="min-h-screen bg-[#F6F5F1] text-slate-800 [font-family:var(--font-inter),ui-sans-serif,system-ui,sans-serif]">
@@ -235,12 +236,12 @@ export default function LandingPage() {
 
         {/* Plans */}
         <section id="plans" className="border-b border-slate-200 bg-white py-20 lg:py-24">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#315EDB]">Plans</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-[#243B64] sm:text-4xl">Start free. Upgrade for more study support.</h2>
             </div>
-            <div className="mt-12 grid gap-6 md:grid-cols-2">
+            <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* Free */}
               <div className="flex flex-col rounded-2xl border border-slate-200 bg-[#F6F5F1] p-7">
                 <div className="flex items-center justify-between">
@@ -252,7 +253,7 @@ export default function LandingPage() {
                   {[
                     'Tasks, subjects, and planning',
                     'Calendar and reminders',
-                    '60 AI credits a month',
+                    '50 AI credits a month',
                     'Quizzes (5 questions) and flashcards (5 cards)',
                     'ManageBac and Google Classroom connections',
                   ].map((item) => (
@@ -272,11 +273,12 @@ export default function LandingPage() {
                 <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-700">
                   {[
                     'Everything in Free',
-                    '2,000 AI credits a month',
+                    '500 AI credits a month',
+                    'AI whiteboard tutor that sees and marks up your drawing',
+                    'AI Detector',
                     'Unlimited tasks and reminders',
                     'Worked examples and study plans',
                     'Bigger quizzes and flashcard sets',
-                    'Advanced study insights',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#315EDB]" />{item}</li>
                   ))}
@@ -286,6 +288,27 @@ export default function LandingPage() {
                   Pay once by UPI. Premium is switched on the same day. 7-day refund, see the{' '}
                   <Link href="/refund-policy" className="underline hover:text-[#243B64]">refund policy</Link>.
                 </p>
+              </div>
+              {/* Max */}
+              <div className="flex flex-col rounded-2xl border border-slate-200 bg-[#F6F5F1] p-7">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-semibold text-[#243B64]">Max</h3>
+                  <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">Most AI</span>
+                </div>
+                <p className="mt-3 text-3xl font-bold text-[#243B64]">{planPriceLine(max)}</p>
+                <p className="mt-1 text-sm text-slate-600">Paid once. Doesn’t renew automatically.</p>
+                <ul className="mt-6 flex-1 space-y-3 text-sm text-slate-700">
+                  {[
+                    'Everything in Premium',
+                    '1,000 AI credits a month',
+                    'Rewrite Coach: feedback on your own drafts',
+                    'More AI Detector checks a day',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2"><Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-violet-600" />{item}</li>
+                  ))}
+                </ul>
+                <Link href="/login?next=/app/premium?plan=max"><Button className="mt-7 w-full bg-[#243B64] text-white hover:bg-[#1b2d4d]">Get Max</Button></Link>
+                <p className="mt-3 text-center text-xs text-slate-500">Same UPI checkout and 7-day refund as Premium.</p>
               </div>
             </div>
           </div>
@@ -316,11 +339,11 @@ export default function LandingPage() {
                 },
                 {
                   q: 'How do AI credits work?',
-                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Free accounts get 60 credits a month and Premium gets 2,000. They refill on the 1st of every month, and if the AI fails you get them back.',
+                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Bigger requests use a little more. Free accounts get 50 credits a month, Premium 500 and Max 1,000. They refill on the 1st of every month, and if the AI fails you get them back.',
                 },
                 {
-                  q: 'What does Premium add?',
-                  a: 'Over 30 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Pay ₹699 by UPI for 3 months; it never renews by itself.',
+                  q: 'What do Premium and Max add?',
+                  a: 'Premium (₹499 for 3 months) gives 500 AI credits a month, the AI whiteboard tutor, the AI Detector, unlimited tasks and reminders, worked examples, study plans, and bigger quizzes and flashcard sets. Max (₹999 for 3 months) adds 1,000 credits a month and Rewrite Coach. Both are paid once by UPI and never renew by themselves.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group rounded-xl border border-slate-200 bg-white p-5 open:shadow-sm">

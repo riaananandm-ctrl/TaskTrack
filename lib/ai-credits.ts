@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/auth-context';
 
 /**
  * AI credits. Each plan gets a monthly allowance (refilled on the 1st, UTC) and each
- * AI action costs credits by how much work it is. The server charges them; these
+ * AI action costs credits by how much work it is. These are starting prices: a long
+ * request (a big document or a long chat) costs more, by how many tokens it uses. The server charges them; these
  * numbers are only for showing students what things cost.
  */
 export const CREDIT_COSTS = {
@@ -22,7 +23,7 @@ export const CREDIT_COSTS = {
   group: 1,
 } as const;
 
-export const MONTHLY_CREDITS = { free: 60, pro: 2000 } as const;
+export const MONTHLY_CREDITS = { free: 50, pro: 500, max: 1000 } as const;
 
 export const CREDITS_CHANGED_EVENT = 'tasktrack:credits-changed';
 

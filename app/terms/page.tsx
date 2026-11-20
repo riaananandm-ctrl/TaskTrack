@@ -87,10 +87,10 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section title="7. Free and Premium plans">
+      <Section title="7. Free, Premium and Max plans">
         <ul>
-          <li>The Free plan costs nothing. Premium is optional and costs ₹699 for 3 months, paid once by UPI. It
-            does not renew automatically.</li>
+          <li>The Free plan costs nothing. Premium (₹499) and Max (₹999) are optional, each for 3 months, paid once by UPI.
+            They do not renew automatically.</li>
           <li>The price and what you get are shown before you pay. We switch Premium on after checking your payment, usually within a few
             hours.</li>
           <li>Cancellations and refunds follow our{' '}

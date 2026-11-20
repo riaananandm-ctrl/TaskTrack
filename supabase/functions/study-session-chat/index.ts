@@ -1,6 +1,33 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 /**
+ * After a successful reply, charge extra credits for a big request (server only).
+ * Returns how many extra credits were taken (0 if none, or if charging failed).
+ */
+async function chargeTokens(
+  userClient: ReturnType<typeof createClient>,
+  tokens: number,
+  baseCost: number,
+): Promise<number> {
+  if (!tokens) return 0;
+  try {
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { data } = await userClient.auth.getUser();
+    if (!url || !key || !data?.user) return 0;
+    const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: extra, error } = await admin.rpc('charge_ai_tokens_for', {
+      p_user: data.user.id, p_tokens: Math.round(tokens), p_base_cost: baseCost,
+    });
+    if (error) { console.error('Token charge failed:', error.message); return 0; }
+    return typeof extra === 'number' ? extra : 0;
+  } catch (e) {
+    console.error('Token charge failed:', e instanceof Error ? e.message : 'unknown');
+    return 0;
+  }
+}
+
+/**
  * Refunds go through a database function only TaskTrack's server can call (service
  * role), so a student can't refund their own credits from the browser.
  */
@@ -962,6 +989,8 @@ function isNetworkError(err: unknown): boolean {
 interface GenerateResult {
   text: string | null;
   finishReason: string | null;
+  /** Tokens the provider reports for this call (prompt + answer). */
+  tokens?: number;
 }
 
 // Groq's free-plan tokens-per-minute limit, with a little headroom.
@@ -1052,6 +1081,7 @@ async function generateWithModel(
         message?: { content?: string };
         finish_reason?: string;
       }>;
+      usage?: { total_tokens?: number };
     };
     try {
       data = JSON.parse(raw);
@@ -1062,7 +1092,7 @@ async function generateWithModel(
 
     const choice = data?.choices?.[0];
     const text = (choice?.message?.content || '').trim() || null;
-    return { text, finishReason: choice?.finish_reason || null };
+    return { text, finishReason: choice?.finish_reason || null, tokens: Number(data?.usage?.total_tokens) || 0 };
   };
 
   try {
@@ -1108,6 +1138,13 @@ Deno.serve(async (req: Request) => {
   let reserved = false;
   // Credits charged for this request, so a failure refunds exactly that.
   let currentCost = 1;
+  // Tokens used by every model call in this request, for usage-based credits.
+  let tokensUsed = 0;
+  const trackedGenerate = async (...args: Parameters<typeof generateWithModel>): Promise<GenerateResult> => {
+    const result = await generateWithModel(...args);
+    tokensUsed += result.tokens ?? 0;
+    return result;
+  };
 
   try {
     // The key lives only in this server-side function's secrets.
@@ -1261,7 +1298,8 @@ Deno.serve(async (req: Request) => {
 
     const expired =
       profile?.plan_expires_at && new Date(profile.plan_expires_at).getTime() <= Date.now();
-    const planId = profile?.plan === 'pro' && !expired ? 'pro' : 'free';
+    // Max has everything Premium has, so it uses Premium's limits here.
+    const planId = (profile?.plan === 'pro' || profile?.plan === 'max') && !expired ? 'pro' : 'free';
 
     // Premium-only AI option: the request is rejected before any limit is charged.
     if (aiOption === 'study-bot' && planId !== 'pro') {
@@ -1332,6 +1370,16 @@ Deno.serve(async (req: Request) => {
       });
     }
     reserved = true;
+    // Credits follow real token use: bigger requests cost more (charged after a reply).
+    const settleUsage = async () => {
+      const extra = await chargeTokens(supabase!, tokensUsed, currentCost);
+      return {
+        used: reservation.used + extra,
+        limit: reservation.credit_limit,
+        remaining: Math.max(reservation.remaining - extra, 0),
+        cost: currentCost + extra,
+      };
+    };
 
     const today = new Date().toISOString().slice(0, 10);
     const jsonMode = Boolean(STRUCTURED_MODES[mode]);
@@ -1400,7 +1448,7 @@ Deno.serve(async (req: Request) => {
     for (const model of models.slice(0, MAX_MODEL_ATTEMPTS)) {
       const wantsJson = jsonMode && model.supportsJson;
       try {
-        const result = await generateWithModel(apiKey, model.name, messages, wantsJson);
+        const result = await trackedGenerate(apiKey, model.name, messages, wantsJson);
         if (result.text) {
           reply = result.text;
           finishReason = result.finishReason;
@@ -1415,7 +1463,7 @@ Deno.serve(async (req: Request) => {
         // model rather than being abandoned, so structured modes always have a path.
         if (err instanceof UpstreamError && [400, 422].includes(err.status) && wantsJson) {
           try {
-            const fallback = await generateWithModel(apiKey, model.name, messages, false);
+            const fallback = await trackedGenerate(apiKey, model.name, messages, false);
             if (fallback.text) {
               reply = fallback.text;
               finishReason = fallback.finishReason;
@@ -1452,7 +1500,7 @@ Deno.serve(async (req: Request) => {
     if (!reply && geminiKey && aiOption !== 'study-bot') {
       for (const model of GEMINI_MODELS) {
         try {
-          const result = await generateWithModel(geminiKey, model, messages, jsonMode, GEMINI_CHAT_URL);
+          const result = await trackedGenerate(geminiKey, model, messages, jsonMode, GEMINI_CHAT_URL);
           if (result.text) {
             reply = result.text;
             finishReason = result.finishReason;
@@ -1488,7 +1536,7 @@ Deno.serve(async (req: Request) => {
           // A readable plain-text version accompanies the cards so the client always
           // has a safe fallback. The raw JSON is never sent to the browser.
           text: structuredToText(mode, structured),
-          usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
+          usage: await settleUsage(),
         });
       }
 
@@ -1497,12 +1545,12 @@ Deno.serve(async (req: Request) => {
         // Retry once as plain text and show that instead of raw JSON, exactly as
         // specified for a failed structured response.
         try {
-          const retry = await generateWithModel(usedKey, usedModel, messages, false, usedUrl);
+          const retry = await trackedGenerate(usedKey, usedModel, messages, false, usedUrl);
           if (retry.text && retry.text.trim()) {
             return succeed({
               mode,
               text: looksLikeJson(retry.text) ? STRUCTURED_RETRY_TEXT : retry.text,
-              usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
+              usage: await settleUsage(),
             });
           }
         } catch (retryErr) {
@@ -1515,14 +1563,14 @@ Deno.serve(async (req: Request) => {
       return succeed({
         mode,
         text: looksLikeJson(reply) ? STRUCTURED_RETRY_TEXT : reply,
-        usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
+        usage: await settleUsage(),
       });
     }
 
     return succeed({
       mode,
       text: reply,
-      usage: { used: reservation.used, limit: reservation.credit_limit, remaining: reservation.remaining, cost: currentCost },
+      usage: await settleUsage(),
     });
   } catch (err) {
     console.error('Study session request failed:', err instanceof Error ? err.message : 'unknown error');

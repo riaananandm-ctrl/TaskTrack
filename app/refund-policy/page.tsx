@@ -10,7 +10,7 @@ export default function RefundPolicyPage() {
       updated="20 November 2026"
       intro={
         <p>
-          TaskTrack is free to use. Premium is an optional paid plan. This page explains what you pay, how to cancel,
+          TaskTrack is free to use. Premium and Max are optional paid plans; everything here about Premium applies to Max too. This page explains what you pay, how to cancel,
           and when you can get your money back. If you are under 18, a parent or guardian should make the payment and
           can ask for a refund for you.
         </p>
@@ -19,7 +19,7 @@ export default function RefundPolicyPage() {
       <Section title="1. What you pay for">
         <ul>
           <li>
-            <strong>Premium costs ₹699 for 3 months</strong>, paid once, in Indian rupees, by UPI to the TaskTrack UPI
+            <strong>Premium costs ₹499 and Max costs ₹999, each for 3 months</strong>, paid once, in Indian rupees, by UPI to the TaskTrack UPI
             number shown in the app. The price is shown before you pay.
           </li>
           <li>

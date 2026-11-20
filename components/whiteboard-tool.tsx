@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase/client';
+import { announceCreditsChanged } from '@/lib/ai-credits';
 import {
   Pencil, Highlighter, Eraser, Minus, Square, Circle, Hand, Undo2, Redo2, Trash2, Download,
-  Bot, Loader2, Send, Home,
+  Bot, Loader2, Send, Home, Lock,
 } from 'lucide-react';
 
 /**
@@ -15,18 +16,33 @@ import {
  * The canvas is always mounted (no "loading" gate), sized to its box with
  * ResizeObserver, and drawn at device pixel ratio so lines stay crisp.
  * Drawings are kept in this browser between visits.
+ *
+ * AI tutor (Premium and Max): sends a picture of the visible board with the question.
+ * The tutor can answer with marks of its own (arrows, circles, labels), which are added
+ * to the board as normal shapes, so Undo removes them.
  */
 
 type ToolId = 'pen' | 'highlighter' | 'eraser' | 'line' | 'rect' | 'ellipse' | 'pan';
 type Pt = { x: number; y: number };
 
 interface Shape {
-  kind: 'free' | 'line' | 'rect' | 'ellipse';
-  points: Pt[]; // free: every point; others: [start, end]
+  kind: 'free' | 'line' | 'rect' | 'ellipse' | 'text';
+  points: Pt[]; // free: every point; text: [top-left]; others: [start, end]
   color: string;
-  width: number;
+  width: number; // text: font size
   alpha: number;
+  text?: string;
 }
+
+/** A mark the AI tutor asks to draw, in the snapshot image's pixels. */
+type TutorDrawing =
+  | { type: 'line' | 'arrow'; x1: number; y1: number; x2: number; y2: number; color: string }
+  | { type: 'rect'; x: number; y: number; w: number; h: number; color: string }
+  | { type: 'circle'; cx: number; cy: number; r: number; color: string }
+  | { type: 'text'; x: number; y: number; text: string; color: string; size: number }
+  | { type: 'path'; points: [number, number][]; color: string };
+
+const SNAPSHOT_MAX_W = 1024;
 
 const COLORS = ['#1e293b', '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 const WIDTHS = [2, 4, 8, 14];
@@ -47,7 +63,8 @@ function isShape(v: unknown): v is Shape {
   if (!v || typeof v !== 'object') return false;
   const s = v as Record<string, unknown>;
   return (
-    ['free', 'line', 'rect', 'ellipse'].includes(s.kind as string) &&
+    ['free', 'line', 'rect', 'ellipse', 'text'].includes(s.kind as string) &&
+    (s.kind !== 'text' || typeof s.text === 'string') &&
     Array.isArray(s.points) &&
     s.points.every((p) => p && Number.isFinite((p as Pt).x) && Number.isFinite((p as Pt).y)) &&
     typeof s.color === 'string' && Number.isFinite(s.width) && Number.isFinite(s.alpha)
@@ -64,6 +81,13 @@ function drawShape(ctx: CanvasRenderingContext2D, s: Shape) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  if (s.kind === 'text') {
+    ctx.font = `600 ${s.width}px system-ui, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(s.text ?? '', a.x, a.y);
+    ctx.restore();
+    return;
+  }
   ctx.beginPath();
   if (s.kind === 'free') {
     if (s.points.length === 1) {
@@ -105,6 +129,10 @@ function segDist(p: Pt, a: Pt, b: Pt): number {
 function hits(s: Shape, p: Pt, r: number): boolean {
   const tol = r + s.width / 2;
   const [a, b] = [s.points[0], s.points[s.points.length - 1]];
+  if (s.kind === 'text') {
+    const w = (s.text?.length ?? 0) * s.width * 0.6;
+    return p.x >= a.x - r && p.x <= a.x + w + r && p.y >= a.y - r && p.y <= a.y + s.width + r;
+  }
   if (s.kind === 'free') {
     if (s.points.length === 1) return Math.hypot(p.x - a.x, p.y - a.y) <= tol;
     for (let i = 1; i < s.points.length; i++) if (segDist(p, s.points[i - 1], s.points[i]) <= tol) return true;
@@ -123,7 +151,41 @@ function hits(s: Shape, p: Pt, r: number): boolean {
   return Math.abs(k - 1) * Math.min(rx, ry) <= tol;
 }
 
-export function WhiteboardTool() {
+/** Turn the tutor's marks (snapshot pixels) into board shapes. */
+function tutorShapes(drawings: TutorDrawing[], scale: number, offset: Pt): Shape[] {
+  const P = (x: number, y: number): Pt => ({ x: x * scale - offset.x, y: y * scale - offset.y });
+  const base = { width: 3, alpha: 1 };
+  const out: Shape[] = [];
+  for (const d of drawings) {
+    if (d.type === 'line' || d.type === 'arrow') {
+      const a = P(d.x1, d.y1);
+      const b = P(d.x2, d.y2);
+      out.push({ kind: 'line', points: [a, b], color: d.color, ...base });
+      if (d.type === 'arrow') {
+        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+        for (const turn of [Math.PI * 0.85, -Math.PI * 0.85]) {
+          out.push({
+            kind: 'line',
+            points: [b, { x: b.x + 14 * Math.cos(ang + turn), y: b.y + 14 * Math.sin(ang + turn) }],
+            color: d.color,
+            ...base,
+          });
+        }
+      }
+    } else if (d.type === 'rect') {
+      out.push({ kind: 'rect', points: [P(d.x, d.y), P(d.x + d.w, d.y + d.h)], color: d.color, ...base });
+    } else if (d.type === 'circle') {
+      out.push({ kind: 'ellipse', points: [P(d.cx - d.r, d.cy - d.r), P(d.cx + d.r, d.cy + d.r)], color: d.color, ...base });
+    } else if (d.type === 'path') {
+      out.push({ kind: 'free', points: d.points.map(([x, y]) => P(x, y)), color: d.color, ...base });
+    } else if (d.type === 'text') {
+      out.push({ kind: 'text', points: [P(d.x, d.y)], color: d.color, width: Math.round(d.size * scale), alpha: 1, text: d.text });
+    }
+  }
+  return out;
+}
+
+export function WhiteboardTool({ tutorAllowed = false }: { tutorAllowed?: boolean }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 800, h: 480 });
@@ -144,6 +206,8 @@ export function WhiteboardTool() {
   const [aiResponse, setAiResponse] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [letTutorDraw, setLetTutorDraw] = useState(true);
+  const [aiNote, setAiNote] = useState<string | null>(null);
 
   // Load a saved board once.
   useEffect(() => {
@@ -339,29 +403,66 @@ export function WhiteboardTool() {
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redoFn]);
 
+  /** A JPEG of what is visible on the board, at most 1024 px wide. */
+  const snapshot = (): { image: string; width: number; height: number } | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const outW = Math.min(SNAPSHOT_MAX_W, size.w);
+    const outH = Math.round((size.h * outW) / size.w);
+    const off = document.createElement('canvas');
+    off.width = outW;
+    off.height = outH;
+    const ctx = off.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, outW, outH);
+    ctx.drawImage(canvas, 0, 0, outW, outH);
+    try {
+      return { image: off.toDataURL('image/jpeg', 0.85), width: outW, height: outH };
+    } catch {
+      return null;
+    }
+  };
+
   const askTutor = async () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() || !tutorAllowed) return;
     setAiLoading(true);
     setAiError(null);
     setAiResponse('');
+    setAiNote(null);
     try {
+      const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setAiError('Please sign in to use the AI tutor.'); return; }
-      const res = await fetch('/api/study-session/chat', {
+      if (!session || !base) { setAiError('Please sign in to use the AI tutor.'); return; }
+      const shot = snapshot();
+      if (!shot) { setAiError('Couldn’t read the board. Please try again.'); return; }
+      const viewOffset = offset;
+      const scale = size.w / shot.width;
+      const res = await fetch(`${base}/functions/v1/whiteboard-tutor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          mode: 'chat',
-          task: null,
-          messages: [{
-            role: 'user',
-            content: `I am working something out on a whiteboard. ${aiPrompt}\n\nExplain it clearly like a teacher standing next to me, step by step, with a short example if it helps.`,
-          }],
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+          Apikey: anon ?? '',
+        },
+        body: JSON.stringify({ question: aiPrompt.trim(), image: shot.image, width: shot.width, height: shot.height }),
       });
       const data = await res.json().catch(() => null);
-      if (!data?.ok) setAiError(data?.error?.message || 'The AI tutor could not respond. Please try again.');
-      else setAiResponse(data.text || 'The AI tutor did not return a response.');
+      if (!data?.ok) {
+        setAiError(data?.error || 'The AI tutor could not respond. Please try again.');
+        return;
+      }
+      setAiResponse(data.reply || 'The AI tutor did not return a response.');
+      const marks = Array.isArray(data.drawings) ? (data.drawings as TutorDrawing[]) : [];
+      if (letTutorDraw && marks.length) {
+        commit([...shapes, ...tutorShapes(marks, scale, viewOffset)]);
+        setAiNote(`The tutor drew ${marks.length} mark${marks.length === 1 ? '' : 's'} on your board. Press Undo to remove them.`);
+      }
+      if (data.usage?.cost) {
+        setAiNote((n) => `${n ? `${n} ` : ''}Used ${data.usage.cost} credit${data.usage.cost === 1 ? '' : 's'}.`);
+      }
+      announceCreditsChanged();
     } catch {
       setAiError('Could not reach the AI tutor. Please check your connection.');
     } finally {
@@ -469,26 +570,55 @@ export function WhiteboardTool() {
             </div>
             <div>
               <h3 className="text-sm font-semibold">AI Tutor</h3>
-              <p className="text-xs text-muted-foreground">Type what you are working on. The tutor reads your question, not the drawing.</p>
+              <p className="text-xs text-muted-foreground">Sees what’s on your board and can draw on it to explain.</p>
             </div>
           </div>
-          <Textarea
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askTutor(); }}
-            placeholder="e.g. I drew the water cycle. Explain evaporation and condensation."
-            rows={3}
-            className="text-sm resize-none"
-          />
-          <Button type="button" onClick={askTutor} disabled={aiLoading || !aiPrompt.trim()} className="w-full" size="sm">
-            {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-            {aiLoading ? 'Thinking…' : 'Ask the tutor'}
-          </Button>
-          {aiError && <p className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{aiError}</p>}
-          {aiResponse && (
-            <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[300px] overflow-y-auto">
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiResponse}</p>
+          {!tutorAllowed ? (
+            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4 text-center">
+              <Lock className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-2 text-sm font-semibold">Part of Premium and Max</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ask about your drawing, maths working or diagram, and the tutor circles mistakes, adds arrows and labels.
+              </p>
+              <Button asChild size="sm" className="mt-3">
+                <a href="/app/premium">See plans</a>
+              </Button>
             </div>
+          ) : (
+            <>
+              <Textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) askTutor(); }}
+                placeholder="e.g. Is my working for this equation right? or: How can I make this face look more realistic?"
+                rows={3}
+                className="text-sm resize-none"
+              />
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={letTutorDraw}
+                  onChange={(e) => setLetTutorDraw(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                Let the tutor draw on my board
+              </label>
+              <Button type="button" onClick={askTutor} disabled={aiLoading || !aiPrompt.trim()} className="w-full" size="sm">
+                {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {aiLoading ? 'Looking at your board…' : 'Ask the tutor'}
+              </Button>
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                Sends a picture of the part of the board you can see. About 2 credits a question, a little more for long
+                answers.
+              </p>
+              {aiError && <p className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{aiError}</p>}
+              {aiNote && <p className="text-xs text-muted-foreground">{aiNote}</p>}
+              {aiResponse && (
+                <div className="rounded-lg border border-border p-3 bg-muted/30 max-h-[300px] overflow-y-auto">
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiResponse}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

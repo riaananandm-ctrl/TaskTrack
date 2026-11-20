@@ -33,7 +33,7 @@ export interface Profile {
   school_name: string | null;
   timezone: string;
   onboarding_completed: boolean;
-  plan: 'free' | 'pro';
+  plan: 'free' | 'pro' | 'max';
   plan_expires_at: string | null;
   created_at: string;
   updated_at: string;

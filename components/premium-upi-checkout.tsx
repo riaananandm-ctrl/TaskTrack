@@ -8,15 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { cn } from '@/lib/utils';
 import {
-  PREMIUM_PRICE_INR,
+  PAID_PLAN_NAME,
+  PLAN_PRICE_INR,
   PREMIUM_UPI_NUMBER,
+  type PaidPlanId,
   openPremiumWhatsApp,
   premiumPaidMessage,
 } from '@/lib/premium-contact';
 
 interface PremiumRequest {
   utr: string;
+  plan: PaidPlanId;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
@@ -24,14 +28,31 @@ interface PremiumRequest {
 const ERRORS: Record<string, string> = {
   bad_utr: 'That doesn’t look like a UTR. It’s the 12-digit number (sometimes letters too) on your UPI receipt.',
   duplicate: 'That UTR has already been sent. If it’s yours, message us on WhatsApp and we’ll sort it out.',
-  already_pending: 'You already have a payment being checked. We’ll switch Premium on soon.',
+  already_pending: 'You already have a payment being checked. We’ll switch your plan on soon.',
+  bad_plan: 'Choose Premium or Max first.',
   too_many: 'Too many tries today. Please message us on WhatsApp instead.',
   auth: 'Please sign in again and retry.',
 };
 
+const PLAN_POINTS: Record<PaidPlanId, string> = {
+  pro: '500 AI credits a month, whiteboard tutor, AI Detector',
+  max: '1,000 AI credits a month, everything in Premium, plus Rewrite Coach',
+};
+
 /** Pay by UPI, enter the UTR, then tell the team on WhatsApp. */
-export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function PremiumUpiCheckout({
+  open,
+  onOpenChange,
+  initialPlan = 'pro',
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initialPlan?: PaidPlanId;
+}) {
   const { user } = useAuth();
+  const [plan, setPlan] = useState<PaidPlanId>(initialPlan);
+  const price = PLAN_PRICE_INR[plan];
+  const name = PAID_PLAN_NAME[plan];
   const [utr, setUtr] = useState('');
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,7 +62,7 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
   const loadPending = useCallback(async () => {
     const { data } = await supabase
       .from('premium_requests')
-      .select('utr, status, created_at')
+      .select('utr, plan, status, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -52,9 +73,10 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
   useEffect(() => {
     if (open) {
       setError(null);
+      setPlan(initialPlan);
       loadPending();
     }
-  }, [open, loadPending]);
+  }, [open, loadPending, initialPlan]);
 
   const copyUpi = async () => {
     try {
@@ -74,7 +96,7 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
     }
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await supabase.rpc('request_premium', { p_utr: clean });
+    const { data, error: rpcError } = await supabase.rpc('request_premium', { p_utr: clean, p_plan: plan });
     setBusy(false);
     const row = Array.isArray(data) ? data[0] : data;
     if (rpcError || !row) {
@@ -89,15 +111,15 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
     setUtr('');
     await loadPending();
     // Let the team know straight away.
-    openPremiumWhatsApp(premiumPaidMessage(clean, user?.email));
+    openPremiumWhatsApp(premiumPaidMessage(clean, user?.email, plan));
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Get Premium</DialogTitle>
-          <DialogDescription>₹{PREMIUM_PRICE_INR} for 3 months. Paid once, never renews by itself.</DialogDescription>
+          <DialogTitle>Get {pending ? PAID_PLAN_NAME[pending.plan] : name}</DialogTitle>
+          <DialogDescription>Paid once for 3 months. It never renews by itself.</DialogDescription>
         </DialogHeader>
 
         {pending ? (
@@ -107,22 +129,43 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
               <div>
                 <p className="font-semibold">We’re checking your payment</p>
                 <p className="mt-1">
-                  This takes a few hours. Your Premium will be switched on by the end of today. UTR {pending.utr}.
+                  This takes a few hours. Your {PAID_PLAN_NAME[pending.plan]} plan will be switched on by the end of today.
+                  UTR {pending.utr}.
                 </p>
               </div>
             </div>
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => openPremiumWhatsApp(premiumPaidMessage(pending.utr, user?.email))}
+              onClick={() => openPremiumWhatsApp(premiumPaidMessage(pending.utr, user?.email, pending.plan))}
             >
               <MessageCircle className="mr-2 h-4 w-4" /> Message us on WhatsApp
             </Button>
           </div>
         ) : (
           <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Choose a plan">
+              {(['pro', 'max'] as PaidPlanId[]).map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={plan === id}
+                  onClick={() => setPlan(id)}
+                  className={cn(
+                    'rounded-xl border p-3 text-left transition-colors',
+                    plan === id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50',
+                  )}
+                >
+                  <span className="block text-sm font-semibold">{PAID_PLAN_NAME[id]}</span>
+                  <span className="block text-lg font-bold">₹{PLAN_PRICE_INR[id]}</span>
+                  <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">{PLAN_POINTS[id]}</span>
+                </button>
+              ))}
+            </div>
+
             <div>
-              <p className="text-sm font-semibold">1. Pay ₹{PREMIUM_PRICE_INR} by UPI</p>
+              <p className="text-sm font-semibold">1. Pay ₹{price} by UPI</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 In any UPI app (GPay, PhonePe, Paytm, FamPay…), choose “Pay to UPI number” or pay to this phone number:
               </p>
@@ -162,7 +205,7 @@ export function PremiumUpiCheckout({ open, onOpenChange }: { open: boolean; onOp
               I’ve paid: check my payment
             </Button>
             <p className="text-[11px] leading-4 text-muted-foreground">
-              WhatsApp opens with a message to TaskTrack; press send so we can find your payment. Premium is usually on
+              WhatsApp opens with a message to TaskTrack; press send so we can find your payment. {name} is usually on
               within a few hours, and always by the end of the day. Never share your UPI PIN or OTP. See our{' '}
               <Link href="/refund-policy" className="underline">refund policy</Link>.
             </p>

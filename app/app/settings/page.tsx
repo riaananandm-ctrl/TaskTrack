@@ -25,6 +25,7 @@ import { useTheme } from '@/lib/theme-provider';
 import { isRememberDevice, REMEMBER_DEVICE_NOTICE } from '@/lib/remember-device';
 import { PlanComparison } from '@/components/plan-comparison';
 import { PremiumUpiCheckout } from '@/components/premium-upi-checkout';
+import type { PaidPlanId } from '@/lib/premium-contact';
 import { ProFeatureGate } from '@/components/pro-feature-gate';
 import { getProfileEntitlements } from '@/lib/entitlements';
 import { PushNotificationsCard } from '@/components/push-notifications-card';
@@ -85,7 +86,11 @@ export default function SettingsPage() {
 
   // Premium is bought by UPI: pay, enter the UTR, and the team switches it on.
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const handleUpgrade = () => setCheckoutOpen(true);
+  const [checkoutPlan, setCheckoutPlan] = useState<PaidPlanId>('pro');
+  const handleUpgrade = (p: PaidPlanId) => {
+    setCheckoutPlan(p);
+    setCheckoutOpen(true);
+  };
 
   const [profileForm, setProfileForm] = useState({
     full_name: '',
@@ -620,7 +625,7 @@ export default function SettingsPage() {
           </Card>
 
           <PlanComparison onUpgrade={handleUpgrade} upgradeNotice={planNotice} />
-          <PremiumUpiCheckout open={checkoutOpen} onOpenChange={setCheckoutOpen} />
+          <PremiumUpiCheckout open={checkoutOpen} onOpenChange={setCheckoutOpen} initialPlan={checkoutPlan} />
 
           <ProFeatureGate
             feature="advancedAnalytics"

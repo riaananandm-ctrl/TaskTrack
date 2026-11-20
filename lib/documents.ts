@@ -215,8 +215,8 @@ export async function getUploadUsage(): Promise<UploadUsage> {
   // the documents count check being unreliable is not possible client-side, so
   // surface the effective limit from the profile plan.
   const { data: profile } = await supabase.from('profiles').select('plan').maybeSingle();
-  const plan = (profile?.plan as string) === 'pro' ? 'pro' : 'free';
-  const limit = plan === 'pro' ? 50 : 7;
+  const paid = ['pro', 'max'].includes(profile?.plan as string);
+  const limit = paid ? 50 : 7;
   return { used: count ?? 0, limit };
 }
 

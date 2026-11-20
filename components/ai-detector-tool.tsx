@@ -43,6 +43,22 @@ export function AiDetectorTool({ access, onUsed }: { access: ToolAccess; onUsed:
 
   const band = result ? BANDS[result.band] : null;
 
+  if (!access.premium) {
+    return (
+      <div className="mx-auto max-w-xl py-6 text-center">
+        <ScanSearch className="mx-auto h-10 w-10 text-indigo-500" />
+        <h2 className="mt-3 text-xl font-bold">The AI Detector is part of Premium and Max</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Check how likely a piece of text is to be AI-generated, sentence by sentence. Premium gets 15 checks a day
+          and Max gets 30.
+        </p>
+        <a href="/app/premium" className="mt-5 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          See plans
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">

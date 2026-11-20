@@ -22,13 +22,14 @@ export function countWords(s: string): number {
   return s.trim() ? s.trim().split(/\s+/).length : 0;
 }
 
-export async function getCoachAccess(): Promise<{ used: number; limit: number; premium: boolean }> {
+export async function getCoachAccess(): Promise<{ used: number; limit: number; premium: boolean; plan: string | null }> {
   const { data, error } = await supabase.rpc('get_coach_access');
   const d = (error ? null : data) as Record<string, unknown> | null;
   return {
     used: typeof d?.used === 'number' ? d.used : 0,
     limit: typeof d?.limit === 'number' ? d.limit : 5,
     premium: d?.premium === true,
+    plan: typeof d?.plan === 'string' ? d.plan : null,
   };
 }
 

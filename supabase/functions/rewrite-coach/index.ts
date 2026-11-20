@@ -31,7 +31,7 @@ async function serverRefund(
  * Privacy: the draft text is never logged or stored here. Saving happens in the app,
  * only when the student chooses to.
  *
- * Limits: 30-1500 words; 5 runs a day (20 for Premium), via reserve_coach_use.
+ * Limits: 30-1500 words; Max plan only, 50 runs a day, via reserve_coach_use.
  */
 
 const corsHeaders = {
@@ -228,9 +228,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: reserve, error: reserveError } = await supabase.rpc('reserve_coach_use');
     if (reserveError) return json({ ok: false, error: 'Rewrite Coach is unavailable right now. Please try again.' }, 503);
-    const r = (reserve ?? {}) as { allowed?: boolean; used?: number; limit?: number };
+    const r = (reserve ?? {}) as { allowed?: boolean; reason?: string; used?: number; limit?: number };
+    if (!r.allowed && r.reason === 'max') {
+      return json({ ok: false, reason: 'max', error: 'Rewrite Coach is part of the Max plan. Upgrade to Max to use it.' }, 403);
+    }
     if (!r.allowed) {
-      return json({ ok: false, reason: 'limit', error: `You’ve used all ${r.limit ?? 5} Rewrite Coach runs for today. They reset at midnight UTC.` }, 429);
+      return json({ ok: false, reason: 'limit', error: `You’ve used all ${r.limit ?? 50} Rewrite Coach runs for today. They reset at midnight UTC.` }, 429);
     }
 
     const goalText = goal === 'tone' ? `${GOALS.tone} Target tone: ${TONES[tone]}.` : GOALS[goal];

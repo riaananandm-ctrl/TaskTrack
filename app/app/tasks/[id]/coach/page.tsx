@@ -60,7 +60,7 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
   const [taskTitle, setTaskTitle] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [draft, setDraft] = useState<TaskDraft | null>(null);
-  const [access, setAccess] = useState({ used: 0, limit: 5, premium: false });
+  const [access, setAccess] = useState<{ used: number; limit: number; premium: boolean; plan: string | null }>({ used: 0, limit: 0, premium: false, plan: null });
 
   const [text, setText] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -194,6 +194,29 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
       <div className="max-w-lg mx-auto py-16 text-center space-y-3">
         <p className="font-semibold">That task couldn’t be found.</p>
         <Link href="/app/tasks" className="text-sm text-primary hover:underline">Back to tasks</Link>
+      </div>
+    );
+  }
+
+  // Rewrite Coach is part of the Max plan.
+  if (access.plan && access.plan !== 'max') {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-xl">
+        <Link href="/app/tasks" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Tasks
+        </Link>
+        <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-6 text-center">
+          <PenLine className="mx-auto h-8 w-8 text-primary" />
+          <h1 className="mt-3 text-xl font-bold">Rewrite Coach is part of Max</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Get suggested edits to your own draft for clarity, grammar, structure and tone, and keep only the ones you
+            agree with. Max is ₹999 for 3 months and includes 1,000 AI credits a month, everything in Premium, and 50
+            Rewrite Coach runs a day.
+          </p>
+          <Button asChild className="mt-5">
+            <Link href="/app/premium?plan=max">Upgrade to Max</Link>
+          </Button>
+        </div>
       </div>
     );
   }

@@ -32,7 +32,7 @@ const TOOLS: Array<{ id: Tool; label: string; icon: typeof Calculator; descripti
   { id: 'whiteboard', label: 'Whiteboard', icon: PenTool, description: 'Draw, shapes, AI tutor' },
 ];
 const POLISH_TAB = { id: 'polish' as Tool, label: 'Polish my writing', icon: Wand2, description: 'Now in Rewrite Coach' };
-const DETECTOR_TAB = { id: 'detector' as Tool, label: 'AI Detector', icon: ScanSearch, description: 'Unlocked with a code' };
+const DETECTOR_TAB = { id: 'detector' as Tool, label: 'AI Detector', icon: ScanSearch, description: 'Premium and Max' };
 const REDEEM_TAB = { id: 'redeem' as Tool, label: 'Redeem Code', icon: Gift, description: 'Find codes on @task.track' };
 
 export default function ToolsPage() {
@@ -59,13 +59,13 @@ export default function ToolsPage() {
     return () => window.removeEventListener(TOOL_ACCESS_EVENT, loadAccess);
   }, [loadAccess]);
 
-  const tabs = [...TOOLS, ...(access.unlocked.includes('polish') ? [POLISH_TAB] : []), ...(access.unlocked.includes('detector') ? [DETECTOR_TAB] : []), REDEEM_TAB];
+  const tabs = [...TOOLS, ...(access.unlocked.includes('polish') ? [POLISH_TAB] : []), DETECTOR_TAB, REDEEM_TAB];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Study Tools</h1>
-        <p className="text-sm text-muted-foreground mt-1">Calculator, spreadsheet, and whiteboard with AI tutor.</p>
+        <p className="text-sm text-muted-foreground mt-1">Calculator, spreadsheet, and a whiteboard with an AI tutor that can see your drawing (Premium and Max).</p>
       </div>
 
       {/* Tool tabs */}
@@ -101,7 +101,7 @@ export default function ToolsPage() {
         {active === 'detector' && <AiDetectorTool access={access} onUsed={loadAccess} />}
         {active === 'whiteboard' && (
           <WhiteboardErrorBoundary onReset={resetWhiteboard}>
-            <WhiteboardTool key={whiteboardKey} />
+            <WhiteboardTool key={whiteboardKey} tutorAllowed={access.premium} />
           </WhiteboardErrorBoundary>
         )}
       </div>
