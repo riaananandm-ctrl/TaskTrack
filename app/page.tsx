@@ -318,7 +318,7 @@ export default function LandingPage() {
                 },
                 {
                   q: 'What does Premium add?',
-                  a: 'Over 30 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Checkout is not open yet.',
+                  a: 'Over 30 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Pay ₹699 by UPI for 3 months; it never renews by itself.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group rounded-xl border border-slate-200 bg-white p-5 open:shadow-sm">

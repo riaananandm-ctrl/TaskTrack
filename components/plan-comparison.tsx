@@ -41,7 +41,7 @@ const PRO_FEATURES: { label: string; included: boolean }[] = [
 ];
 
 interface PlanComparisonProps {
-  /** Called when the student clicks Upgrade (opens WhatsApp). */
+  /** Called when the student clicks Get Premium (opens the UPI checkout). */
   onUpgrade?: () => void;
   upgrading?: boolean;
   upgradeNotice?: string | null;
@@ -171,10 +171,10 @@ function PlanCard({
                 ) : (
                   <Sparkles className="w-4 h-4 mr-2" />
                 )}
-                Get Premium on WhatsApp
+                Get Premium
               </Button>
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                Opens a chat with TaskTrack on WhatsApp. Pay by UPI and we&rsquo;ll switch Premium on.
+                Pay by UPI and we&rsquo;ll switch Premium on, usually within a few hours.
               </p>
             </>
           )}

@@ -5,20 +5,16 @@ import { Sparkles, Crown } from 'lucide-react';
 import { PlanComparison } from '@/components/plan-comparison';
 import { useAuth } from '@/lib/auth-context';
 import { getProfileEntitlements, getPlanLabel, planPriceLine } from '@/lib/entitlements';
-import { openPremiumWhatsApp } from '@/lib/premium-contact';
+import { PremiumUpiCheckout } from '@/components/premium-upi-checkout';
 
 export default function PremiumPage() {
   const { profile } = useAuth();
   const plan = getProfileEntitlements(profile);
   const planLabel = getPlanLabel(plan);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [upgrading] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  // Premium is bought over WhatsApp: open a chat with the greeting typed in.
-  const handleUpgrade = () => {
-    openPremiumWhatsApp();
-    setNotice('WhatsApp should open in a new tab. Send the message to get started with Premium.');
-  };
+  // Premium is bought by UPI: pay, enter the UTR, and the team switches it on.
+  const handleUpgrade = () => setCheckoutOpen(true);
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
@@ -42,12 +38,11 @@ export default function PremiumPage() {
 
       <PlanComparison
         onUpgrade={handleUpgrade}
-        upgrading={upgrading}
-        upgradeNotice={notice}
       />
+      <PremiumUpiCheckout open={checkoutOpen} onOpenChange={setCheckoutOpen} />
 
       <p className="text-xs text-muted-foreground text-center pb-4">
-        Prices shown in Indian rupees. Premium is bought through a chat with TaskTrack on WhatsApp.
+        Prices shown in Indian rupees. Premium is paid by UPI and switched on by the TaskTrack team, usually within a few hours.
       </p>
     </div>
   );

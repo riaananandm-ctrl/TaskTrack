@@ -30,8 +30,8 @@ export default function ContactPage() {
 
       <Section title="Payments and refunds">
         <p>
-          For a payment or refund, email us from the address on your TaskTrack account and include the payment ID from
-          your Razorpay receipt, or the date and amount. Our{' '}
+          For a payment or refund, email us from the address on your TaskTrack account and include the UPI reference number
+          (UTR) from your receipt, or the date and amount. Our{' '}
           <Link href="/refund-policy">Refund &amp; Cancellation Policy</Link> explains how refunds work.
         </p>
       </Section>

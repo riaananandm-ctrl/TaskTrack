@@ -89,9 +89,10 @@ export default function TermsPage() {
 
       <Section title="7. Free and Premium plans">
         <ul>
-          <li>The Free plan costs nothing. Premium is optional and costs ₹699 for 3 months, paid once through our
-            payment partner Razorpay. It does not renew automatically.</li>
-          <li>The price and what you get are shown before you pay. Premium starts when your payment is confirmed.</li>
+          <li>The Free plan costs nothing. Premium is optional and costs ₹699 for 3 months, paid once by UPI. It
+            does not renew automatically.</li>
+          <li>The price and what you get are shown before you pay. We switch Premium on after checking your payment, usually within a few
+            hours.</li>
           <li>Cancellations and refunds follow our{' '}
             <Link href="/refund-policy" className="text-sky-300 underline">Refund &amp; Cancellation Policy</Link>,
             including a full refund if you ask within 7 days of paying.</li>

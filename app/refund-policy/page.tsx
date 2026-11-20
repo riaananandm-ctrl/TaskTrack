@@ -19,15 +19,16 @@ export default function RefundPolicyPage() {
       <Section title="1. What you pay for">
         <ul>
           <li>
-            <strong>Premium costs ₹699 for 3 months</strong>, paid once, in Indian rupees, through our payment partner
-            Razorpay. The price is shown before you pay.
+            <strong>Premium costs ₹699 for 3 months</strong>, paid once, in Indian rupees, by UPI to the TaskTrack UPI
+            number shown in the app. The price is shown before you pay.
           </li>
           <li>
             Premium <strong>does not renew automatically</strong>. You are never charged again unless you choose to buy
             it again.
           </li>
           <li>
-            Premium starts as soon as your payment is confirmed and lasts 3 months from that date. See what is included
+            After you pay and enter your UPI reference number (UTR), we check the payment and switch Premium on,
+            usually within a few hours and always by the end of that day. Premium lasts 3 months from then. See what is included
             on the{' '}
             <Link href="/#plans">Plans section</Link>.
           </li>
@@ -74,13 +75,13 @@ export default function RefundPolicyPage() {
       <Section title="4. How to ask for a refund">
         <ul>
           <li>
-            Email {CONTACT} from the email address on your TaskTrack account. Include the payment ID from your Razorpay
-            receipt or the date and amount of the payment.
+            Email {CONTACT} from the email address on your TaskTrack account. Include the UPI reference number (UTR) from
+            your receipt, or the date and amount of the payment.
           </li>
           <li>We reply within 2 working days.</li>
           <li>
-            Approved refunds go back to the same card, UPI account or bank you paid with. Razorpay usually takes{' '}
-            <strong>5 to 7 working days</strong> to return the money; your bank may take a little longer to show it.
+            Approved refunds are sent back by UPI to the account you paid from, within{' '}
+            <strong>3 working days</strong> of approval.
           </li>
           <li>Never send us your card number, UPI PIN, OTP or bank password. We will never ask for them.</li>
         </ul>

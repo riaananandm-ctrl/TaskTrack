@@ -24,7 +24,7 @@ import { FONT_OPTIONS, DEFAULT_FONT_ID } from '@/lib/fonts';
 import { useTheme } from '@/lib/theme-provider';
 import { isRememberDevice, REMEMBER_DEVICE_NOTICE } from '@/lib/remember-device';
 import { PlanComparison } from '@/components/plan-comparison';
-import { openPremiumWhatsApp } from '@/lib/premium-contact';
+import { PremiumUpiCheckout } from '@/components/premium-upi-checkout';
 import { ProFeatureGate } from '@/components/pro-feature-gate';
 import { getProfileEntitlements } from '@/lib/entitlements';
 import { PushNotificationsCard } from '@/components/push-notifications-card';
@@ -83,11 +83,9 @@ export default function SettingsPage() {
 
   const entitlements = getProfileEntitlements(profile);
 
-  // Premium is bought over WhatsApp: open a chat with the greeting typed in.
-  const handleUpgrade = () => {
-    openPremiumWhatsApp();
-    setPlanNotice('WhatsApp should open in a new tab. Send the message to get started with Premium.');
-  };
+  // Premium is bought by UPI: pay, enter the UTR, and the team switches it on.
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const handleUpgrade = () => setCheckoutOpen(true);
 
   const [profileForm, setProfileForm] = useState({
     full_name: '',
@@ -622,6 +620,7 @@ export default function SettingsPage() {
           </Card>
 
           <PlanComparison onUpgrade={handleUpgrade} upgradeNotice={planNotice} />
+          <PremiumUpiCheckout open={checkoutOpen} onOpenChange={setCheckoutOpen} />
 
           <ProFeatureGate
             feature="advancedAnalytics"
