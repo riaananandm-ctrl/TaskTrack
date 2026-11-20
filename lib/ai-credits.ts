@@ -22,7 +22,7 @@ export const CREDIT_COSTS = {
   group: 1,
 } as const;
 
-export const MONTHLY_CREDITS = { free: 100, pro: 2000 } as const;
+export const MONTHLY_CREDITS = { free: 60, pro: 2000 } as const;
 
 export const CREDITS_CHANGED_EVENT = 'tasktrack:credits-changed';
 

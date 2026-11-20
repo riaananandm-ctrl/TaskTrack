@@ -252,7 +252,7 @@ export default function LandingPage() {
                   {[
                     'Tasks, subjects, and planning',
                     'Calendar and reminders',
-                    '100 AI credits a month',
+                    '60 AI credits a month',
                     'Quizzes (5 questions) and flashcards (5 cards)',
                     'ManageBac and Google Classroom connections',
                   ].map((item) => (
@@ -314,11 +314,11 @@ export default function LandingPage() {
                 },
                 {
                   q: 'How do AI credits work?',
-                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Free accounts get 100 credits a month and Premium gets 2,000. They refill on the 1st of every month, and if the AI fails you get them back.',
+                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Free accounts get 60 credits a month and Premium gets 2,000. They refill on the 1st of every month, and if the AI fails you get them back.',
                 },
                 {
                   q: 'What does Premium add?',
-                  a: '20 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Checkout is not open yet.',
+                  a: 'Over 30 times more AI credits (2,000 a month), unlimited tasks and reminders, worked examples, personalized study plans, and larger quizzes and flashcard sets. Checkout is not open yet.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group rounded-xl border border-slate-200 bg-white p-5 open:shadow-sm">

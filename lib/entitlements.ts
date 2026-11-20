@@ -35,7 +35,7 @@ const FREE: PlanEntitlements = {
   name: 'Free',
   priceInr: 0,
   periodMonths: 0,
-  monthlyAiCredits: 100,
+  monthlyAiCredits: 60,
   maxMessageChars: 2000,
   quizQuestions: 5,
   flashcards: 5,

@@ -29,6 +29,11 @@ const GROQ_API_BASE = 'https://api.groq.com/openai/v1';
 const GROQ_CHAT_URL = `${GROQ_API_BASE}/chat/completions`;
 const GROQ_MODELS_URL = `${GROQ_API_BASE}/models`;
 
+// Backup provider for when Groq is busy or out of quota: Google Gemini through its
+// OpenAI-compatible endpoint. Only used when the GEMINI_API_KEY secret is set.
+const GEMINI_CHAT_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+
 // Models tried first when the key can use them. The live model list is always
 // consulted first, so a retired model here is simply skipped and never breaks the
 // assistant. Quota is per model, so the next entry is tried before giving up.
@@ -58,6 +63,7 @@ const MODEL_TIMEOUT_MS = 25_000;
 function speedOptions(model: string): Record<string, unknown> {
   if (model.startsWith('openai/gpt-oss')) return { reasoning_effort: 'low', include_reasoning: false };
   if (model.startsWith('qwen/qwen3')) return { reasoning_effort: 'none' };
+  if (model.startsWith('gemini')) return { reasoning_effort: 'low' };
   return {};
 }
 
@@ -958,6 +964,46 @@ interface GenerateResult {
   finishReason: string | null;
 }
 
+// Groq's free-plan tokens-per-minute limit, with a little headroom.
+const TOKENS_PER_REQUEST = 7_600;
+// Characters of prompt (system + history) that leave room for a full answer.
+const PROMPT_CHAR_BUDGET = 16_000;
+// Attached-document text sent with each message.
+const MAX_DOCUMENT_CHARS = 8_000;
+
+/**
+ * The newest messages that fit in the budget, oldest dropped first. The student's
+ * latest message is always kept (shortened only if it alone is too long).
+ */
+function fitHistory<T extends { role: string; content: string }>(history: T[], budget: number): T[] {
+  const room = Math.max(2_000, budget);
+  const kept: T[] = [];
+  let used = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
+    if (kept.length === 0) {
+      const content = m.content.length > room ? m.content.slice(-room) : m.content;
+      kept.unshift({ ...m, content });
+      used += content.length;
+      continue;
+    }
+    if (used + m.content.length > room) break;
+    kept.unshift(m);
+    used += m.content.length;
+  }
+  // A conversation should start with the student, not a stray assistant reply.
+  while (kept.length > 1 && kept[0].role === 'assistant') kept.shift();
+  return kept;
+}
+
+/** Answer tokens to reserve so prompt + answer stays within one request's budget. */
+function answerBudget(messages: Array<{ content: string }>, json: boolean): number {
+  // About 3.5 characters per token for English; a slight overestimate is safer.
+  const promptTokens = Math.ceil(messages.reduce((n, m) => n + String(m.content || '').length, 0) / 3.5) + 50;
+  const cap = json ? 3072 : 2048;
+  return Math.max(1024, Math.min(cap, TOKENS_PER_REQUEST - promptTokens));
+}
+
 /**
  * Ask Groq for a completion. Structured modes request JSON output; if the model
  * rejects that or the token cap, the request is retried once with the offending
@@ -967,7 +1013,8 @@ async function generateWithModel(
   apiKey: string,
   model: string,
   messages: Array<{ role: string; content: string }>,
-  jsonMode: boolean
+  jsonMode: boolean,
+  chatUrl = GROQ_CHAT_URL
 ): Promise<GenerateResult> {
   let useSpeed = true;
   const attempt = async (useJson: boolean, capTokens: boolean): Promise<GenerateResult> => {
@@ -977,12 +1024,13 @@ async function generateWithModel(
       temperature: 0.6,
       ...(useSpeed ? speedOptions(model) : {}),
     };
-    // Generous ceiling so a full deck or quiz is never cut off mid-JSON, which is
-    // the most common cause of an unparseable structured reply.
-    if (capTokens) payload.max_completion_tokens = useJson ? 8192 : 4096;
+    // Groq counts the reserved answer space against its tokens-per-minute limit
+    // (8,000 on the free plan), so reserve only what fits beside the prompt: up to
+    // 3,072 for a deck or quiz (enough for a full JSON reply), 2,048 for chat.
+    if (capTokens) payload.max_completion_tokens = answerBudget(messages, useJson);
     if (useJson) payload.response_format = { type: 'json_object' };
 
-    const res = await fetch(GROQ_CHAT_URL, {
+    const res = await fetch(chatUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -995,7 +1043,7 @@ async function generateWithModel(
     const raw = await res.text();
     if (!res.ok) {
       // Status and body are logged server-side only; the key is never logged.
-      console.error(`Groq chat failed (${model}):`, res.status, raw.slice(0, 400));
+      console.error(`AI chat failed (${model}):`, res.status, raw.slice(0, 400));
       throw new UpstreamError(res.status, raw);
     }
 
@@ -1197,7 +1245,8 @@ Deno.serve(async (req: Request) => {
       }
       flushDoc();
       // Cap the grounded context sent to the model.
-      documentContext = perDoc.join('\n\n').slice(0, 60_000);
+      // Kept small enough to fit the AI provider's per-request token limit.
+      documentContext = perDoc.join('\n\n').slice(0, MAX_DOCUMENT_CHARS);
     }
 
     const mode =
@@ -1305,12 +1354,15 @@ Deno.serve(async (req: Request) => {
       : systemPrompt;
     const messages = [
       { role: 'system', content: groundedSystem },
-      ...body.messages
-        .filter((m) => m && typeof m.content === 'string' && m.content.trim())
-        .map((m) => ({
-          role: m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.content,
-        })),
+      ...fitHistory(
+        body.messages
+          .filter((m) => m && typeof m.content === 'string' && m.content.trim())
+          .map((m) => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content,
+          })),
+        PROMPT_CHAR_BUDGET - groundedSystem.length
+      ),
     ];
 
     // Study Bot is pinned to one specific model. When the key cannot serve it, the
@@ -1392,6 +1444,29 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Groq is busy or out of quota: try the backup provider before giving up.
+    // Study Bot stays pinned to its own model, so it never falls back.
+    let usedKey = apiKey;
+    let usedUrl = GROQ_CHAT_URL;
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!reply && geminiKey && aiOption !== 'study-bot') {
+      for (const model of GEMINI_MODELS) {
+        try {
+          const result = await generateWithModel(geminiKey, model, messages, jsonMode, GEMINI_CHAT_URL);
+          if (result.text) {
+            reply = result.text;
+            finishReason = result.finishReason;
+            usedModel = model;
+            usedKey = geminiKey;
+            usedUrl = GEMINI_CHAT_URL;
+            break;
+          }
+        } catch (err) {
+          console.error(`Gemini backup failed (${model}):`, err instanceof UpstreamError ? err.status : err instanceof Error ? err.message : 'unknown');
+        }
+      }
+    }
+
     if (!reply) {
       const category = pickFailureCategory(failures);
       return await refundAndFail(supabase, category, currentCost);
@@ -1422,7 +1497,7 @@ Deno.serve(async (req: Request) => {
         // Retry once as plain text and show that instead of raw JSON, exactly as
         // specified for a failed structured response.
         try {
-          const retry = await generateWithModel(apiKey, usedModel, messages, false);
+          const retry = await generateWithModel(usedKey, usedModel, messages, false, usedUrl);
           if (retry.text && retry.text.trim()) {
             return succeed({
               mode,

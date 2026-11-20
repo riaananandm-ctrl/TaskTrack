@@ -13,7 +13,7 @@ import {
 import { useAuth } from '@/lib/auth-context';
 
 const FREE_FEATURES: { label: string; included: boolean }[] = [
-  { label: 'TaskTrack AI — 100 credits a month', included: true },
+  { label: 'TaskTrack AI — 60 credits a month', included: true },
   { label: 'Up to 2,000 characters per message', included: true },
   { label: 'Basic task and reminder management', included: true },
   { label: 'Basic planner and calendar', included: true },
