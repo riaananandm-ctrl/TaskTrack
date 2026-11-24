@@ -16,6 +16,7 @@ import {
   disableNotifications,
   sendTestNotification,
   getPushStatus,
+  isIosBrowserTab,
 } from '@/lib/push-notifications';
 import { playDing, markAudioUnlocked } from '@/lib/reminder-sound';
 
@@ -210,7 +211,7 @@ export function PushNotificationsCard() {
           : state === 'blocked' || state === 'error' ? <ShieldAlert className="w-4 h-4 flex-shrink-0" />
             : state === 'asking' ? <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
               : <Info className="w-4 h-4 flex-shrink-0" />}
-        <span className="font-medium">{status ? STATE_LABELS[state] : 'Checking notification status...'}</span>
+        <span className="font-medium">{!status ? 'Checking notification status...' : state === 'unsupported' && isIosBrowserTab() ? 'Add to Home Screen to turn on' : STATE_LABELS[state]}</span>
       </div>
 
       {feedback && (
@@ -284,11 +285,20 @@ export function PushNotificationsCard() {
         )}
       </div>
 
-      {isUnsupported && (
+      {isUnsupported && (isIosBrowserTab() ? (
+        <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground space-y-1.5">
+          <p className="font-medium text-foreground">On iPhone and iPad, add TaskTrack to your Home Screen first</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>Tap the Share button in Safari.</li>
+            <li>Choose &ldquo;Add to Home Screen&rdquo;, then Add.</li>
+            <li>Open TaskTrack from your Home Screen and come back here to turn on notifications.</li>
+          </ol>
+        </div>
+      ) : (
         <p className="text-xs text-muted-foreground">
           This browser does not support TaskTrack notifications.
         </p>
-      )}
+      ))}
 
       {/* In-app sound */}
       <div className="border-t border-border pt-4 space-y-3">

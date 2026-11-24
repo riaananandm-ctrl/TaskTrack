@@ -47,6 +47,17 @@ export const BLOCKED_MESSAGE =
 export const SETUP_INCOMPLETE_MESSAGE =
   'Browser permission is enabled, but TaskTrack is not connected to this device. Reconnect notifications.';
 
+/** iPhone/iPad Safari only supports web push once TaskTrack is added to the Home Screen. */
+export function isIosBrowserTab(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone =
+    (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return ios && !standalone;
+}
+
 /** True only when every browser API this feature depends on is present. */
 export function isPushSupported(): boolean {
   return (
