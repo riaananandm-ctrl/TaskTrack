@@ -233,7 +233,7 @@ export default function GraderPage() {
               placeholder="Paste your essay, report or draft here, or upload a file above."
               className="leading-relaxed"
             />
-            {work.length >= MAX_WORK && <p className="text-xs text-amber-600">That&rsquo;s the maximum length. Only the first {MAX_WORK.toLocaleString()} characters are assessed.</p>}
+            {work.length >= MAX_WORK && <p className="text-xs text-amber-600">That&rsquo;s the maximum length. Only the first {MAX_WORK.toLocaleString('en-GB')} characters are assessed.</p>}
           </div>
 
           {error && (

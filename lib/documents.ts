@@ -150,6 +150,10 @@ export async function transferFile(
       }
     };
     xhr.onerror = () => reject(new UploadError('The connection dropped during the upload. Please try again.', 'NETWORK'));
+    // On very slow data a stalled upload would otherwise spin forever.
+    xhr.timeout = 5 * 60_000;
+    xhr.ontimeout = () => reject(new UploadError('The upload took too long on this connection. Please try again on better signal or Wi-Fi.', 'NETWORK'));
+    xhr.onabort = () => reject(new UploadError('The upload was stopped. Please try again.', 'NETWORK'));
     xhr.send(file);
   });
 }
@@ -195,8 +199,10 @@ export async function uploadDocument(
   | { status: 'failed'; error: string }
 > {
   const clientRequestKey = crypto.randomUUID();
-  const reservation = await reserveUpload(file, clientRequestKey);
   try {
+    // Inside the try: with no signal (airplane mode) this throws, and the student
+    // must see "failed, try again" instead of a spinner that never stops.
+    const reservation = await reserveUpload(file, clientRequestKey);
     onProgress?.('transferring', 0);
     await transferFile(reservation, file, (fraction) => onProgress?.('transferring', fraction));
     onProgress?.('processing', 1);
@@ -207,6 +213,9 @@ export async function uploadDocument(
     return { status: 'ready', documentId: result.documentId ?? reservation.documentId, extractedChars: 0 };
   } catch (err) {
     if (err instanceof UploadError) return { status: 'failed', error: err.message };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { status: 'failed', error: 'You\u2019re offline. Connect to the internet and try again.' };
+    }
     return { status: 'failed', error: 'Something went wrong. Please try again.' };
   }
 }

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase/client';
 import { YEAR_GROUPS } from '@/lib/types';
+import { cleanName, MAX_NAME_LENGTH, MAX_SCHOOL_LENGTH } from '@/lib/initials';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Loader2, AlertCircle, MailCheck, Check, Info } from 'lucide-react';
@@ -89,8 +90,22 @@ export default function SignupPage() {
     setDuplicateAccount(false);
     setGenericSignup(false);
 
+    const fullName = cleanName(formData.fullName);
+    const email = formData.email.trim();
+    if (!fullName) {
+      setError('Please enter your name.');
+      return;
+    }
+    if (!email) {
+      setError('Please enter your email.');
+      return;
+    }
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (!formData.password.trim() || new Set(formData.password).size < 3) {
+      setError('That password is too easy to guess. Use a mix of letters, numbers or symbols.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
@@ -104,14 +119,14 @@ export default function SignupPage() {
     let result;
     try {
       result = await supabase.auth.signUp({
-        email: formData.email,
+        email,
         password: formData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
-            full_name: formData.fullName,
+            full_name: fullName,
             year_group: formData.yearGroup,
-            school_name: formData.schoolName,
+            school_name: cleanName(formData.schoolName, MAX_SCHOOL_LENGTH),
           },
         },
       });
@@ -295,7 +310,7 @@ export default function SignupPage() {
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             {error}
             {duplicateAccount && (
-              <div className="flex gap-2 w-full mt-2">
+              <div className="flex flex-wrap gap-2 w-full mt-2">
                 <Button type="button" size="sm" className="flex-1" onClick={goToLogin}>
                   Log in
                 </Button>
@@ -313,6 +328,8 @@ export default function SignupPage() {
             type="text"
             placeholder="Alex Chen"
             required
+            maxLength={MAX_NAME_LENGTH}
+            autoComplete="name"
             value={formData.fullName}
             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
           />
@@ -377,6 +394,7 @@ export default function SignupPage() {
             id="schoolName"
             type="text"
             placeholder="Your school"
+            maxLength={MAX_SCHOOL_LENGTH}
             value={formData.schoolName}
             onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
           />
@@ -392,13 +410,13 @@ export default function SignupPage() {
         </p>
         <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15 text-sm">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-primary" />
-          <p className="text-muted-foreground">{SIGNUP_GENERIC_NOTICE}</p>
+          <p className="min-w-0 break-words text-muted-foreground">{SIGNUP_GENERIC_NOTICE}</p>
         </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="ghost" className="flex-1" onClick={goToLogin}>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" className="flex-1 whitespace-normal" onClick={goToLogin}>
             Log in
           </Button>
-          <Button type="button" variant="ghost" className="flex-1" onClick={goToForgotPassword}>
+          <Button type="button" variant="ghost" className="flex-1 whitespace-normal" onClick={goToForgotPassword}>
             Forgot password?
           </Button>
         </div>

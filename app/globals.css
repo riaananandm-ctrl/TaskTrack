@@ -91,6 +91,8 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    /* Decorative glows must never make a phone page scroll sideways (huge text, fold screens). */
+    overflow-x: clip;
     font-feature-settings: 'rlig' 1, 'calt' 1;
     font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
     transition: font-family 0.15s ease;

@@ -264,7 +264,7 @@ export default function RewriteCoachPage({ params }: { params: { id: string } })
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm">
               <span className="font-semibold">Saved draft</span>
-              <span className="text-muted-foreground"> · last saved {new Date(draft.updated_at).toLocaleString()}</span>
+              <span className="text-muted-foreground"> · last saved {new Date(draft.updated_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</span>
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => setShowOriginal((v) => !v)}>

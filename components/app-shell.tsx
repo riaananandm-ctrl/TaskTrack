@@ -6,6 +6,7 @@ import { Logo } from '@/components/logo';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import { initialsOf } from '@/lib/initials';
 import {
   LayoutDashboard,
   ListTodo,
@@ -93,14 +94,6 @@ function useUnreadReminders(): number {
   return unreadCount;
 }
 
-function initialsOf(name: string | null | undefined, email: string | null | undefined): string {
-  return (name || email || '?')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 /**
  * The full sidebar body: logo, destinations, premium card, profile box. Rendered

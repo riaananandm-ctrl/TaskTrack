@@ -68,5 +68,5 @@ export function useAiCredits() {
 /** "1 Dec" style date for when credits refill. */
 export function refillDate(iso: string | null): string {
   if (!iso) return 'the 1st';
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }

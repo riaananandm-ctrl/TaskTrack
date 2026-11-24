@@ -34,6 +34,8 @@ import { ParentSummaryCard } from '@/components/parent-summary-card';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { downloadTasksCsv } from '@/lib/export-tasks';
+import { initialsOf, cleanName, MAX_NAME_LENGTH, MAX_SCHOOL_LENGTH } from '@/lib/initials';
+import { isValidTimeZone, timeZoneOptions, deviceTimeZone } from '@/lib/time-zones';
 import { useAiCredits, refillDate } from '@/lib/ai-credits';
 
 export default function SettingsPage() {
@@ -67,6 +69,7 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savedProfile, setSavedProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [savedSettings, setSavedSettings] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [deleteTasksOpen, setDeleteTasksOpen] = useState(false);
@@ -165,16 +168,37 @@ export default function SettingsPage() {
   };
 
   const saveProfile = async () => {
-    if (!user) return;
+    if (!user || savingProfile) return;
+    const fullName = cleanName(profileForm.full_name);
+    if (!fullName) {
+      setProfileError('Please enter your name.');
+      return;
+    }
+    if (!isValidTimeZone(profileForm.timezone)) {
+      setProfileError('Please pick your time zone from the list.');
+      return;
+    }
+    setProfileError(null);
     setSavingProfile(true);
-    await supabase.from('profiles').update({
-      full_name: profileForm.full_name,
-      year_group: profileForm.year_group || null,
-      school_name: profileForm.school_name || null,
-      timezone: profileForm.timezone,
-    }).eq('id', user.id);
-    await refreshProfile();
+    let failed = false;
+    try {
+      const { error } = await supabase.from('profiles').update({
+        full_name: fullName,
+        year_group: profileForm.year_group || null,
+        school_name: cleanName(profileForm.school_name, MAX_SCHOOL_LENGTH) || null,
+        timezone: profileForm.timezone,
+      }).eq('id', user.id);
+      failed = !!error;
+    } catch {
+      failed = true;
+    }
     setSavingProfile(false);
+    if (failed) {
+      setProfileError('Your profile wasn\u2019t saved. Check your connection and try again.');
+      return;
+    }
+    setProfileForm((f) => ({ ...f, full_name: fullName }));
+    await refreshProfile();
     setSavedProfile(true);
     setTimeout(() => setSavedProfile(false), 2000);
   };
@@ -255,8 +279,7 @@ export default function SettingsPage() {
     setDeleteTasksOpen(false);
   };
 
-  const initials = (profileForm.full_name || user?.email || '?')
-    .split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  const initials = initialsOf(profileForm.full_name, user?.email);
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -297,7 +320,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name">Full name</Label>
-                <Input id="full_name" value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+                <Input id="full_name" maxLength={MAX_NAME_LENGTH} autoComplete="name" value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -316,13 +339,25 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="school_name">School name</Label>
-                  <Input id="school_name" value={profileForm.school_name} onChange={(e) => setProfileForm({ ...profileForm, school_name: e.target.value })} placeholder="Optional" />
+                  <Input id="school_name" maxLength={MAX_SCHOOL_LENGTH} value={profileForm.school_name} onChange={(e) => setProfileForm({ ...profileForm, school_name: e.target.value })} placeholder="Optional" />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone">Timezone</Label>
-                <Input id="timezone" value={profileForm.timezone} onChange={(e) => setProfileForm({ ...profileForm, timezone: e.target.value })} placeholder="e.g. Europe/London" />
+                <Select value={profileForm.timezone} onValueChange={(v) => setProfileForm({ ...profileForm, timezone: v })}>
+                  <SelectTrigger id="timezone"><SelectValue placeholder="Select your time zone" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {timeZoneOptions(profileForm.timezone).map((tz) => <SelectItem key={tz} value={tz}>{tz.replace(/_/g, ' ')}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {deviceTimeZone() && deviceTimeZone() !== profileForm.timezone && (
+                  <button type="button" className="text-xs text-primary hover:underline" onClick={() => setProfileForm({ ...profileForm, timezone: deviceTimeZone() })}>
+                    Use this device&rsquo;s time zone ({deviceTimeZone().replace(/_/g, ' ')})
+                  </button>
+                )}
+                <p className="text-xs text-muted-foreground">Reminders like &ldquo;due tomorrow&rdquo; are sent by this time zone.</p>
               </div>
+              {profileError && <p role="alert" className="text-sm text-destructive">{profileError}</p>}
               <Button onClick={saveProfile} disabled={savingProfile}>
                 {savingProfile ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : savedProfile ? <Check className="w-4 h-4 mr-2" /> : null}
                 {savedProfile ? 'Saved!' : 'Save profile'}
@@ -597,12 +632,12 @@ export default function SettingsPage() {
                   <Crown className="w-4 h-4 text-primary" /> Your plan: {entitlements.name}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {entitlements.monthlyAiCredits.toLocaleString()} AI credits a month · {entitlements.maxMessageChars.toLocaleString()} characters per message
+                  {entitlements.monthlyAiCredits.toLocaleString('en-GB')} AI credits a month · {entitlements.maxMessageChars.toLocaleString('en-GB')} characters per message
                 </p>
                 {credits && (
                   <div className="mt-4 max-w-sm">
                     <div className="flex items-baseline justify-between text-sm">
-                      <span className="font-medium">{credits.remaining.toLocaleString()} credits left</span>
+                      <span className="font-medium">{credits.remaining.toLocaleString('en-GB')} credits left</span>
                       <span className="text-xs text-muted-foreground">Refills {refillDate(credits.resetsAt)}</span>
                     </div>
                     <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">

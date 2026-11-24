@@ -8,6 +8,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth-context';
+import { initialsOf } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 import {
   Settings, Crown, Bell, LayoutDashboard, ListTodo, Calendar, BookOpen,
@@ -44,12 +45,7 @@ export function AccountSheet({ open, onOpenChange }: AccountSheetProps) {
   const { user, profile, signOut } = useAuth();
   const pathname = usePathname();
 
-  const initials = (profile?.full_name || user?.email || '?')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const initials = initialsOf(profile?.full_name, user?.email);
 
   const close = () => onOpenChange(false);
 

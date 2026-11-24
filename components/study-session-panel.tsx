@@ -491,7 +491,7 @@ export function StudySessionPanel({
     if (!text.trim() || loading || limitReached) return;
 
     if (text.length > maxChars) {
-      setError(`Your message is too long. Please keep it under ${maxChars.toLocaleString()} characters.`);
+      setError(`Your message is too long. Please keep it under ${maxChars.toLocaleString('en-GB')} characters.`);
       return;
     }
 
