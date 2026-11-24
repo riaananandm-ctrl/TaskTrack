@@ -29,6 +29,33 @@ export interface UploadUsage {
   limit: number;
 }
 
+/**
+ * The only content types TaskTrack stores, keyed by file extension. Uploads are
+ * labelled from this map rather than from the browser's claimed type, so a file can
+ * never be stored as something a browser would run (text/html, image/svg+xml, …).
+ * Keep in step with the bucket's allowed_mime_types and reserve_document_upload.
+ */
+export const UPLOAD_CONTENT_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  csv: 'text/csv',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+};
+
+export function uploadContentType(fileName: string): string | null {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  return UPLOAD_CONTENT_TYPES[ext] ?? null;
+}
+
 export class UploadError extends Error {
   code: string;
   constructor(message: string, code = 'UPLOAD_FAILED') {
@@ -49,9 +76,11 @@ export async function reserveUpload(
   file: File,
   clientRequestKey: string
 ): Promise<UploadReservation> {
+  const contentType = uploadContentType(file.name);
+  if (!contentType) throw new UploadError('That file type is not supported.', 'UNSUPPORTED_TYPE');
   const { data, error } = await supabase.rpc('reserve_document_upload', {
     p_file_name: file.name,
-    p_declared_mime: file.type || 'application/octet-stream',
+    p_declared_mime: contentType,
     p_size_bytes: file.size,
     p_client_request_key: clientRequestKey,
   });
@@ -103,7 +132,7 @@ export async function transferFile(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
     xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.setRequestHeader('Content-Type', uploadContentType(file.name) ?? 'application/octet-stream');
     xhr.setRequestHeader('x-upsert', 'false');
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);

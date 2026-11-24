@@ -77,11 +77,46 @@ class ExtractionError extends Error {
   }
 }
 
+const startsWith = (bytes: Uint8Array, sig: number[], at = 0) =>
+  bytes.length >= at + sig.length && sig.every((b, i) => bytes[at + i] === b);
+
+/**
+ * True when the file's first bytes match what its extension promises. Stops a
+ * renamed file (an .html, .exe or .svg called "notes.png") from being treated as
+ * the safe type it claims to be.
+ */
+function contentMatchesExtension(bytes: Uint8Array, ext: string): boolean {
+  const ZIP = [0x50, 0x4b, 0x03, 0x04]; // docx, pptx, xlsx are zip packages
+  const OLE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]; // legacy doc, ppt
+  switch (ext) {
+    case 'pdf': {
+      // %PDF- may follow a little junk at the start; scan the first KB.
+      const head = new TextDecoder('latin1').decode(bytes.subarray(0, 1024));
+      return head.includes('%PDF-');
+    }
+    case 'png': return startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    case 'jpg': case 'jpeg': return startsWith(bytes, [0xff, 0xd8, 0xff]);
+    case 'webp': return startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8);
+    case 'docx': case 'pptx': case 'xlsx': return startsWith(bytes, ZIP);
+    case 'doc': case 'ppt': return startsWith(bytes, OLE);
+    case 'txt': case 'md': case 'csv': {
+      // Plain text has no NUL bytes; binaries almost always do.
+      const sample = bytes.subarray(0, 8192);
+      return !sample.includes(0);
+    }
+    default: return false;
+  }
+}
+
 async function extractText(
   bytes: Uint8Array,
   fileName: string
 ): Promise<{ chunks: Array<{ c: string; p?: number }>; truncated: boolean }> {
   const ext = extensionOf(fileName);
+
+  if (!contentMatchesExtension(bytes, ext)) {
+    throw new ExtractionError('FILE_TYPE_MISMATCH', 'This file is not really the type its name says, so it was not opened. Upload the original file.');
+  }
 
   if (ext === 'txt' || ext === 'md' || ext === 'csv') {
     const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);

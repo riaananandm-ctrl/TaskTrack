@@ -83,12 +83,8 @@ function functionUrl(): string {
  * remains the thing that is trusted.
  */
 function gatewayKey(): string {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    ''
-  );
+  // Never the service-role key: it would grant far more than this request needs.
+  return process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 }
 
 /**
