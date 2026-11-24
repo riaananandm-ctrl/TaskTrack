@@ -11,6 +11,7 @@ import { isAssessPrepTask, getTaskDeadline } from '@/lib/deadline-status';
 import { cleanupPastAssessPrepTasks } from '@/lib/assessprep-cleanup';
 import { clearPageCache } from '@/lib/page-cache';
 import { clearUserSettingsCache } from '@/lib/user-settings-cache';
+import { captureSignupRef, reportSignupRef } from '@/lib/signup-ref';
 
 interface AuthContextType {
   user: User | null;
@@ -54,6 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+
+    // Remember ?ref=<tag> from ad and poster links until the visitor signs up.
+    captureSignupRef(window.location.search);
 
     // Register the auth listener BEFORE calling getSession so we never miss
     // an event that fires between the two calls.
@@ -137,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           (async () => {
             await loadProfile(session.user.id);
           })();
+          // Marketing attribution for brand-new accounts (no-op if no ?ref was seen).
+          reportSignupRef(supabase).catch(() => {});
         } else {
           setProfile(null);
           setLoading(false);
