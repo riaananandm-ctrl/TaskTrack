@@ -457,22 +457,23 @@ You are getting this because you have a task due tomorrow in TaskTrack.${setting
 
 /**
  * Email a TaskTrack announcement (reminder_type 'announcement') once, as written.
- * Skipped silently when email is not configured, there is no address, or it was sent.
+ * 'skipped' when email is not configured, there is no address, or it was already sent;
+ * 'failed' when the provider refused it, so the sweep can retry it later.
  */
 async function sendAnnouncementEmail(
   admin: ReturnType<typeof createClient>,
-  row: ClaimedReminder
-): Promise<boolean> {
+  row: Pick<ClaimedReminder, 'reminder_id' | 'user_id' | 'title' | 'message'>
+): Promise<'sent' | 'failed' | 'skipped'> {
   const provider = emailProvider();
-  if (!provider) return false;
+  if (!provider) return 'skipped';
 
   const [{ data: reminder }, { data: profile }] = await Promise.all([
     admin.from('reminders').select('email_sent_at, is_enabled').eq('id', row.reminder_id).maybeSingle(),
     admin.from('profiles').select('email, full_name').eq('id', row.user_id).maybeSingle(),
   ]);
-  if (!reminder || reminder.email_sent_at || !reminder.is_enabled) return false;
+  if (!reminder || reminder.email_sent_at || !reminder.is_enabled) return 'skipped';
   const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
-  if (!to) return false;
+  if (!to) return 'skipped';
 
   const heading = row.title.trim() || 'A message from TaskTrack';
   const message = (row.message || '').trim();
@@ -492,9 +493,9 @@ async function sendAnnouncementEmail(
 </td></tr></table></td></tr></table></body></html>`;
   const text = `${firstName ? `Hi ${firstName},\n\n` : ''}${heading}\n\n${message}\n\nOpen TaskTrack: ${appLink}`;
 
-  if (!(await deliverEmail(provider, to, firstName, heading, html, text))) return false;
+  if (!(await deliverEmail(provider, to, firstName, heading, html, text))) return 'failed';
   await admin.from('reminders').update({ email_sent_at: new Date().toISOString() }).eq('id', row.reminder_id);
-  return true;
+  return 'sent';
 }
 
 Deno.serve(async (req: Request) => {
@@ -606,7 +607,15 @@ Deno.serve(async (req: Request) => {
       }
       if (row.reminder_type === 'announcement' && !emailHandled.has(row.reminder_id)) {
         emailHandled.add(row.reminder_id);
-        if (await sendAnnouncementEmail(admin, row)) emailed += 1;
+        const outcome = await sendAnnouncementEmail(admin, row);
+        if (outcome === 'sent') emailed += 1;
+        if (outcome === 'failed') {
+          // Queue it for claim_announcement_email_retries (every 15 minutes, for a day).
+          await admin
+            .from('reminders')
+            .update({ email_attempts: 1, email_last_attempt_at: new Date().toISOString() })
+            .eq('id', row.reminder_id);
+        }
       }
 
       // Nothing to do when the student has notifications off or no live device.
@@ -656,6 +665,15 @@ Deno.serve(async (req: Request) => {
           .from('reminders')
           .update({ push_claimed_at: null })
           .eq('id', row.reminder_id);
+      }
+    }
+
+    // Retry announcement emails the provider refused earlier (for example before a new
+    // Brevo account was activated). Claiming already counted the attempt.
+    if (emailProvider()) {
+      const { data: retries } = await admin.rpc('claim_announcement_email_retries', { batch_size: 10 });
+      for (const retry of (retries ?? []) as Pick<ClaimedReminder, 'reminder_id' | 'user_id' | 'title' | 'message'>[]) {
+        if ((await sendAnnouncementEmail(admin, retry)) === 'sent') emailed += 1;
       }
     }
 
