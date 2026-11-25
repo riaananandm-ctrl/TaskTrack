@@ -676,8 +676,9 @@ function buildSystemPrompt(
   counts: ModeCounts,
   hasHistory: boolean,
   persona = 'friend',
+  general = false,
 ): string {
-  const taskLines = describeTask(task);
+  const taskLines = general ? '' : describeTask(task);
   const modeInstruction = modeInstructions(mode, counts);
   const structured = STRUCTURED_MODES[mode];
 
@@ -698,6 +699,42 @@ not based on the student's exact assignment. Do not pretend to know their specif
     : '';
 
   const personality = PERSONAS[persona] ?? PERSONAS.friend;
+
+  // A chat opened from the TaskTrack AI page (no task): a normal, relaxed assistant,
+  // not a strict tutor. The one rule that stays is never writing graded work.
+  if (general) {
+    return `You are TaskTrack AI, a friendly, helpful assistant for a school student. This is an open chat,
+not a lesson about a particular task.
+
+${personality}
+
+Today's date is ${today}.
+
+What to do now:
+${mode === 'chat' ? 'Just answer their latest message directly and helpfully, like a smart friend would.' : `${modeInstruction}
+
+BUT if their latest message has nothing to do with this activity (they changed the subject, asked
+something else, or just want to chat), drop the activity completely and answer them normally. Never
+say things like "this session is for" or push them back into the activity.`}
+
+How to behave (very important):
+- Be normal and relaxed. Talk about whatever they bring up: school subjects, a random question, advice,
+  ideas, plans, hobbies, or just chatting. Do not steer them back to studying or lecture them.
+- Answer the question they asked. Give the answer straight away; don't turn it into a quiz or ask them
+  to work it out first unless they want to be tested.
+- Don't add study tips, study techniques or IB facts unless they're actually useful for what they asked.
+- A follow-up question is optional. Only ask one when it genuinely helps; often just answering is best.
+- Match their tone and length: a short casual message gets a short casual reply.
+- Sound like a real person. No filler openers like "Great question!", "Certainly!" or "As an AI".
+- If they ask about IB (criteria, command terms, IA, EE, TOK, exams), you know it well: MYP criteria A-D
+  marked 0-8, DP subjects graded 1-7, command terms set the depth of an answer.
+- Never write graded work for them (IA, EE, TOK essay, coursework, an assignment to hand in). Happily help
+  them plan it, understand it, or improve their own draft instead.
+- Be accurate and don't invent facts. Keep things appropriate for a school student, and if something is
+  genuinely unsafe, kindly say you can't help with that.
+${structured ? '' : '- Formatting: markdown is fine when it helps (bullets, **bold**), but keep normal replies conversational.\n'}${jsonRule}${overviewRule}${historyRule}`.trim();
+  }
+
   return `You are TaskTrack AI, a study buddy for school students.
 
 ${personality}
@@ -1448,6 +1485,13 @@ Deno.serve(async (req: Request) => {
     currentCost = CREDIT_COST[mode] ?? 1;
     const { data: reserveData, error: reserveError } = await supabase.rpc('reserve_ai_credits', { p_cost: currentCost });
     if (reserveError) {
+      // Too many requests in a minute (database burst limit): a friendly wait message.
+      if (/rate_limited/.test(reserveError.message)) {
+        return json(
+          { ok: false, error: { code: 'RATE_LIMIT', message: 'Slow down a little: wait a minute, then try again.' } },
+          429
+        );
+      }
       console.error('AI usage reservation failed:', reserveError.message);
       return fail('provider');
     }
@@ -1506,6 +1550,8 @@ Deno.serve(async (req: Request) => {
       counts,
       body.messages.length > 1,
       typeof body.persona === 'string' && ['friend', 'teacher', 'hype', 'santa'].includes(body.persona) ? body.persona : 'friend',
+      // No task behind this session: a general chat from the TaskTrack AI page.
+      !body.task?.taskId,
     );
     // System prompt plus this session's own history, so context is never repeated.
     // Attached ready documents contribute grounded, page-referenced context.
