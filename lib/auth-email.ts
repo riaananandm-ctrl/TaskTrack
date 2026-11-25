@@ -62,7 +62,7 @@ export function safeAuthMessage(message: string | undefined | null): string {
     return 'An account with this email already exists. Try logging in instead.';
   }
   if (text.includes('password') && text.includes('least')) {
-    return 'Your password is too short. Please use at least 6 characters.';
+    return 'Your password is too short. Please use at least 8 characters.';
   }
   if (text.includes('one-time token') || text.includes('otp_expired') || text.includes('token not found') || text.includes('already been')) {
     return 'This link has already been used or is no longer valid. Request a new email below.';

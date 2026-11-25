@@ -100,8 +100,8 @@ export default function SignupPage() {
       setError('Please enter your email.');
       return;
     }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (!formData.password.trim() || new Set(formData.password).size < 3) {
@@ -350,7 +350,7 @@ export default function SignupPage() {
           <Input
             id="password"
             type="password"
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters"
             required
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
