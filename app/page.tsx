@@ -343,7 +343,7 @@ export default function LandingPage() {
                 },
                 {
                   q: 'What do Premium and Max add?',
-                  a: 'Premium (₹499 for 3 months) gives 500 AI credits a month, the AI whiteboard tutor, the AI Detector, unlimited tasks and reminders, worked examples, study plans, and bigger quizzes and flashcard sets. Max (₹999 for 3 months) adds 1,000 credits a month and Rewrite Coach. Both are paid once by UPI and never renew by themselves.',
+                  a: 'Premium (₹499 for 3 months) gives 500 AI credits a month, the AI whiteboard tutor, the AI Detector, unlimited tasks and reminders, worked examples, study plans, and bigger quizzes and flashcard sets. Max (₹999 for 3 months) adds 1,000 credits a month and Rewrite Coach. Premium also comes as a single month for ₹149. Every account can try Premium free for 7 days. All plans are paid once by UPI and never renew by themselves.',
                 },
               ].map((item) => (
                 <details key={item.q} className="group rounded-xl border border-slate-200 bg-white p-5 open:shadow-sm">

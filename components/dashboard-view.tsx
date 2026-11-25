@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ExamBoostCard } from '@/components/exam-boost-card';
 import { Spotlight } from '@/components/fx/spotlight';
 import { Aurora } from '@/components/fx/aurora';
 import {
@@ -227,20 +228,16 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
         </div>
       </Spotlight>
 
-      <Link href="/app/leaderboard" aria-label="Open the leaderboard" className="block rounded-xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-        <XpStreakWidget />
-      </Link>
-
       {!managebacConnected && !bannerDismissed && (
         <Card className="p-4 border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/20">
           <div className="flex flex-wrap items-center gap-3">
             <CalendarCheckIcon size={34} />
             <div className="flex-1 min-w-[12rem]">
               <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
-                You haven&rsquo;t connected ManageBac yet.
+                Step 1: connect ManageBac
               </p>
               <p className="text-xs text-blue-700/80 dark:text-blue-400/80">
-                Connect now to see all your deadlines in one place.
+                Takes about a minute. Your deadlines then come in on their own, and TaskTrack AI knows every task.
               </p>
             </div>
             <div className="flex items-center gap-1 ml-auto">
@@ -259,6 +256,12 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
           </div>
         </Card>
       )}
+
+      <ExamBoostCard />
+
+      <Link href="/app/leaderboard" aria-label="Open the leaderboard" className="block rounded-xl transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+        <XpStreakWidget />
+      </Link>
 
       {overdue.length > 0 && (
         <Card className="p-4 border-red-200 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20">

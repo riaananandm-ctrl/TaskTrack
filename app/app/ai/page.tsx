@@ -14,6 +14,7 @@ import {
 import { StudySessionPanel } from '@/components/study-session-panel';
 import { useAiCredits, CREDIT_COSTS } from '@/lib/ai-credits';
 import { Button } from '@/components/ui/button';
+import { ExamBoostCard } from '@/components/exam-boost-card';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -144,6 +145,8 @@ export default function TaskTrackAiPage() {
           </ul>
         </div>
       </div>
+
+      <ExamBoostCard />
 
       {ready && (!integrated || !hasTasks) && (
         <div className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">

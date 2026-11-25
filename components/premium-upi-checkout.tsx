@@ -10,17 +10,21 @@ import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import {
+  CHECKOUT_OPTIONS,
   PAID_PLAN_NAME,
-  PLAN_PRICE_INR,
   PREMIUM_UPI_NUMBER,
+  type CheckoutOption,
   type PaidPlanId,
+  monthsLabel,
   openPremiumWhatsApp,
   premiumPaidMessage,
 } from '@/lib/premium-contact';
+import { logUpgradeViewed } from '@/lib/premium-trial';
 
 interface PremiumRequest {
   utr: string;
   plan: PaidPlanId;
+  months: number | null;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
@@ -34,9 +38,10 @@ const ERRORS: Record<string, string> = {
   auth: 'Please sign in again and retry.',
 };
 
-const PLAN_POINTS: Record<PaidPlanId, string> = {
+const OPTION_POINTS: Record<CheckoutOption['id'], string> = {
+  pro_month: '500 AI credits, every study tool. Good for exam month',
   pro: '500 AI credits a month, whiteboard tutor, AI Detector',
-  max: '1,000 AI credits a month, everything in Premium, plus Rewrite Coach',
+  max: '1,000 AI credits a month, plus Rewrite Coach',
 };
 
 /** Pay by UPI, enter the UTR, then tell the team on WhatsApp. */
@@ -47,11 +52,12 @@ export function PremiumUpiCheckout({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  initialPlan?: PaidPlanId;
+  initialPlan?: CheckoutOption['id'];
 }) {
   const { user } = useAuth();
-  const [plan, setPlan] = useState<PaidPlanId>(initialPlan);
-  const price = PLAN_PRICE_INR[plan];
+  const [optionId, setOptionId] = useState<CheckoutOption['id']>(initialPlan);
+  const option = CHECKOUT_OPTIONS.find((o) => o.id === optionId) ?? CHECKOUT_OPTIONS[1];
+  const { plan, months, price } = option;
   const name = PAID_PLAN_NAME[plan];
   const [utr, setUtr] = useState('');
   const [copied, setCopied] = useState(false);
@@ -62,7 +68,7 @@ export function PremiumUpiCheckout({
   const loadPending = useCallback(async () => {
     const { data } = await supabase
       .from('premium_requests')
-      .select('utr, plan, status, created_at')
+      .select('utr, plan, months, status, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
@@ -73,8 +79,9 @@ export function PremiumUpiCheckout({
   useEffect(() => {
     if (open) {
       setError(null);
-      setPlan(initialPlan);
+      setOptionId(initialPlan);
       loadPending();
+      logUpgradeViewed('checkout');
     }
   }, [open, loadPending, initialPlan]);
 
@@ -96,7 +103,7 @@ export function PremiumUpiCheckout({
     }
     setBusy(true);
     setError(null);
-    const { data, error: rpcError } = await supabase.rpc('request_premium', { p_utr: clean, p_plan: plan });
+    const { data, error: rpcError } = await supabase.rpc('request_premium', { p_utr: clean, p_plan: plan, p_months: months });
     setBusy(false);
     const row = Array.isArray(data) ? data[0] : data;
     if (rpcError || !row) {
@@ -111,7 +118,7 @@ export function PremiumUpiCheckout({
     setUtr('');
     await loadPending();
     // Let the team know straight away.
-    openPremiumWhatsApp(premiumPaidMessage(clean, user?.email, plan));
+    openPremiumWhatsApp(premiumPaidMessage(clean, user?.email, plan, months));
   };
 
   return (
@@ -119,7 +126,7 @@ export function PremiumUpiCheckout({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Get {pending ? PAID_PLAN_NAME[pending.plan] : name}</DialogTitle>
-          <DialogDescription>Paid once for 3 months. It never renews by itself.</DialogDescription>
+          <DialogDescription>Paid once. It never renews by itself.</DialogDescription>
         </DialogHeader>
 
         {pending ? (
@@ -137,29 +144,30 @@ export function PremiumUpiCheckout({
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => openPremiumWhatsApp(premiumPaidMessage(pending.utr, user?.email, pending.plan))}
+              onClick={() => openPremiumWhatsApp(premiumPaidMessage(pending.utr, user?.email, pending.plan, pending.months ?? 3))}
             >
               <MessageCircle className="mr-2 h-4 w-4" /> Message us on WhatsApp
             </Button>
           </div>
         ) : (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Choose a plan">
-              {(['pro', 'max'] as PaidPlanId[]).map((id) => (
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Choose a plan">
+              {CHECKOUT_OPTIONS.map((o) => (
                 <button
-                  key={id}
+                  key={o.id}
                   type="button"
                   role="radio"
-                  aria-checked={plan === id}
-                  onClick={() => setPlan(id)}
+                  aria-checked={optionId === o.id}
+                  onClick={() => setOptionId(o.id)}
                   className={cn(
-                    'rounded-xl border p-3 text-left transition-colors',
-                    plan === id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50',
+                    'rounded-xl border p-2.5 text-left transition-colors',
+                    optionId === o.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50',
                   )}
                 >
-                  <span className="block text-sm font-semibold">{PAID_PLAN_NAME[id]}</span>
-                  <span className="block text-lg font-bold">₹{PLAN_PRICE_INR[id]}</span>
-                  <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">{PLAN_POINTS[id]}</span>
+                  <span className="block text-sm font-semibold">{PAID_PLAN_NAME[o.plan]}</span>
+                  <span className="block text-lg font-bold">₹{o.price}</span>
+                  <span className="block text-[11px] font-medium text-muted-foreground">{monthsLabel(o.months)}</span>
+                  <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">{OPTION_POINTS[o.id]}</span>
                 </button>
               ))}
             </div>

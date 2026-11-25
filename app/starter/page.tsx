@@ -251,27 +251,6 @@ export default function StarterPage() {
           <Logo />
         </div>
 
-        {/* Step 1: pick subjects, so imported tasks can be sorted into them */}
-        <section id="pick-subjects" className="mb-8">
-          <Card className="p-6 sm:p-8">
-            <div className="flex items-center gap-2 mb-1">
-              <BookOpen className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Step 1 — Your subjects</span>
-              {subjectsDone && (
-                <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-full">
-                  <Check className="w-3 h-3" /> Done
-                </span>
-              )}
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold mb-1">Which subjects do you take?</h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              Pick your subjects. When your tasks come in from ManageBac or Google Classroom, TaskTrack AI reads each one and files it under the right subject.
-            </p>
-            <SubjectPicker onDone={() => setSubjectsDone(true)} />
-          </Card>
-        </section>
-
-        {/* Layout: hero + sidebar with XP widget */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-6 mb-8">
           {/* ManageBac hero — the first and biggest thing */}
           <Card className="relative overflow-hidden p-8 sm:p-10 bg-gradient-to-br from-blue-600 to-sky-500 text-white border-0">
@@ -279,7 +258,7 @@ export default function StarterPage() {
             <div className="relative">
               <div className="flex items-center gap-2 mb-4">
                 <Calendar className="w-7 h-7" />
-                <span className="text-sm font-medium uppercase tracking-wide opacity-90">Step 2 — Get connected</span>
+                <span className="text-sm font-medium uppercase tracking-wide opacity-90">Step 1 — Get connected</span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold leading-tight mb-3">
                 Connect ManageBac — see all your deadlines in one place
@@ -440,6 +419,28 @@ export default function StarterPage() {
             </div>
           )}
         </section>
+
+        {/* Step 2: pick subjects, so imported tasks are sorted into them */}
+        <section id="pick-subjects" className="mb-8">
+          <Card className="p-6 sm:p-8">
+            <div className="flex items-center gap-2 mb-1">
+              <BookOpen className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Step 2 — Your subjects</span>
+              {subjectsDone && (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 dark:bg-green-950/30 px-2 py-1 rounded-full">
+                  <Check className="w-3 h-3" /> Done
+                </span>
+              )}
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-1">Which subjects do you take?</h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              Pick your subjects. TaskTrack AI reads each task that comes in from ManageBac or Google Classroom and files it under the right subject.
+            </p>
+            <SubjectPicker onDone={() => setSubjectsDone(true)} />
+          </Card>
+        </section>
+
+        {/* Layout: hero + sidebar with XP widget */}
 
         {/* Manual fallback */}
         <section id="manual-fallback" className="mb-10">

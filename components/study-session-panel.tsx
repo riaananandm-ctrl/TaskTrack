@@ -74,6 +74,7 @@ import {
   type ScheduledStudySession,
 } from '@/lib/study-schedule';
 import { saveQuizAttempt, type QuizResult } from '@/lib/quiz-attempts';
+import { UpgradeNudge, claimUpgradeNudgeSlot } from '@/components/upgrade-nudge';
 
 interface DisplayMessage {
   id: string;
@@ -133,7 +134,8 @@ const TOOL_ICONS: Record<StudyMode, ReactNode> = {
 const PERSONA_KEY = 'tasktrack.ai.persona';
 const SUGGEST_KEY = 'tasktrack.ai.suggested';
 /** The original tools; the rest are listed under "More ways to study". */
-const CORE_MODES = new Set<StudyMode>(['explain', 'flashcards', 'quiz', 'plan', 'practice', 'examples', 'slides', 'videos']);
+// The three tools most students need; everything else sits behind "More ways to study".
+const CORE_MODES = new Set<StudyMode>(['explain', 'quiz', 'plan']);
 
 function toDisplay(row: StudySessionMessage): DisplayMessage {
   const mode = (row.mode as StudyMode | null) ?? null;
@@ -193,6 +195,9 @@ export function StudySessionPanel({
   const [mobileTab, setMobileTab] = useState<'chat' | 'tools'>('chat');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [moreToolsOpen, setMoreToolsOpen] = useState(false);
+  const [starterMoreOpen, setStarterMoreOpen] = useState(false);
+  // Free students see a Premium offer right after a good quiz or a new study plan.
+  const [upgradeNudge, setUpgradeNudge] = useState<'quiz' | 'plan' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Portals need a browser-side target; rendering them on the server would throw.
@@ -681,6 +686,7 @@ export function StudySessionPanel({
       // A generated study plan becomes real, persistent scheduled sessions.
       if (mode === 'plan' && structured) {
         await persistPlan(structured as StudyPlanData);
+        if (!isPro && claimUpgradeNudgeSlot()) setUpgradeNudge('plan');
       }
 
       // Save successful replies. If saving fails the answer is still shown, so a
@@ -769,6 +775,9 @@ export function StudySessionPanel({
    */
   const saveAttempt = useCallback(
     async (result: QuizResult) => {
+      if (!isPro && result.total > 0 && result.score / result.total >= 0.6 && claimUpgradeNudgeSlot()) {
+        setUpgradeNudge('quiz');
+      }
       try {
         await saveQuizAttempt({
           sessionId: session.id,
@@ -779,7 +788,7 @@ export function StudySessionPanel({
         // The attempt is not critical to the study flow; skip silently.
       }
     },
-    [session.id, task?.id]
+    [session.id, task?.id, isPro]
   );
 
   if (!open) return null;
@@ -787,7 +796,7 @@ export function StudySessionPanel({
   const subjectColour = task?.subject?.colour || '#315EDB';
   const dueDate = task?.due_date ? parseISO(task.due_date) : null;
   const dueValid = dueDate && isValid(dueDate) ? dueDate : null;
-  const starterModes = MODE_OPTIONS.filter((o) => ['explain', 'quiz', 'flashcards', 'plan'].includes(o.id));
+  const starterModes = MODE_OPTIONS.filter((o) => CORE_MODES.has(o.id));
   const personaOptions = PERSONAS.filter((p) => p.id !== 'santa' || christmasOn);
   const lastMessage = messages[messages.length - 1];
   const showReplyChips =
@@ -895,7 +904,7 @@ export function StudySessionPanel({
       {/* Study tools */}
       <section aria-label="Study tools">
         <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Study tools</h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2">
           {MODE_OPTIONS.filter((o) => CORE_MODES.has(o.id)).map((option) => (
             <button
               key={option.id}
@@ -1199,7 +1208,7 @@ export function StudySessionPanel({
                       </>
                     )}
                   </p>
-                  <div className="mt-6 grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="mt-6 grid w-full max-w-lg grid-cols-1 gap-2">
                     {starterModes.map((option) => (
                       <button
                         key={option.id}
@@ -1219,6 +1228,30 @@ export function StudySessionPanel({
                       </button>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setStarterMoreOpen((o) => !o)}
+                    aria-expanded={starterMoreOpen}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    More ways to study
+                    <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', starterMoreOpen && 'rotate-180')} />
+                  </button>
+                  {starterMoreOpen && (
+                    <div className="mt-2 flex w-full max-w-lg flex-wrap justify-center gap-1.5">
+                      {MODE_OPTIONS.filter((o) => !CORE_MODES.has(o.id)).map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => startMode(option.id)}
+                          disabled={loading || limitReached}
+                          title={MODE_BLURBS[option.id]}
+                          className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1254,6 +1287,8 @@ export function StudySessionPanel({
                   </div>
                 )
               )}
+
+              {upgradeNudge && <UpgradeNudge reason={upgradeNudge} onClose={() => setUpgradeNudge(null)} />}
 
               {showReplyChips && (
                 <div className="flex flex-wrap gap-1.5 pl-11" aria-label="Quick replies">

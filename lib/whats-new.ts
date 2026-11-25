@@ -21,6 +21,32 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-25-launch',
+    date: '2026-11-25',
+    title: 'Free week, monthly Premium and exam boosts',
+    items: [
+      {
+        title: 'Try Premium free for 7 days',
+        description: 'One free week per account. No payment, and it switches back to Free by itself.',
+        href: '/app/premium',
+      },
+      {
+        title: 'Premium for one month',
+        description: 'Just need it for exam month? Premium is now ₹149 for a month, as well as ₹499 for 3 months.',
+        href: '/app/premium',
+      },
+      {
+        title: 'Exam week boost',
+        description: 'Got a test or exam in the next 7 days? Claim 20 extra AI credits for revision, once a month.',
+        href: '/app',
+      },
+      {
+        title: 'Simpler Study Session',
+        description: 'Explain, Quiz and Study plan come first. Everything else is under "More ways to study".',
+      },
+    ],
+  },
+  {
     id: '2026-11-25',
     date: '2026-11-25',
     title: 'TaskTrack AI in the menu',
