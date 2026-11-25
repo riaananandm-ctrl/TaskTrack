@@ -2100,7 +2100,7 @@ function UploadDialog({ onClose, isPro, onAttached }: UploadDialogProps) {
         )}
 
         <div className="text-xs text-muted-foreground space-y-1">
-          <p>PDF, Word, PowerPoint, text, markdown, images (PNG/JPG/WebP), CSV, Excel. 20 MB maximum per document.</p>
+          <p>PDF, Word, PowerPoint, text, markdown, images (PNG/JPG/WebP), CSV, Excel. 20 MB maximum per document. The AI reads up to 15,000 words of each one. Questions about a big file use more AI credits, since the AI reads more.</p>
           <p>
             {isPro ? 'Pro' : 'Free'} allowance: {uploadUsage ? `${uploadUsage.used}/${uploadUsage.limit}` : monthlyLimit} successful{' '}
             {uploadUsage ? '' : 'uploads/'}month. Only files that process successfully count.
