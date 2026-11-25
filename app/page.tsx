@@ -253,7 +253,7 @@ export default function LandingPage() {
                   {[
                     'Tasks, subjects, and planning',
                     'Calendar and reminders',
-                    '50 AI credits a month',
+                    '40 AI credits a month',
                     'Quizzes (5 questions) and flashcards (5 cards)',
                     'ManageBac and Google Classroom connections',
                   ].map((item) => (
@@ -339,7 +339,7 @@ export default function LandingPage() {
                 },
                 {
                   q: 'How do AI credits work?',
-                  a: 'Every AI action uses credits: a chat message or explanation is 1, a quiz, flashcards or study plan is 2, a slide deck is 3, and an AI Grader check is 5. Bigger requests use a little more. Free accounts get 50 credits a month, Premium 500 and Max 1,000. They refill on the 1st of every month, and if the AI fails you get them back.',
+                  a: 'Every AI action uses credits: a chat message or explanation is 1, flashcards are 2, an AI Grader check is 5, and a quiz, study plan or slide deck is 8. Bigger requests use a little more. Free accounts get 40 credits a month, Premium 500 and Max 1,000. They refill on the 1st of every month, and if the AI fails you get them back.',
                 },
                 {
                   q: 'What do Premium and Max add?',

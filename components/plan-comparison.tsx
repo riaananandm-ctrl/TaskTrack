@@ -14,7 +14,7 @@ import type { PaidPlanId } from '@/lib/premium-contact';
 import { useAuth } from '@/lib/auth-context';
 
 const FREE_FEATURES: { label: string; included: boolean }[] = [
-  { label: 'TaskTrack AI — 50 credits a month', included: true },
+  { label: 'TaskTrack AI — 40 credits a month', included: true },
   { label: 'Basic task and reminder management', included: true },
   { label: 'Basic planner and calendar', included: true },
   { label: 'Quizzes with 5 questions', included: true },

@@ -15,15 +15,16 @@ export const CREDIT_COSTS = {
   explain: 1,
   examples: 1,
   practice: 1,
-  quiz: 2,
+  quiz: 8,
+  speed: 8,
   flashcards: 2,
-  plan: 2,
-  slides: 3,
+  plan: 8,
+  slides: 8,
   grade: 5,
   group: 1,
 } as const;
 
-export const MONTHLY_CREDITS = { free: 50, pro: 500, max: 1000 } as const;
+export const MONTHLY_CREDITS = { free: 40, pro: 500, max: 1000 } as const;
 
 export const CREDITS_CHANGED_EVENT = 'tasktrack:credits-changed';
 

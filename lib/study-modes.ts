@@ -118,13 +118,15 @@ export const MODE_OPTIONS: ModeOption[] = [
 /** One-line description for each study tool, shown in the suggestion pop-up and tool list. */
 export const MODE_BLURBS: Partial<Record<StudyMode, string>> = {
   explain: 'A clear, simple explanation of the topic.',
-  quiz: 'A quick multiple-choice quiz that earns XP.',
+  plan: 'A day-by-day plan up to your due date. 8 credits.',
+  slides: 'A revision slide deck you can present. 8 credits.',
+  quiz: 'A multiple-choice quiz that earns XP. 8 credits.',
   practice: 'Exam-style questions marked like an IB examiner.',
   hints: 'Hints and guiding questions, so you crack it yourself.',
   teachback: 'Explain it in your own words and the AI checks what you missed.',
   commandterms: 'Learn what Describe, Explain, Evaluate and the rest really want.',
   mistakes: 'Paste a wrong answer and find the exact step that went wrong.',
-  speed: '10 rapid-fire questions in 60 seconds. Earns XP.',
+  speed: '10 rapid-fire questions in 60 seconds. Earns XP. 8 credits.',
   memory: 'Mnemonics and silly stories that make facts stick.',
   debate: 'The AI argues the other side so your argument gets stronger.',
   essayplan: 'Thesis, structure and evidence. You do the writing.',

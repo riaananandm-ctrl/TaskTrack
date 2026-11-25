@@ -162,8 +162,8 @@ const FALLBACK_LIMITS = { daily_ai_messages: 20, max_message_chars: 2000 };
  * the server; the browser cannot choose its own price.
  */
 const CREDIT_COST: Record<string, number> = {
-  chat: 1, explain: 1, examples: 1, practice: 1, quiz: 2, flashcards: 2, plan: 2, slides: 3, videos: 1,
-  hints: 1, teachback: 1, commandterms: 1, mistakes: 1, speed: 2, memory: 1, debate: 1, essayplan: 1,
+  chat: 1, explain: 1, examples: 1, practice: 1, quiz: 8, flashcards: 2, plan: 8, slides: 8, videos: 1,
+  hints: 1, teachback: 1, commandterms: 1, mistakes: 1, speed: 8, memory: 1, debate: 1, essayplan: 1,
   language: 1, summarise: 1,
 };
 
@@ -1453,6 +1453,26 @@ Deno.serve(async (req: Request) => {
     }
     const reservation = Array.isArray(reserveData) ? reserveData[0] : reserveData;
     if (!reservation?.allowed) {
+      // Some credits are left, just not enough for this (e.g. an 8-credit quiz):
+      // say so, rather than claiming they are all used up.
+      const left = Number(reservation?.remaining ?? 0);
+      if (left > 0 && left < currentCost) {
+        return json(
+          {
+            ok: false,
+            error: {
+              code: 'QUOTA_EXCEEDED',
+              message: `That needs ${currentCost} credits and you have ${left} left this month. A chat message or explanation costs 1, or upgrade to Premium for more.`,
+            },
+            limitReached: true,
+            used: reservation?.used,
+            creditLimit: reservation?.credit_limit,
+            remaining: left,
+            cost: currentCost,
+          },
+          429
+        );
+      }
       return fail('limit', {
         limitReached: true,
         used: reservation?.used,

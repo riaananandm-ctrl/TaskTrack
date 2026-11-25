@@ -21,6 +21,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-25',
+    date: '2026-11-25',
+    title: 'TaskTrack AI in the menu',
+    items: [
+      {
+        title: 'Ask TaskTrack AI anything',
+        description:
+          'TaskTrack AI now has its own spot in the menu for general study help. For answers that know your task, open Study Session on the task.',
+        href: '/app/ai',
+      },
+      {
+        title: 'Bigger documents and new credit prices',
+        description:
+          'The AI now reads up to 15,000 words of each uploaded document. Free accounts get 40 credits a month; a quiz, study plan or slide deck costs 8.',
+      },
+    ],
+  },
+  {
     id: '2026-11-20',
     date: '2026-11-20',
     title: 'Whiteboard AI tutor and the new Max plan',
