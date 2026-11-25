@@ -232,6 +232,8 @@ export function StudySessionPanel({
   }, [open]);
 
   const task = session.task;
+  // A chat started from the TaskTrack AI page has no task behind it.
+  const isGeneral = !session.task_id && !task;
   // Everything the app already knows about the task goes with the request, so the
   // student never has to repeat it.
   const taskContext: StudyTask = {
@@ -243,6 +245,21 @@ export function StudySessionPanel({
     dueDate: task?.due_date ?? null,
     estimatedMinutes: task?.estimated_minutes ?? null,
     priority: task?.priority ?? null,
+  };
+
+  /**
+   * A general chat has no task, so its "task" is what the student has typed so far
+   * (minus the canned starter prompts). With nothing typed yet, the title is empty
+   * and the AI asks which topic they mean instead of inventing one.
+   */
+  const contextFor = (history: Array<{ role: string; content: string }>): StudyTask => {
+    if (!isGeneral) return taskContext;
+    const starters = new Set(MODE_OPTIONS.map((o) => o.prompt));
+    const typed = history
+      .filter((m) => m.role === 'user' && !starters.has(m.content))
+      .map((m) => m.content.trim())
+      .filter(Boolean);
+    return { ...taskContext, title: typed.slice(-3).join(' / ').slice(0, 300) };
   };
 
   // Suggest the one study tool that fits this task best, once per task.
@@ -577,7 +594,7 @@ export function StudySessionPanel({
         // Video plan: an ordered Video 1, Video 2… course, made by its own small function.
         ? await supabase.functions.invoke('video-plan', {
             body: {
-              task: taskContext,
+              task: contextFor(history),
               messages: history.map((m) => ({ role: m.role, content: m.content })),
             },
           })
@@ -586,7 +603,7 @@ export function StudySessionPanel({
         {
           body: {
             messages: history.map((m) => ({ role: m.role, content: m.content })),
-            task: taskContext,
+            task: contextFor(history),
             mode,
             persona,
             aiOption: selectedAi,
@@ -986,7 +1003,7 @@ export function StudySessionPanel({
             {TOOL_ICONS[suggestionOption.id]}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">💡 Try this for this task</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">💡 {isGeneral ? 'Try this' : 'Try this for this task'}</p>
             <p className="mt-0.5 font-semibold">{suggestionOption.label}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {suggestionReason(suggestionOption.id, { subject: task?.subject?.name ?? null })}
@@ -1173,8 +1190,14 @@ export function StudySessionPanel({
                     Ready when you are.
                   </h2>
                   <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-                    I&rsquo;ve already read <span className="font-medium text-foreground">{task?.title || session.title}</span>
-                    {task?.subject ? ` (${task.subject.name})` : ''}. Ask me anything, or start with one of these.
+                    {isGeneral ? (
+                      <>Ask me anything about your studies, or start with one of these. For answers that know a task, open Study Session on it.</>
+                    ) : (
+                      <>
+                        I&rsquo;ve already read <span className="font-medium text-foreground">{task?.title || session.title}</span>
+                        {task?.subject ? ` (${task.subject.name})` : ''}. Ask me anything, or start with one of these.
+                      </>
+                    )}
                   </p>
                   <div className="mt-6 grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
                     {starterModes.map((option) => (
@@ -1357,7 +1380,7 @@ export function StudySessionPanel({
                     limitReached
                       ? 'No AI credits left this month'
                       : selectedMode === 'chat'
-                        ? 'Ask anything about this task…'
+                        ? isGeneral ? 'Ask TaskTrack AI anything…' : 'Ask anything about this task…'
                         : `Message · ${modeLabel(selectedMode)}`
                   }
                   disabled={loading || limitReached}
