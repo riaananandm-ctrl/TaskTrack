@@ -672,7 +672,7 @@ function Tree() {
     [70, 92, '#dc2626'], [96, 132, '#2563eb'], [58, 138, '#facc15'], [104, 96, '#a855f7'], [78, 160, '#dc2626'], [44, 160, '#16a34a'], [120, 162, '#facc15'],
   ];
   return (
-    <svg aria-hidden className="xmas-tree h-28 w-[84px] sm:h-36 sm:w-[108px] drop-shadow-xl" viewBox="0 0 160 214">
+    <svg aria-hidden className="xmas-tree h-20 w-[60px] sm:h-36 sm:w-[108px] drop-shadow-xl" viewBox="0 0 160 214">
       <defs>
         <linearGradient id="xt-green" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#22c55e" />
