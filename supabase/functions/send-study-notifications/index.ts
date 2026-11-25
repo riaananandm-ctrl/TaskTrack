@@ -86,6 +86,15 @@ function buildMessage(row: ClaimedReminder): { title: string; body: string; tag:
     };
   }
 
+  if (row.reminder_type === 'announcement') {
+    // A message from TaskTrack itself, such as the launch thank-you: shown as written.
+    return {
+      title: row.title.trim() || 'TaskTrack',
+      body: (row.message || '').trim(),
+      tag: `announcement-${row.reminder_id}`,
+    };
+  }
+
   const title = 'TaskTrack study reminder';
 
   // "Math Test on Logarithms — Review logarithm laws · 30 minutes"
@@ -446,6 +455,48 @@ You are getting this because you have a task due tomorrow in TaskTrack.${setting
   return true;
 }
 
+/**
+ * Email a TaskTrack announcement (reminder_type 'announcement') once, as written.
+ * Skipped silently when email is not configured, there is no address, or it was sent.
+ */
+async function sendAnnouncementEmail(
+  admin: ReturnType<typeof createClient>,
+  row: ClaimedReminder
+): Promise<boolean> {
+  const provider = emailProvider();
+  if (!provider) return false;
+
+  const [{ data: reminder }, { data: profile }] = await Promise.all([
+    admin.from('reminders').select('email_sent_at, is_enabled').eq('id', row.reminder_id).maybeSingle(),
+    admin.from('profiles').select('email, full_name').eq('id', row.user_id).maybeSingle(),
+  ]);
+  if (!reminder || reminder.email_sent_at || !reminder.is_enabled) return false;
+  const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
+  if (!to) return false;
+
+  const heading = row.title.trim() || 'A message from TaskTrack';
+  const message = (row.message || '').trim();
+  const firstName = typeof profile?.full_name === 'string' ? profile.full_name.split(' ')[0] : '';
+  const appUrl = (Deno.env.get('APP_URL') || DEFAULT_APP_URL).replace(/\/+$/, '');
+  const appLink = `${appUrl}/app`;
+
+  const html = `<!doctype html><html><body style="margin:0;background:#f6f5f1;font-family:Arial,Helvetica,sans-serif;color:#202a3b">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e3e6eb">
+<tr><td style="background:#17264b;padding:20px 24px;color:#ffffff;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:bold">TaskTrack</td></tr>
+<tr><td style="padding:24px">
+<p style="margin:0 0 8px;font-size:15px">${firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi,'}</p>
+<p style="margin:0 0 12px;font-size:18px;font-weight:bold">${escapeHtml(heading)}</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.5">${escapeHtml(message)}</p>
+<a href="${escapeHtml(appLink)}" style="display:inline-block;background:#315edb;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:10px">Open TaskTrack</a>
+</td></tr></table></td></tr></table></body></html>`;
+  const text = `${firstName ? `Hi ${firstName},\n\n` : ''}${heading}\n\n${message}\n\nOpen TaskTrack: ${appLink}`;
+
+  if (!(await deliverEmail(provider, to, firstName, heading, html, text))) return false;
+  await admin.from('reminders').update({ email_sent_at: new Date().toISOString() }).eq('id', row.reminder_id);
+  return true;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -552,6 +603,10 @@ Deno.serve(async (req: Request) => {
       if (row.reminder_type === 'task_due_tomorrow' && !emailHandled.has(row.reminder_id)) {
         emailHandled.add(row.reminder_id);
         if (await sendDueTomorrowEmail(admin, row)) emailed += 1;
+      }
+      if (row.reminder_type === 'announcement' && !emailHandled.has(row.reminder_id)) {
+        emailHandled.add(row.reminder_id);
+        if (await sendAnnouncementEmail(admin, row)) emailed += 1;
       }
 
       // Nothing to do when the student has notifications off or no live device.

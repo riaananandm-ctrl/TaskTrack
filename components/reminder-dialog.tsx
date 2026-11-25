@@ -272,7 +272,7 @@ export function ReminderDialog({
             <Select value={formData.reminder_type} onValueChange={(v) => setFormData({ ...formData, reminder_type: v as ReminderType })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(REMINDER_TYPE_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+                {Object.entries(REMINDER_TYPE_LABELS).filter(([k]) => k !== 'announcement').map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

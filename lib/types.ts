@@ -21,7 +21,8 @@ export type ReminderType =
   | 'daily_summary'
   | 'weekly_planning'
   | 'overdue'
-  | 'study_session';
+  | 'study_session'
+  | 'announcement';
 
 export type RepeatRule = 'none' | 'daily' | 'weekdays' | 'weekly' | 'custom';
 
@@ -167,6 +168,7 @@ export const REMINDER_TYPE_LABELS: Record<ReminderType, string> = {
   weekly_planning: 'Weekly planning reminder',
   overdue: 'Overdue task reminder',
   study_session: 'Scheduled study session',
+  announcement: 'From TaskTrack',
 };
 
 export const REPEAT_LABELS: Record<RepeatRule, string> = {
