@@ -40,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DueTodayIcon, UpcomingIcon, DoneIcon, StudyIcon, CalendarCheckIcon, OverdueIcon } from '@/components/brand-icons';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InviteFriendCard } from '@/components/invite-friend-card';
 
 const BANNER_KEY = 'tasktrack:managebac-banner-dismissed';
 
@@ -311,6 +312,8 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
           </Card>
         </Link>
       </div>
+
+      <InviteFriendCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main column */}
