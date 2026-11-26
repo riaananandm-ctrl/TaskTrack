@@ -28,6 +28,7 @@ import {
   Inbox,
   Users,
   Target,
+  HeartHandshake,
   Trophy,
   Bot,
 } from 'lucide-react';
@@ -61,6 +62,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/app/ai', label: 'TaskTrack AI', icon: Bot },
       { href: '/app/ib', label: 'IB Hub', icon: Target },
+      { href: '/app/cas', label: 'CAS', icon: HeartHandshake },
       { href: '/app/planning', label: 'Planning', icon: CalendarClock },
       { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
       { href: '/app/group', label: 'Group Study', icon: Users },

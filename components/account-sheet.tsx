@@ -12,7 +12,7 @@ import { initialsOf } from '@/lib/initials';
 import { cn } from '@/lib/utils';
 import {
   Settings, Crown, Bell, LayoutDashboard, ListTodo, Calendar, BookOpen,
-  CalendarClock, GraduationCap, LogOut, ChevronRight,
+  CalendarClock, GraduationCap, HeartHandshake, LogOut, ChevronRight,
   Bot,
 } from 'lucide-react';
 
@@ -38,6 +38,7 @@ const NAV_ITEMS = [
   { href: '/app/planning', label: 'Planning', icon: CalendarClock },
   { href: '/app/ai', label: 'TaskTrack AI', icon: Bot },
   { href: '/app/study-sessions', label: 'Study Sessions', icon: GraduationCap },
+  { href: '/app/cas', label: 'CAS', icon: HeartHandshake },
   { href: '/app/notifications', label: 'Notifications', icon: Bell },
   { href: '/app/premium', label: 'Premium', icon: Crown },
   { href: '/app/settings', label: 'Settings', icon: Settings },
