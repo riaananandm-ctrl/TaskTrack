@@ -192,7 +192,7 @@ export function SpreadsheetTool() {
         onKeyDown={onGridKey}
         role="grid"
         aria-label="Spreadsheet. Use the arrow keys to move and start typing to edit."
-        className="overflow-auto rounded-xl border border-border max-h-[60vh] outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="overflow-auto rounded-xl border border-border max-h-[60dvh] outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         <table className="border-collapse text-sm select-none">
           <thead>

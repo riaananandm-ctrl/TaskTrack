@@ -411,7 +411,7 @@ function ChristmasScene() {
         onClick={tapTree}
         aria-label="Christmas tree: tap to change the lights"
         title="Tap me!"
-        className={`xmas-tree-btn pointer-events-auto absolute bottom-3 right-2 sm:bottom-4 sm:right-4 ${shake ? 'xmas-shake' : ''}`}
+        className={`xmas-tree-btn pointer-events-auto absolute bottom-[calc(0.75rem+env(safe-area-inset-bottom))] right-2 sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:right-4 ${shake ? 'xmas-shake' : ''}`}
       >
         <Tree />
       </button>
@@ -672,7 +672,7 @@ function Tree() {
     [70, 92, '#dc2626'], [96, 132, '#2563eb'], [58, 138, '#facc15'], [104, 96, '#a855f7'], [78, 160, '#dc2626'], [44, 160, '#16a34a'], [120, 162, '#facc15'],
   ];
   return (
-    <svg aria-hidden className="xmas-tree h-20 w-[60px] sm:h-36 sm:w-[108px] drop-shadow-xl" viewBox="0 0 160 214">
+    <svg aria-hidden className="xmas-tree h-20 w-[60px] sm:h-24 sm:w-[72px] lg:h-36 lg:w-[108px] drop-shadow-xl" viewBox="0 0 160 214">
       <defs>
         <linearGradient id="xt-green" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#22c55e" />

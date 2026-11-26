@@ -55,7 +55,7 @@ export function AccountSheet({ open, onOpenChange }: AccountSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[88vh] max-h-[88vh] rounded-t-2xl p-0 sm:mx-auto sm:max-w-lg"
+        className="h-[88dvh] max-h-[88dvh] rounded-t-2xl p-0 sm:mx-auto sm:max-w-lg"
       >
         {/* Grab handle, phones only */}
         <div className="lg:hidden flex justify-center pt-3">

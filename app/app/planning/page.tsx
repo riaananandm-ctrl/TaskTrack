@@ -491,7 +491,7 @@ export default function PlanningPage() {
             Set the study time you realistically have per weekday. Warnings compare your
             planned work and deadlines against these numbers — they are assumptions, not limits.
           </p>
-          <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[50dvh] overflow-y-auto pr-1">
             {DAY_NAMES.map((name, i) => {
               const draft = availDraft[i];
               const setDraft = (next: Partial<{ minutes: number; unavailable: boolean }>) =>

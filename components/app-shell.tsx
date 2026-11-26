@@ -289,7 +289,7 @@ export function AppSidebar({
       aria-hidden={collapsed}
       className={cn(
         // `lg:flex` would override a plain `hidden`, so only add it while expanded.
-        'flex-col w-60 bg-gradient-to-b from-navy-800 to-navy-900 border-r border-white/5 h-screen sticky top-0 flex-shrink-0',
+        'flex-col w-60 bg-gradient-to-b from-navy-800 to-navy-900 border-r border-white/5 h-screen h-[100dvh] sticky top-0 flex-shrink-0 pb-[env(safe-area-inset-bottom)]',
         collapsed ? 'hidden' : 'hidden lg:flex'
       )}
     >
@@ -372,7 +372,7 @@ export function AppTopBar({
       </div>
 
       {/* Mobile top bar: brand + notifications + account, with hamburger at the left */}
-      <div className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/70 px-4 h-14 flex items-center justify-between">
+      <div className="lg:hidden sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/70 px-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[env(safe-area-inset-top)] h-[calc(3.5rem+env(safe-area-inset-top))] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <HamburgerButton
             expanded={drawerOpen}
@@ -424,7 +424,7 @@ export function AppTopBar({
           <div className="absolute inset-0 bg-navy-900/50 backdrop-blur-[2px] animate-fade-in" onClick={closeDrawer} aria-hidden="true" />
           <div
             ref={drawerRef}
-            className="relative w-72 max-w-[85%] h-full bg-gradient-to-b from-navy-800 to-navy-900 flex flex-col overflow-y-auto shadow-2xl animate-in slide-in-from-left duration-200"
+            className="relative w-72 max-w-[85%] h-full bg-gradient-to-b from-navy-800 to-navy-900 flex flex-col overflow-y-auto shadow-2xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-left duration-200"
           >
             <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
               <span className="text-sm font-semibold text-white">Menu</span>

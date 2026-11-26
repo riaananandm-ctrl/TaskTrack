@@ -230,7 +230,7 @@ export function ReminderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {reminder ? 'Edit reminder' : isSuggestMode ? 'Add reminders for this task' : 'New reminder'}

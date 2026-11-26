@@ -158,7 +158,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Tabs value={view} onValueChange={(v) => setView(v as ViewType)}>
           <TabsList>
             <TabsTrigger value="month">Month</TabsTrigger>
@@ -174,23 +174,23 @@ export default function CalendarPage() {
           <Button variant="ghost" size="sm" onClick={() => { setCurrentDate(new Date()); setSelectedDate(new Date()); }}>Today</Button>
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
+        <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 md:flex md:w-auto xl:ml-auto">
           <Select value={filterSubject} onValueChange={setFilterSubject}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="Subject" /></SelectTrigger>
+            <SelectTrigger className="w-full md:w-[140px]"><SelectValue placeholder="Subject" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All subjects</SelectItem>
               {subjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[130px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectTrigger className="w-full md:w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All categories</SelectItem>
               {Object.entries(CATEGORY_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="col-span-2 w-full sm:col-span-1 md:w-[120px]"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="active">Active</SelectItem>

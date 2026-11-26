@@ -214,7 +214,7 @@ function NewProjectDialog({ open, onClose, onSaved, subjects }: { open: boolean;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>We&rsquo;ll split it into checkpoints you can tick off.</DialogDescription>

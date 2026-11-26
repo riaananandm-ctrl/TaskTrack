@@ -70,7 +70,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             onOpenAccount={() => setAccountOpen(true)}
           />
           <AutoSortTasks />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 max-w-7xl mx-auto w-full">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-8 max-w-7xl mx-auto w-full">
             <PriorityAlertBanner />
             <NotificationPrompt />
             {/* Keyed by route so each page eases in when the student navigates. */}

@@ -126,10 +126,10 @@ export function NotificationPrompt() {
   return (
     <section
       aria-label="Notifications"
-      className="mb-6 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-soft animate-slide-up dark:border-blue-900 dark:from-blue-950/40 dark:to-sky-950/20"
+      className="mb-4 sm:mb-6 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50 p-3 sm:p-4 shadow-soft animate-slide-up dark:border-blue-900 dark:from-blue-950/40 dark:to-sky-950/20"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-soft dark:bg-blue-950/60">
+        <div className="hidden h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-soft dark:bg-blue-950/60 sm:flex">
           <Icon className="h-5 w-5" aria-hidden />
         </div>
         <div className="min-w-[12rem] flex-1">

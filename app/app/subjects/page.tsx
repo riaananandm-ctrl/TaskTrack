@@ -256,7 +256,7 @@ export default function SubjectsPage() {
       </div>
 
       <Dialog open={pickerOpen} onOpenChange={(open) => { setPickerOpen(open); if (!open) fetchData(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Pick your subjects</DialogTitle>
           </DialogHeader>
@@ -496,7 +496,7 @@ function SubjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{subject ? 'Edit subject' : 'New subject'}</DialogTitle>
         </DialogHeader>

@@ -367,7 +367,7 @@ export default function StudySessionsPage() {
 
       {/* Task picker */}
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Start a study session</DialogTitle>
             <DialogDescription>
