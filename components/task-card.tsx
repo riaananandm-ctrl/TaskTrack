@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { StudySessionPanel } from '@/components/study-session-panel';
+import { TaskDetailsSheet } from '@/components/task-details-sheet';
 import { createSession, findActiveSessionForTask, type StudySession } from '@/lib/study-sessions';
 import { completeStudySessionsForTask } from '@/lib/study-schedule';
 
@@ -37,6 +38,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
   const [optimisticStatus, setOptimisticStatus] = useState<Task['status'] | null>(null);
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [xpPop, setXpPop] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const displayTask: Task = optimisticStatus ? { ...task, status: optimisticStatus, completed_at: optimisticStatus === 'completed' ? new Date().toISOString() : null } : task;
 
@@ -165,14 +167,19 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className={cn('text-sm font-semibold leading-snug', isCompleted && 'line-through text-muted-foreground font-medium')}>
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              className="flex-1 min-w-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              aria-label={`Open details for ${displayTask.title}`}
+            >
+              <p className={cn('text-sm font-semibold leading-snug hover:underline underline-offset-2', isCompleted && 'line-through text-muted-foreground font-medium')}>
                 {displayTask.title}
               </p>
               {!compact && displayTask.description && (
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{displayTask.description}</p>
               )}
-            </div>
+            </button>
 
             {/* Menu */}
             <DropdownMenu>
@@ -286,6 +293,21 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
           )}
         </div>
       </div>
+
+      <TaskDetailsSheet
+        task={displayTask}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        onToggleComplete={toggleComplete}
+        completing={updating}
+        onStudy={() => {
+          setDetailsOpen(false);
+          void openStudySession();
+        }}
+        studying={starting}
+        onEdit={onEdit}
+        onChanged={onChanged}
+      />
 
       {activeSession && (
         <StudySessionPanel
