@@ -43,7 +43,10 @@ The seven outcomes are: 1 identify own strengths and develop areas for growth,
 2 demonstrate challenges undertaken and skills developed, 3 demonstrate
 initiative and planning, 4 work collaboratively, 5 show perseverance and
 commitment, 6 engage with issues of global significance, 7 recognise and
-consider ethics of choices and actions.`,
+consider ethics of choices and actions.
+Be strict: an outcome counts only when the student describes a specific moment or
+action that shows it, in their own words. Do not infer outcomes from what the activity
+usually involves. A typical reflection evidences 1 to 3 outcomes.`,
   vague: `Find sentences that are vague or generic, such as "I learned a lot", "it was fun",
 "it was a good experience". Return JSON only:
 { "flags": [ { "sentence": "...", "issue": "why it is vague", "prompt": "a question that would fix it" } ] }
@@ -115,7 +118,8 @@ function clean(action: Action, raw: Record<string, unknown>, source: string): Re
         reason: oneLine(o?.reason, 200),
       }))
       .filter((o) => Number.isInteger(o.id) && o.id >= 1 && o.id <= 7 && o.confidence > 0.5 && !seen.has(o.id) && seen.add(o.id))
-      .sort((a, b) => b.confidence - a.confidence);
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 4);
     return { outcomes };
   }
   if (action === 'vague') {
