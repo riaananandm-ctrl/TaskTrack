@@ -1,0 +1,36 @@
+TaskTrack — Proprietary License
+
+Copyright (c) 2026 Riaan Anand Mura. All rights reserved.
+
+This repository and everything in it — source code, database migrations, server
+functions, designs, user interface, text, logos, images, videos and other assets
+(together, "TaskTrack") — is the property of the copyright holder.
+
+TaskTrack is published publicly for viewing and reference only. Being able to see
+the code does not give you any right to use it.
+
+You MAY:
+  - view the code on GitHub;
+  - link to it and write about it.
+
+You may NOT, without prior written permission from the copyright holder:
+  - copy, reproduce or download TaskTrack, in whole or in part, for any use other
+    than viewing it;
+  - modify it or create derivative works based on it;
+  - run, host, deploy or publish it, or any part of it, as an app, website or
+    service;
+  - distribute, sell, sublicense or otherwise make it available to others;
+  - use the TaskTrack name, logo or branding;
+  - use any part of TaskTrack to build a competing product or service;
+  - use TaskTrack to train, fine-tune or evaluate machine-learning or AI models,
+    except for search indexing and summarising it with credit and a link.
+
+Forking this repository on GitHub, which GitHub's Terms of Service allow, does not
+grant any of the rights above.
+
+TaskTrack is provided "as is", without warranty of any kind. In no event shall the
+copyright holder be liable for any claim, damages or other liability arising from
+it.
+
+For permission requests, contact the copyright holder through
+https://tasktrackbm.vercel.app/contact
