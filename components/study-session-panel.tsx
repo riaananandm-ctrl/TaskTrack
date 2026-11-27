@@ -137,6 +137,66 @@ const SUGGEST_KEY = 'tasktrack.ai.suggested';
 // The three tools most students need; everything else sits behind "More ways to study".
 const CORE_MODES = new Set<StudyMode>(['explain', 'quiz', 'plan']);
 
+/**
+ * Ask the chat function for a streamed reply. Words are passed to `onPartial` as
+ * they arrive; the result has the same shape as `supabase.functions.invoke`, so the
+ * caller handles errors and the finished reply the same way either way. The
+ * signed-in student's own session token is what authorises the request.
+ */
+async function streamChat(
+  body: Record<string, unknown>,
+  accessToken: string,
+  onPartial: (soFar: string) => void
+): Promise<{ data: unknown; error: { context: Response } | null }> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/study-session-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+  if (!res.ok) return { data: null, error: { context: res } };
+  // Replies that are not streamed (a clarifying question, for example) come back
+  // as one JSON object, exactly as before.
+  if (!(res.headers.get('Content-Type') || '').includes('text/event-stream') || !res.body) {
+    return { data: await res.json(), error: null };
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut: number;
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      const event = buffer.slice(0, cut).trim();
+      buffer = buffer.slice(cut + 2);
+      if (!event.startsWith('data:')) continue;
+      let msg: { t?: string; done?: boolean; error?: unknown; [key: string]: unknown };
+      try {
+        msg = JSON.parse(event.slice(5).trim());
+      } catch {
+        continue;
+      }
+      if (typeof msg.t === 'string') {
+        text += msg.t;
+        onPartial(text);
+      } else if (msg.error) {
+        return { data: { ok: false, error: msg.error }, error: null };
+      } else if (msg.done) {
+        return { data: { ok: true, ...msg }, error: null };
+      }
+    }
+  }
+  // The stream ended without a final message: keep what arrived, if anything.
+  return { data: text.trim() ? { ok: true, mode: 'chat', text } : { ok: false }, error: null };
+}
+
 function toDisplay(row: StudySessionMessage): DisplayMessage {
   const mode = (row.mode as StudyMode | null) ?? null;
   const structured = mode && row.structured_data
@@ -174,6 +234,8 @@ export function StudySessionPanel({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  // The reply bubble currently receiving streamed words, if any.
+  const [streamingId, setStreamingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { credits } = useAiCredits();
   // Locked only when nothing is left; with a few credits left, cheaper modes still work.
@@ -577,6 +639,25 @@ export function StudySessionPanel({
 
       let data: AssistantData | null = null;
 
+      // The reply's bubble. With streaming it appears at the first words and grows.
+      const tempId = `temp-a-${Date.now()}`;
+      let partialShown = false;
+      const showPartial = (soFar: string) => {
+        if (!partialShown) {
+          partialShown = true;
+          setStreamingId(tempId);
+          setMessages((prev) => [
+            ...prev,
+            { id: tempId, role: 'assistant', content: soFar, mode: null, structured: undefined },
+          ]);
+        } else {
+          setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, content: soFar } : m)));
+        }
+      };
+      const dropPartial = () => {
+        if (partialShown) setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      };
+
       // "I'm done" on a ManageBac task that's handed in online: reply with the link
       // to submit it on ManageBac instead of asking the AI (no credits used).
       let submitReply: string | null = null;
@@ -601,6 +682,22 @@ export function StudySessionPanel({
               messages: history.map((m) => ({ role: m.role, content: m.content })),
             },
           })
+        : mode === 'chat'
+        // Plain chat streams: words appear as the AI writes them.
+        ? await streamChat(
+            {
+              messages: history.map((m) => ({ role: m.role, content: m.content })),
+              task: contextFor(history),
+              mode,
+              persona,
+              aiOption: selectedAi,
+              attachmentIds: attachments
+                .filter((a) => a.status === 'ready' && a.documentId)
+                .map((a) => a.documentId as string),
+            },
+            authSession.access_token,
+            showPartial
+          )
         : await supabase.functions.invoke(
         'study-session-chat',
         {
@@ -618,6 +715,7 @@ export function StudySessionPanel({
       );
 
       if (invokeError) {
+        dropPartial();
         // A non-success status arrives here. The function's own JSON error body is
         // read back so the student sees the safe message the function chose; the raw
         // status is used only when no readable body came back.
@@ -655,6 +753,7 @@ export function StudySessionPanel({
       }
 
       if (data.ok === false) {
+        dropPartial();
         // The function classified the failure, so its exact safe message is shown.
         const message =
           typeof data.error === 'object' && data.error
@@ -674,6 +773,7 @@ export function StudySessionPanel({
       const structured = data.structured ? parseStructuredResult(mode, data.structured) : null;
 
       if (!structured && !rawReply.trim()) {
+        dropPartial();
         setError('TaskTrack AI did not return a response. Please try again.');
         setLoading(false);
         return;
@@ -690,18 +790,20 @@ export function StudySessionPanel({
       // Show the reply straight away, then save it in the background. If saving
       // fails the answer stays on screen, so a storage problem never hides a reply
       // the student already used credits on.
-      const tempId = `temp-a-${Date.now()}`;
       const autoUpdateDoc = Boolean(docStatus?.doc?.autoUpdate);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: tempId,
-          role: 'assistant',
-          content: rawReply,
-          mode: structured ? mode : null,
-          structured: structured ?? undefined,
-        },
-      ]);
+      const finalReply: DisplayMessage = {
+        id: tempId,
+        role: 'assistant',
+        content: rawReply,
+        mode: structured ? mode : null,
+        structured: structured ?? undefined,
+      };
+      setMessages((prev) =>
+        prev.some((m) => m.id === tempId)
+          ? prev.map((m) => (m.id === tempId ? finalReply : m))
+          : [...prev, finalReply]
+      );
+      setStreamingId(null);
       setLoading(false);
 
       void (async () => {
@@ -741,6 +843,7 @@ export function StudySessionPanel({
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
+      setStreamingId(null);
       setLoading(false);
     }
   };
@@ -1323,7 +1426,7 @@ export function StudySessionPanel({
                 </div>
               )}
 
-              {loading && (
+              {loading && !streamingId && (
                 <div className="flex items-start gap-3" role="status" aria-label="TaskTrack AI is thinking">
                   <AssistantAvatar />
                   <div className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-muted px-4 py-3">

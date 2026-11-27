@@ -1311,6 +1311,7 @@ Deno.serve(async (req: Request) => {
       attachmentIds?: string[];
       mode?: string;
       persona?: string;
+      stream?: boolean;
     };
     try {
       body = await req.json();
@@ -1603,6 +1604,79 @@ Deno.serve(async (req: Request) => {
       return await refundAndFail(supabase, 'model_unavailable', currentCost);
     }
 
+    // Streaming: plain chat replies are sent word by word as the model writes them,
+    // so the student sees the answer start within a second instead of waiting for
+    // all of it. Structured modes (quizzes, plans…) and whole-document Gemini reads
+    // keep the normal single reply. Credits and refunds work exactly as below.
+    if (
+      body.stream === true &&
+      !jsonMode &&
+      !(bigDocument && Deno.env.get('GEMINI_API_KEY') && aiOption !== 'study-bot')
+    ) {
+      const streamFailures: ErrorCategory[] = [];
+      for (const model of models.slice(0, MAX_MODEL_ATTEMPTS)) {
+        const started = await openChatStream(apiKey, model.name, messages);
+        if (!started.ok) {
+          streamFailures.push(started.category);
+          if (started.category === 'auth') break;
+          continue;
+        }
+        const userClient = supabase!;
+        const upstream = started.body;
+        const encoder = new TextEncoder();
+        const send = (controller: ReadableStreamDefaultController<Uint8Array>, data: unknown) =>
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            let text = '';
+            let failed = false;
+            try {
+              for await (const event of readSse(upstream)) {
+                if (event === '[DONE]') break;
+                let chunk: {
+                  choices?: Array<{ delta?: { content?: string } }>;
+                  usage?: { total_tokens?: number };
+                  x_groq?: { usage?: { total_tokens?: number } };
+                };
+                try {
+                  chunk = JSON.parse(event);
+                } catch {
+                  continue;
+                }
+                const delta = chunk.choices?.[0]?.delta?.content;
+                if (delta) {
+                  text += delta;
+                  send(controller, { t: delta });
+                }
+                const total = Number(chunk.usage?.total_tokens ?? chunk.x_groq?.usage?.total_tokens);
+                if (total) tokensUsed = total;
+              }
+            } catch (err) {
+              console.error(`Stream broke (${model.name}):`, err instanceof Error ? err.message : 'unknown');
+              failed = true;
+            }
+            if (!text.trim()) {
+              await serverRefund(userClient, 'refund_ai_credits_for', { p_cost: currentCost });
+              const category: ErrorCategory = failed ? 'provider' : 'empty';
+              send(controller, { error: { code: ERROR_CODES[category], message: ERROR_MESSAGES[category] } });
+            } else {
+              send(controller, { done: true, mode, text, usage: await settleUsage() });
+            }
+            controller.close();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
+      return await refundAndFail(supabase, pickFailureCategory(streamFailures), currentCost);
+    }
+
     const failures: ErrorCategory[] = [];
     let reply: string | null = null;
     let finishReason: string | null = null;
@@ -1790,4 +1864,71 @@ async function refundAndFail(
   // A failed request must not count against the daily limit.
   await serverRefund(supabase, 'refund_ai_credits_for', { p_cost: cost });
   return fail(category);
+}
+
+/**
+ * Start a streamed chat completion. Resolves once the provider has accepted the
+ * request, so a busy or missing model can still fall back to the next one before
+ * any words reach the student.
+ */
+async function openChatStream(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>
+): Promise<{ ok: true; body: ReadableStream<Uint8Array> } | { ok: false; category: ErrorCategory }> {
+  const payload = (useSpeed: boolean) => ({
+    model,
+    messages,
+    temperature: 0.6,
+    stream: true,
+    stream_options: { include_usage: true },
+    max_completion_tokens: answerBudget(messages, false),
+    ...(useSpeed ? speedOptions(model) : {}),
+  });
+  const call = (useSpeed: boolean) =>
+    fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(payload(useSpeed)),
+      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    });
+  try {
+    let res = await call(true);
+    if (!res.ok) {
+      let raw = await res.text();
+      // A model that does not accept the speed settings is retried without them.
+      if ([400, 422].includes(res.status) && /reasoning|include_reasoning/i.test(raw)) {
+        res = await call(false);
+        if (res.ok && res.body) return { ok: true, body: res.body };
+        raw = await res.text();
+      }
+      console.error(`AI stream failed (${model}):`, res.status, raw.slice(0, 400));
+      return { ok: false, category: categorise(res.status, raw) };
+    }
+    if (!res.body) return { ok: false, category: 'empty' };
+    return { ok: true, body: res.body };
+  } catch (err) {
+    console.error(`AI stream failed (${model}):`, err instanceof Error ? err.message : 'unknown');
+    return { ok: false, category: isNetworkError(err) ? 'network' : 'provider' };
+  }
+}
+
+/** Yield the data of each server-sent event in a stream. */
+async function* readSse(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut: number;
+    while ((cut = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, cut).trim();
+      buffer = buffer.slice(cut + 1);
+      if (line.startsWith('data:')) yield line.slice(5).trim();
+    }
+  }
+  const last = buffer.trim();
+  if (last.startsWith('data:')) yield last.slice(5).trim();
 }
