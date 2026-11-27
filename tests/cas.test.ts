@@ -53,3 +53,38 @@ describe('outcomes', () => {
     expect(daysUntil('2026-11-28', new Date('2026-11-26T22:00:00'))).toBe(2);
   });
 });
+
+import { localVagueFlags, mergeFlags, sentencesOf } from '@/lib/cas';
+
+describe('vague reflection check', () => {
+  const r = (what_i_learned: string) => ({ what_i_did: null, what_i_learned, outcome_evidence: null });
+
+  it('flags "I learned a lot"', () => {
+    const flags = localVagueFlags(r('I learned a lot. It was fun.'));
+    expect(flags.map((f) => f.sentence)).toEqual(['I learned a lot.', 'It was fun.']);
+    expect(flags.every((f) => f.prompt.endsWith('?'))).toBe(true);
+  });
+
+  it('does not flag specific text', () => {
+    expect(localVagueFlags(r(
+      'When one team ran out of gloves I swapped people around, and now I check supplies before we start. ' +
+      'Most of the waste was plastic packaging from food stalls.',
+    ))).toEqual([]);
+  });
+
+  it('leaves a stock phrase alone when the sentence says what was learned', () => {
+    expect(localVagueFlags(r('I learned a lot about reading tide charts from Mr Rao, who runs the coastal cleanup group.'))).toEqual([]);
+  });
+
+  it('keeps the student wording and caps at three', () => {
+    expect(sentencesOf('I learned a lot!  It was fun')).toEqual(['I learned a lot!', 'It was fun']);
+    const many = localVagueFlags(r('I learned a lot. It was fun. I enjoyed it. It made a difference. Great experience.'));
+    expect(many).toHaveLength(3);
+  });
+
+  it('merges AI flags without repeating a sentence', () => {
+    const local = [{ sentence: 'I learned a lot.', issue: 'a', prompt: 'b?' }];
+    const ai = [{ sentence: 'I learned a lot', issue: 'x', prompt: 'y?' }, { sentence: 'We helped people.', issue: 'x', prompt: 'y?' }];
+    expect(mergeFlags(local, ai).map((f) => f.sentence)).toEqual(['I learned a lot.', 'We helped people.']);
+  });
+});

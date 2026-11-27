@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Check, Loader2, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, MessageCircleQuestion, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,11 @@ import {
   type CasExperience,
   type CasReflection,
   type OutcomeSuggestion,
+  type VagueFlag,
+  coachQuestions,
+  findVague,
+  localVagueFlags,
+  mergeFlags,
   suggestOutcomes,
 } from '@/lib/cas';
 
@@ -45,6 +50,12 @@ export default function CasReflectionPage() {
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<OutcomeSuggestion[]>([]);
 
+  // Feedback: coach questions and vague-sentence flags. Questions only, never text.
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [aiFlags, setAiFlags] = useState<VagueFlag[]>([]);
+  const [checked, setChecked] = useState(false);
+
   const load = useCallback(async () => {
     const [{ data: exp }, { data: ref }] = await Promise.all([
       supabase.from('cas_experiences').select('*').eq('id', id).maybeSingle(),
@@ -72,6 +83,36 @@ export default function CasReflectionPage() {
   }, [load]);
 
   const words = Object.values(fields).join(' ').split(/\s+/).filter(Boolean).length;
+
+  // Stock phrases are flagged as the student types; AI flags only while the sentence is still there.
+  const flags = useMemo(() => {
+    const flat = Object.values(fields).join(' ').replace(/\s+/g, ' ').toLowerCase();
+    const stillThere = aiFlags.filter((f) => flat.includes(f.sentence.toLowerCase().replace(/[.!?]+$/, '')));
+    return mergeFlags(localVagueFlags(fields), stillThere);
+  }, [fields, aiFlags]);
+
+  const askFeedback = async () => {
+    if (!experience) return;
+    setFeedbackBusy(true);
+    setAiNote(null);
+    const [coach, vague] = await Promise.all([
+      coachQuestions(fields, experience.title, experience.strands),
+      findVague(fields),
+    ]);
+    setFeedbackBusy(false);
+    const limited = [coach, vague].find((r) => !r.ok && (r.code === 'DAILY_LIMIT' || r.code === 'TOO_SHORT'));
+    if (limited && !limited.ok) {
+      setAiNote(limited.message);
+      return;
+    }
+    if (!coach.ok && !vague.ok) {
+      setAiAvailable(false);
+      return;
+    }
+    setQuestions(coach.ok ? coach.data.questions : []);
+    setAiFlags(vague.ok ? vague.data.flags : []);
+    setChecked(true);
+  };
 
   const toggleOutcome = (n: number) =>
     setOutcomes((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n].sort()));
@@ -111,6 +152,7 @@ export default function CasReflectionPage() {
         what_i_learned: fields.what_i_learned.trim() || null,
         outcome_evidence: fields.outcome_evidence.trim() || null,
         outcomes,
+        ai_flags: flags.length || checked ? { flags, questions, checked_at: new Date().toISOString() } : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'experience_id' },
@@ -160,6 +202,41 @@ export default function CasReflectionPage() {
               value={fields[f.key]} onChange={(e) => setFields((prev) => ({ ...prev, [f.key]: e.target.value }))} />
           </div>
         ))}
+
+        {flags.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-900/60 dark:bg-amber-950/40">
+            <p className="font-medium text-amber-900 dark:text-amber-200">Could be more specific</p>
+            <ul className="mt-2 space-y-2">
+              {flags.map((f) => (
+                <li key={f.sentence}>
+                  <p className="text-amber-900 dark:text-amber-200">&ldquo;{f.sentence}&rdquo;</p>
+                  <p className="text-xs text-muted-foreground">{f.issue} {f.prompt}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {aiAvailable && (
+          <div className="rounded-xl border bg-muted/30 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">Make it more specific</p>
+              <Button type="button" size="sm" variant="outline" onClick={askFeedback} disabled={feedbackBusy || words < 8}>
+                {feedbackBusy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <MessageCircleQuestion className="mr-1.5 h-3.5 w-3.5" />}
+                Ask AI for feedback
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">You get questions to think about. The AI never writes or rewrites your reflection.</p>
+            {questions.length > 0 && (
+              <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm">
+                {questions.map((q) => <li key={q}>{q}</li>)}
+              </ol>
+            )}
+            {checked && !questions.length && !flags.length && (
+              <p className="mt-2 text-xs text-muted-foreground">Nothing vague found. Nice and specific.</p>
+            )}
+          </div>
+        )}
 
         <fieldset>
           <legend className="text-sm font-medium">Learning outcomes this shows</legend>

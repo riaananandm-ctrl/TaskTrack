@@ -164,8 +164,14 @@ export type CasAiResult<T> = { ok: true; data: T } | { ok: false; code: string; 
 
 async function callCasAi<T>(body: Record<string, unknown>): Promise<CasAiResult<T>> {
   try {
-    const { data, error } = await supabase.functions.invoke('cas-ai', { body });
-    if (error || !data) return { ok: false, code: 'UNAVAILABLE', message: 'CAS AI is not available right now.' };
+    const { data: okData, error } = await supabase.functions.invoke('cas-ai', { body });
+    let data = okData;
+    // Non-2xx answers (daily limit, too short) still carry our JSON error body.
+    if (error && !data) {
+      const ctx = (error as { context?: Response }).context;
+      data = ctx && typeof ctx.json === 'function' ? await ctx.json().catch(() => null) : null;
+    }
+    if (!data) return { ok: false, code: 'UNAVAILABLE', message: 'CAS AI is not available right now.' };
     if (!data.ok) return { ok: false, code: data.error?.code ?? 'UNAVAILABLE', message: data.error?.message ?? 'CAS AI is not available right now.' };
     return { ok: true, data: data as T };
   } catch {
@@ -177,4 +183,70 @@ type ReflectionFields = Pick<CasReflection, 'what_i_did' | 'what_i_learned' | 'o
 
 export function suggestOutcomes(reflection: ReflectionFields) {
   return callCasAi<{ outcomes: OutcomeSuggestion[] }>({ action: 'outcomes', reflection });
+}
+
+export interface VagueFlag {
+  sentence: string;
+  issue: string;
+  prompt: string;
+}
+
+export function coachQuestions(reflection: ReflectionFields, title: string, strands: Strand[]) {
+  return callCasAi<{ questions: string[] }>({ action: 'coach', reflection, title, strands });
+}
+
+export function findVague(reflection: ReflectionFields) {
+  return callCasAi<{ flags: VagueFlag[] }>({ action: 'vague', reflection });
+}
+
+// Stock phrases that never tell a reader what actually happened. Checked locally so
+// the common ones are always caught, even when the AI is busy or down.
+const STOCK_PHRASES: { re: RegExp; issue: string; prompt: string }[] = [
+  { re: /\bi (?:have )?learn(?:ed|t) (?:a lot|so much|many things|lots)\b/i, issue: 'It does not say what you learned.',
+    prompt: 'What is one thing you can do or see now that you could not before?' },
+  { re: /\bit was (?:really |very |so )?(?:fun|enjoyable|nice|great|amazing|interesting)\b/i, issue: 'It says how it felt, not what happened.',
+    prompt: 'Which moment made it feel that way, and why?' },
+  { re: /\b(?:it was )?(?:a )?(?:really |very )?(?:good|great|valuable|wonderful|amazing) (?:learning )?experience\b/i, issue: 'Every experience could be described this way.',
+    prompt: 'What made this one different from anything you had done before?' },
+  { re: /\bi (?:really )?enjoyed (?:it|this|the experience|myself)\b/i, issue: 'It does not say what you enjoyed.',
+    prompt: 'What exactly did you enjoy, and what does that tell you about yourself?' },
+  { re: /\b(?:i )?(?:developed|improved|gained) (?:many|lots of|a lot of|new|my) skills\b/i, issue: 'It does not name the skill.',
+    prompt: 'Which skill, and when did you notice it improving?' },
+  { re: /\bmade a (?:big |real )?difference\b/i, issue: 'It does not say what changed or for whom.',
+    prompt: 'Who was affected, and how do you know?' },
+  { re: /\bstepped out of my comfort zone\b/i, issue: 'It does not say what was uncomfortable.',
+    prompt: 'What exactly felt hard, and what did you do about it?' },
+];
+
+/** Split a reflection into sentences, keeping the student's exact wording. */
+export function sentencesOf(text: string): string[] {
+  return (text.replace(/\s+/g, ' ').match(/[^.!?]+[.!?]*/g) ?? []).map((s) => s.trim()).filter(Boolean);
+}
+
+/** Flags for stock phrases. A sentence is flagged only if it adds little beyond the phrase. */
+export function localVagueFlags(reflection: ReflectionFields): VagueFlag[] {
+  const text = [reflection.what_i_did, reflection.what_i_learned, reflection.outcome_evidence].filter(Boolean).join(' ');
+  const flags: VagueFlag[] = [];
+  for (const sentence of sentencesOf(text)) {
+    const hit = STOCK_PHRASES.find((p) => p.re.test(sentence));
+    if (!hit) continue;
+    // "I learned a lot about tide charts from Mr Rao" says what was learned: leave it.
+    const rest = sentence.replace(hit.re, '').replace(/[^a-z\s]/gi, ' ').split(/\s+/).filter((w) => w.length > 3);
+    if (rest.length > 4) continue;
+    flags.push({ sentence, issue: hit.issue, prompt: hit.prompt });
+    if (flags.length === 3) break;
+  }
+  return flags;
+}
+
+/** Local flags first, then AI flags for other sentences, at most 3 in all. */
+export function mergeFlags(local: VagueFlag[], ai: VagueFlag[]): VagueFlag[] {
+  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const out = [...local];
+  for (const f of ai) {
+    if (out.length >= 3) break;
+    const k = key(f.sentence);
+    if (!out.some((o) => key(o.sentence).includes(k) || k.includes(key(o.sentence)))) out.push(f);
+  }
+  return out.slice(0, 3);
 }
