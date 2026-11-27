@@ -236,6 +236,14 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
               <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" aria-hidden />
               {PRIORITY_LABELS[displayTask.priority]}
             </span>
+            {isCompleted && displayTask.auto_completed_at && (
+              <span
+                className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                title="Ticked automatically 5 days after the due date. Tap the tick to reopen it."
+              >
+                Auto-ticked
+              </span>
+            )}
             {displayTask.external_source === MANAGEBAC_SOURCE && (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-medium">
                 <LinkIcon className="w-3 h-3" />

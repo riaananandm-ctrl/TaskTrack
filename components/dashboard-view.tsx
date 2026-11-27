@@ -157,7 +157,7 @@ export function DashboardView({ data, firstName, onChanged }: DashboardViewProps
   }, []);
 
   const completedThisWeek = tasks.filter(
-    (t) => t.status === 'completed' && t.completed_at && isThisWeek(parseISO(t.completed_at), { weekStartsOn: 1 })
+    (t) => t.status === 'completed' && !t.auto_completed_at && t.completed_at && isThisWeek(parseISO(t.completed_at), { weekStartsOn: 1 })
   ).length;
 
   const nextStudySession = studySessions[0] ?? null;
