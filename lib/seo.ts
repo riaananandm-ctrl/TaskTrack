@@ -6,6 +6,11 @@ export const SOCIAL_LINKS = [
   { name: 'YouTube', handle: '@tasktrackapp', url: 'https://www.youtube.com/@tasktrackapp' },
 ] as const;
 
+export const FOUNDERS = [
+  { name: 'Riaan Anand Mura', role: 'Founder' },
+  { name: 'Vayun Gottumukkala', role: 'Co-founder' },
+] as const;
+
 export const ORGANIZATION_LD = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -13,6 +18,7 @@ export const ORGANIZATION_LD = {
   url: `${SITE_URL}/`,
   logo: `${SITE_URL}/assets/images/logo-512.png`,
   sameAs: SOCIAL_LINKS.map((s) => s.url),
+  founder: FOUNDERS.map((f) => ({ '@type': 'Person', name: f.name, jobTitle: `${f.role}, TaskTrack` })),
 };
 
 /** JSON-LD for a <script> tag, with "<" escaped so text can never close the tag. */
@@ -25,6 +31,7 @@ export const PUBLIC_PAGES: { path: string; updated: string; priority: number; ch
   { path: '/', updated: '2026-11-27', priority: 1, changeFrequency: 'weekly' },
   { path: '/ib-study-planner', updated: '2026-11-27', priority: 0.9, changeFrequency: 'monthly' },
   { path: '/managebac-planner', updated: '2026-11-27', priority: 0.9, changeFrequency: 'monthly' },
+  { path: '/about', updated: '2026-11-27', priority: 0.6, changeFrequency: 'yearly' },
   { path: '/ib-cas-tracker', updated: '2026-11-27', priority: 0.9, changeFrequency: 'monthly' },
   { path: '/signup', updated: '2026-11-25', priority: 0.7, changeFrequency: 'monthly' },
   { path: '/login', updated: '2026-11-20', priority: 0.4, changeFrequency: 'yearly' },

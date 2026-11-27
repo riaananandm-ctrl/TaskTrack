@@ -15,7 +15,7 @@ import { CalendarCheckIcon, SlidesIcon } from '@/components/brand-icons';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import { RELEASES } from '@/lib/whats-new';
 import { LANDING_FAQS } from '@/lib/landing-faq';
-import { SOCIAL_LINKS } from '@/lib/seo';
+import { FOUNDERS, SOCIAL_LINKS } from '@/lib/seo';
 import {
   ArrowRight,
   Instagram,
@@ -374,6 +374,7 @@ export function HomePage() {
             <div>
               <h2 className="text-sm font-semibold text-[#243B64]">Explore</h2>
               <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                <Link href="/about" className="hover:text-[#243B64]">About TaskTrack</Link>
                 <Link href="/ib-study-planner" className="hover:text-[#243B64]">IB study planner</Link>
                 <Link href="/managebac-planner" className="hover:text-[#243B64]">ManageBac planner</Link>
                 <Link href="/ib-cas-tracker" className="hover:text-[#243B64]">IB CAS tracker</Link>
@@ -399,6 +400,11 @@ export function HomePage() {
           </div>
           <div className="mt-12 space-y-2 border-t border-slate-200 pt-6 text-xs leading-5 text-slate-500">
             <p>&copy; {new Date().getFullYear()} TaskTrack. All rights reserved.</p>
+            <p>
+              <Link href="/about" className="hover:text-[#243B64]">
+                {FOUNDERS.map((f) => `${f.name}, ${f.role.toLowerCase()}`).join(' · ')}
+              </Link>
+            </p>
             <p>
               TaskTrack is an independent student project, not affiliated with or endorsed by the International
               Baccalaureate Organization (IB) or ManageBac. AI grade estimates are not official IB grades.

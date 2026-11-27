@@ -12,6 +12,7 @@ const RELATED = [
   { href: '/ib-study-planner', label: 'IB study planner' },
   { href: '/managebac-planner', label: 'ManageBac planner' },
   { href: '/ib-cas-tracker', label: 'IB CAS tracker' },
+  { href: '/about', label: 'About TaskTrack' },
 ];
 
 /** A public, indexable page about one part of TaskTrack. Server-rendered. */
@@ -21,14 +22,14 @@ export function FeaturePage({
   title,
   intro,
   sections,
-  faqs,
+  faqs = [],
 }: {
   path: string;
   eyebrow: string;
   title: string;
   intro: string;
   sections: FeatureSection[];
-  faqs: { q: string; a: string }[];
+  faqs?: { q: string; a: string }[];
 }) {
   const structured = [
     ORGANIZATION_LD,
@@ -48,12 +49,12 @@ export function FeaturePage({
         { '@type': 'ListItem', position: 2, name: eyebrow, item: `${SITE_URL}${path}` },
       ],
     },
-    {
+    faqs.length > 0 && {
       '@context': 'https://schema.org',
       '@type': 'FAQPage',
       mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
     },
-  ];
+  ].filter(Boolean);
 
   return (
     <div className="min-h-screen bg-[#F6F5F1] text-slate-800 [font-family:var(--font-inter),ui-sans-serif,system-ui,sans-serif]">
@@ -93,7 +94,7 @@ export function FeaturePage({
             </section>
           ))}
 
-          <section>
+          {faqs.length > 0 && <section>
             <h2 className="text-2xl font-semibold tracking-tight text-[#243B64]">Questions</h2>
             <div className="mt-4 space-y-3">
               {faqs.map((f) => (
@@ -103,7 +104,7 @@ export function FeaturePage({
                 </details>
               ))}
             </div>
-          </section>
+          </section>}
 
           <section className="rounded-2xl bg-[#243B64] p-8 text-center">
             <p className="text-2xl font-semibold text-white">Free for every student.</p>
