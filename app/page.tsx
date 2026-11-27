@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { HomePage } from '@/components/landing/home-page';
 import { LANDING_FAQS } from '@/lib/landing-faq';
-import { SITE_URL, jsonLd } from '@/lib/seo';
+import { ORGANIZATION_LD, SITE_URL, jsonLd } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: { absolute: 'TaskTrack — Free IB Study Planner with ManageBac Sync' },
@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 const STRUCTURED_DATA = [
+  ORGANIZATION_LD,
   {
     '@context': 'https://schema.org',
     '@type': 'WebSite',

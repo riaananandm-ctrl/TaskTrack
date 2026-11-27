@@ -1,5 +1,20 @@
 export const SITE_URL = 'https://tasktrackbm.vercel.app';
 
+/** TaskTrack's official profiles. Also listed as sameAs so search engines link them to the site. */
+export const SOCIAL_LINKS = [
+  { name: 'Instagram', handle: '@task.track', url: 'https://www.instagram.com/task.track/' },
+  { name: 'YouTube', handle: '@tasktrackapp', url: 'https://www.youtube.com/@tasktrackapp' },
+] as const;
+
+export const ORGANIZATION_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'TaskTrack',
+  url: `${SITE_URL}/`,
+  logo: `${SITE_URL}/assets/images/logo-512.png`,
+  sameAs: SOCIAL_LINKS.map((s) => s.url),
+};
+
 /** JSON-LD for a <script> tag, with "<" escaped so text can never close the tag. */
 export function jsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c');

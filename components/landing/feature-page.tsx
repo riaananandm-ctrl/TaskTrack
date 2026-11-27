@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Instagram, Youtube } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { SITE_URL, jsonLd } from '@/lib/seo';
+import { ORGANIZATION_LD, SITE_URL, SOCIAL_LINKS, jsonLd } from '@/lib/seo';
 
 export interface FeatureSection {
   title: string;
@@ -31,6 +31,7 @@ export function FeaturePage({
   faqs: { q: string; a: string }[];
 }) {
   const structured = [
+    ORGANIZATION_LD,
     {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
@@ -117,6 +118,19 @@ export function FeaturePage({
               <Link key={r.href} href={r.href} className="text-[#315EDB] hover:underline">{r.label}</Link>
             ))}
           </nav>
+
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-slate-500">Follow TaskTrack:</span>
+            {SOCIAL_LINKS.map((s) => {
+              const Icon = s.name === 'Instagram' ? Instagram : Youtube;
+              return (
+                <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer me"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 font-medium text-[#243B64] hover:border-[#315EDB] hover:text-[#315EDB]">
+                  <Icon className="h-4 w-4" aria-hidden /> {s.handle}
+                </a>
+              );
+            })}
+          </div>
 
           <p className="border-l-2 border-slate-300 pl-4 text-xs leading-5 text-slate-500">
             TaskTrack is an independent student project. It is not affiliated with, endorsed by or connected to the

@@ -15,8 +15,11 @@ import { CalendarCheckIcon, SlidesIcon } from '@/components/brand-icons';
 import { PLANS, planPriceLine } from '@/lib/entitlements';
 import { RELEASES } from '@/lib/whats-new';
 import { LANDING_FAQS } from '@/lib/landing-faq';
+import { SOCIAL_LINKS } from '@/lib/seo';
 import {
   ArrowRight,
+  Instagram,
+  Youtube,
   Check,
   Menu,
   X,
@@ -355,6 +358,18 @@ export function HomePage() {
                 <span className="text-lg font-bold tracking-tight text-[#243B64]">TaskTrack</span>
               </Link>
               <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">Deadlines, AI study tools, grade checks and group study in one clear workspace.</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {SOCIAL_LINKS.map((s) => {
+                  const Icon = s.name === 'Instagram' ? Instagram : Youtube;
+                  return (
+                    <a key={s.url} href={s.url} target="_blank" rel="noopener noreferrer me"
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-[#243B64] transition-colors hover:border-[#315EDB] hover:text-[#315EDB]">
+                      <Icon className="h-4 w-4" aria-hidden /> {s.handle}
+                      <span className="sr-only">TaskTrack on {s.name}</span>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <h2 className="text-sm font-semibold text-[#243B64]">Explore</h2>
