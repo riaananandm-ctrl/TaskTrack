@@ -14,7 +14,7 @@ const DESCRIPTION =
   'The free study planner for IB students: sync your ManageBac deadlines, study with AI quizzes and flashcards, check drafts against the IB criteria, and revise with friends.';
 
 export const metadata: Metadata = {
-  title: 'TaskTrack — Know What\u2019s Next.',
+  title: 'TaskTrack — Free IB Study Planner with ManageBac Sync',
   metadataBase: new URL('https://tasktrackbm.vercel.app'),
   description: DESCRIPTION,
   manifest: '/manifest.json',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     title: 'TaskTrack',
   },
   openGraph: {
-    title: 'TaskTrack — Know What\u2019s Next.',
+    title: 'TaskTrack — Free IB Study Planner with ManageBac Sync',
     description: DESCRIPTION,
     type: 'website',
     url: '/',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TaskTrack — Know What\u2019s Next.',
+    title: 'TaskTrack — Free IB Study Planner with ManageBac Sync',
     description: DESCRIPTION,
   },
 };

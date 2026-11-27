@@ -20,6 +20,14 @@ export function isAssessPrepTask(task: Task): boolean {
 }
 
 /**
+ * A pen-and-paper test is sat in class, so it is done once its time has passed.
+ * Keep in step with public.tasktrack_is_pen_paper in the database.
+ */
+export function isPenPaperTest(task: Pick<Task, 'title' | 'description'>): boolean {
+  return /pen[\s-]*(and|&|n|\/)[\s-]*paper/i.test(`${task.title ?? ''} ${task.description ?? ''}`);
+}
+
+/**
  * Parse a task's due date + time into a Date object, or null if invalid/missing.
  * For all-day tasks (no due_time), the deadline is the END of that local day.
  * For timed tasks, the deadline is the date + time in the user's local timezone.
@@ -57,7 +65,7 @@ export function getDeadlineStatus(task: Task, now: Date = new Date()): DeadlineS
 
   if (isPastDeadline) {
     // AssessPrep tasks auto-complete after their deadline passes.
-    if (isAssessPrepTask(task)) return 'completed';
+    if (isAssessPrepTask(task) || (isPenPaperTest(task) && !task.auto_reopened_at)) return 'completed';
     return 'overdue';
   }
 

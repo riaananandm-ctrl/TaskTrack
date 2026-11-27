@@ -72,6 +72,8 @@ export interface Task {
   completed_at: string | null;
   /** Set when TaskTrack ticked it automatically after 5 days overdue. */
   auto_completed_at?: string | null;
+  /** Set when the student reopened an auto-ticked task; it is never auto-ticked again. */
+  auto_reopened_at?: string | null;
   external_source: string | null;
   external_uid: string | null;
   /** When the student first opened this task. NULL means it is new to them. */

@@ -1,15 +1,12 @@
 import type { MetadataRoute } from 'next';
+import { PUBLIC_PAGES, SITE_URL } from '@/lib/seo';
 
-const SITE = 'https://tasktrackbm.vercel.app';
-
-/** The public pages Google should know about. */
+/** The public pages Google should know about, with real "last changed" dates. */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
-  return [
-    { url: `${SITE}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
-    { url: `${SITE}/signup`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${SITE}/login`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${SITE}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-    { url: `${SITE}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
-  ];
+  return PUBLIC_PAGES.map((p) => ({
+    url: `${SITE_URL}${p.path}`,
+    lastModified: new Date(`${p.updated}T00:00:00+05:30`),
+    changeFrequency: p.changeFrequency,
+    priority: p.priority,
+  }));
 }

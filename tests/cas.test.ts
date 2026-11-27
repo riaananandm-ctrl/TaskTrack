@@ -88,3 +88,15 @@ describe('vague reflection check', () => {
     expect(mergeFlags(local, ai).map((f) => f.sentence)).toEqual(['I learned a lot.', 'We helped people.']);
   });
 });
+
+import { isPenPaperTest } from '@/lib/deadline-status';
+
+describe('pen-and-paper tests', () => {
+  it('matches the usual spellings only', () => {
+    for (const t of ['Pen and paper test', 'Pen & Paper Assessment', 'pen-and-paper quiz', 'Pen n paper'])
+      expect(isPenPaperTest({ title: t, description: null })).toBe(true);
+    for (const t of ['Penalty paper', 'Open paper', 'Paper 1 essay'])
+      expect(isPenPaperTest({ title: t, description: null })).toBe(false);
+    expect(isPenPaperTest({ title: 'Chemistry SA2', description: 'This is a pen and paper test.' })).toBe(true);
+  });
+});

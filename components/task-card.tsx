@@ -239,7 +239,7 @@ export function TaskCard({ task, onEdit, onChanged, compact }: TaskCardProps) {
             {isCompleted && displayTask.auto_completed_at && (
               <span
                 className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                title="Ticked automatically 5 days after the due date. Tap the tick to reopen it."
+                title="Ticked automatically (a pen-and-paper test after its time, or 5 days overdue). Tap the tick to reopen it."
               >
                 Auto-ticked
               </span>
