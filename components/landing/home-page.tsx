@@ -370,6 +370,15 @@ export function HomePage() {
                   );
                 })}
               </div>
+              <a href="https://fazier.com" target="_blank" rel="noopener" className="mt-4 inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=light"
+                  width={120}
+                  alt="Fazier badge"
+                  loading="lazy"
+                />
+              </a>
             </div>
             <div>
               <h2 className="text-sm font-semibold text-[#243B64]">Explore</h2>
