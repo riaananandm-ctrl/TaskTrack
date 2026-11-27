@@ -542,24 +542,22 @@ export function StudySessionPanel({
         return;
       }
 
-      // Persist the student's message and refresh the session ordering.
-      let savedUser: StudySessionMessage;
-      try {
-        savedUser = await addMessage({
-          sessionId: session.id,
-          role: 'user',
-          content: text,
-          mode,
-        });
-        await touchSession(session.id);
-      } catch {
-        setError('Your message could not be saved. Please try again.');
-        setMessages(messages);
-        setLoading(false);
-        return;
-      }
-      setMessages((prev) =>
-        prev.map((m) => (m.id === optimistic.id ? toDisplay(savedUser) : m))
+      // Save the student's message while the AI is already working on the reply,
+      // instead of making the student wait for the save first. The assistant's
+      // reply is saved only after this finishes, so the order in history is kept.
+      const userSave: Promise<StudySessionMessage | null> = addMessage({
+        sessionId: session.id,
+        role: 'user',
+        content: text,
+        mode,
+      }).then(
+        (saved) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === optimistic.id ? toDisplay(saved) : m))
+          );
+          return saved;
+        },
+        () => null
       );
 
       // The assistant runs in the deployed Supabase function `study-session-chat`.
@@ -689,38 +687,52 @@ export function StudySessionPanel({
         if (!isPro && claimUpgradeNudgeSlot()) setUpgradeNudge('plan');
       }
 
-      // Save successful replies. If saving fails the answer is still shown, so a
-      // storage problem never hides a reply the student already paid for with a
-      // request from their daily limit.
-      let savedAssistant: StudySessionMessage | null = null;
-      try {
-        savedAssistant = await addMessage({
-          sessionId: session.id,
-          role: 'assistant',
-          content: rawReply,
-          mode,
-          structuredData: structured ?? null,
-        });
-        await touchSession(session.id);
-      } catch {
-        setError('This reply could not be saved to your session.');
-      }
-
-      const display: DisplayMessage = savedAssistant
-        ? toDisplay(savedAssistant)
-        : {
-            id: `temp-a-${Date.now()}`,
-            role: 'assistant',
-            content: rawReply,
-            mode: null,
-            structured: undefined,
-          };
+      // Show the reply straight away, then save it in the background. If saving
+      // fails the answer stays on screen, so a storage problem never hides a reply
+      // the student already used credits on.
+      const tempId = `temp-a-${Date.now()}`;
+      const autoUpdateDoc = Boolean(docStatus?.doc?.autoUpdate);
       setMessages((prev) => [
         ...prev,
-        { ...display, structured: structured ?? undefined, mode: structured ? mode : null },
+        {
+          id: tempId,
+          role: 'assistant',
+          content: rawReply,
+          mode: structured ? mode : null,
+          structured: structured ?? undefined,
+        },
       ]);
-      // Keep the live Google Doc in step with the conversation.
-      if (docStatus?.doc?.autoUpdate) void refreshDoc();
+      setLoading(false);
+
+      void (async () => {
+        const savedUser = await userSave;
+        if (!savedUser) {
+          setError('Your message could not be saved to this session.');
+          return;
+        }
+        try {
+          const savedAssistant = await addMessage({
+            sessionId: session.id,
+            role: 'assistant',
+            content: rawReply,
+            mode,
+            structuredData: structured ?? null,
+          });
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? { ...toDisplay(savedAssistant), structured: structured ?? undefined, mode: structured ? mode : null }
+                : m
+            )
+          );
+          await touchSession(session.id);
+          // Keep the live Google Doc in step with the conversation (it reads the
+          // saved messages, so this waits for the save).
+          if (autoUpdateDoc) void refreshDoc();
+        } catch {
+          setError('This reply could not be saved to your session.');
+        }
+      })();
       // One-off activities (speed round, quiz, flashcards, slides, plan, videos) are
       // done once their result arrives, so the next typed message is a normal chat
       // rather than another round of the same activity.
