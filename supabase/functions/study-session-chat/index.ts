@@ -171,7 +171,29 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  // Lets the browser reuse its permission check instead of repeating it before every
+  // message (browsers cap this at about 2 hours).
+  'Access-Control-Max-Age': '7200',
 };
+
+// Plan limits change rarely, so each function instance keeps them for a few minutes
+// instead of reading them on every message.
+type PlanLimitsRow = { plan: string; daily_ai_messages: number | null; max_message_chars: number | null };
+let planLimitsCache: { at: number; rows: PlanLimitsRow[] } | null = null;
+const PLAN_LIMITS_CACHE_MS = 5 * 60 * 1000;
+
+/** The `sub` (user id) claim of a JWT the gateway has already verified, or null. */
+function jwtSubject(authHeader: string): string | null {
+  try {
+    const part = authHeader.replace(/^Bearer\s+/i, '').split('.')[1];
+    if (!part) return null;
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=');
+    const sub = JSON.parse(atob(padded))?.sub;
+    return typeof sub === 'string' && sub ? sub : null;
+  } catch {
+    return null;
+  }
+}
 
 // Stable, non-sensitive codes the app can branch on. The human-readable message
 // beside each one is the only text the browser ever shows.
@@ -1296,6 +1318,37 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+    // Everything that does not depend on the request runs at the same time as the
+    // sign-in check, so the AI can start writing sooner. Nothing here is used until
+    // the student is confirmed below; the plan read is still limited to their own
+    // row by row-level security and is re-checked against the confirmed user id.
+    const modelsPromise = resolveModels(apiKey);
+    modelsPromise.catch(() => {});
+    const claimedUserId = jwtSubject(authHeader);
+    const profilePromise = claimedUserId
+      ? supabase
+          .from('profiles')
+          .select('id, plan, plan_expires_at')
+          .eq('id', claimedUserId)
+          .maybeSingle()
+          .then((r) => r, () => ({ data: null }))
+      : Promise.resolve({ data: null });
+    const limitsPromise: Promise<PlanLimitsRow[]> =
+      planLimitsCache && Date.now() - planLimitsCache.at < PLAN_LIMITS_CACHE_MS
+        ? Promise.resolve(planLimitsCache.rows)
+        : supabase
+            .from('plan_limits')
+            .select('plan, daily_ai_messages, max_message_chars')
+            .in('plan', ['free', 'pro'])
+            .then(
+              ({ data, error }) => {
+                const rows = (data ?? []) as PlanLimitsRow[];
+                if (!error && rows.length > 0) planLimitsCache = { at: Date.now(), rows };
+                return rows;
+              },
+              () => []
+            );
+
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
       return json(
@@ -1420,11 +1473,19 @@ Deno.serve(async (req: Request) => {
       typeof body.mode === 'string' && DEFINED_MODES.has(body.mode) ? body.mode : 'chat';
 
     // Plan and limits come from the database, never from the request.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan, plan_expires_at')
-      .eq('id', userData.user.id)
-      .maybeSingle();
+    const early = (await profilePromise).data as
+      | { id?: string; plan?: string | null; plan_expires_at?: string | null }
+      | null;
+    const profile =
+      early && early.id === userData.user.id
+        ? early
+        : (
+            await supabase
+              .from('profiles')
+              .select('plan, plan_expires_at')
+              .eq('id', userData.user.id)
+              .maybeSingle()
+          ).data;
 
     const expired =
       profile?.plan_expires_at && new Date(profile.plan_expires_at).getTime() <= Date.now();
@@ -1445,11 +1506,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: limitsRow } = await supabase
-      .from('plan_limits')
-      .select('daily_ai_messages, max_message_chars')
-      .eq('plan', planId)
-      .maybeSingle();
+    const limitsRow = (await limitsPromise).find((row) => row.plan === planId) ?? null;
 
     const maxChars = limitsRow?.max_message_chars ?? FALLBACK_LIMITS.max_message_chars;
 
@@ -1585,7 +1642,7 @@ Deno.serve(async (req: Request) => {
     // refunded — the default assistant is never served under the Study Bot label.
     let models: ProviderModel[];
     try {
-      models = await resolveModels(apiKey);
+      models = await modelsPromise;
     } catch (err) {
       const category = err instanceof UpstreamError ? categorise(err.status, err.body) : 'provider';
       return await refundAndFail(supabase, category, currentCost);
