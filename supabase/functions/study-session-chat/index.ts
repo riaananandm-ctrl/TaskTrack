@@ -282,6 +282,18 @@ const CATEGORY_NAMES: Record<string, string> = {
   other: 'Other',
 };
 
+// Task details (often a teacher's whole syllabus) are sent with every message, so
+// they are capped. The start of a task sheet holds the topics and criteria.
+const MAX_TASK_DETAILS_CHARS = 3_000;
+
+function shortenTaskDetails(text: string): string {
+  const clean = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  if (clean.length <= MAX_TASK_DETAILS_CHARS) return clean;
+  const cut = clean.slice(0, MAX_TASK_DETAILS_CHARS);
+  const end = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('. '));
+  return `${end > MAX_TASK_DETAILS_CHARS * 0.7 ? cut.slice(0, end + 1) : cut}… (task details shortened)`;
+}
+
 /**
  * The full task context sent with every request, so the student never has to
  * repeat anything the app already knows about the task.
@@ -293,7 +305,7 @@ function describeTask(task: TaskContext | null | undefined): string {
   if (task.category) {
     lines.push(`Category: ${CATEGORY_NAMES[task.category] || task.category}`);
   }
-  if (task.description) lines.push(`Details: ${task.description}`);
+  if (task.description) lines.push(`Details: ${shortenTaskDetails(task.description)}`);
   if (task.dueDate) lines.push(`Due date: ${task.dueDate}`);
   if (task.estimatedMinutes) lines.push(`Estimated duration: ${task.estimatedMinutes} minutes`);
   if (task.priority) lines.push(`Priority: ${task.priority}`);
@@ -1167,11 +1179,34 @@ function fitHistory<T extends { role: string; content: string }>(history: T[], b
   return kept;
 }
 
+// Groq counts every token sent on every message against the daily quota, and the
+// whole conversation is resent each time. Older turns are kept short so a long
+// chat costs about the same per message as a short one.
+const GROQ_HISTORY_CHARS = 5_000;
+const OLD_REPLY_CHARS = 700;
+
+/**
+ * Shortens assistant replies older than the latest one: the model only needs the
+ * gist of what it already said, and the full text is still on the student's screen.
+ */
+function compactHistory<T extends { role: string; content: string }>(history: T[]): T[] {
+  let lastAssistant = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === 'assistant') { lastAssistant = i; break; }
+  }
+  return history.map((m, i) =>
+    m.role === 'assistant' && i !== lastAssistant && m.content.length > OLD_REPLY_CHARS
+      ? { ...m, content: `${m.content.slice(0, OLD_REPLY_CHARS).trimEnd()}… (earlier reply shortened)` }
+      : m
+  );
+}
+
 /** Answer tokens to reserve so prompt + answer stays within one request's budget. */
 function answerBudget(messages: Array<{ content: string }>, json: boolean): number {
   // About 3.5 characters per token for English; a slight overestimate is safer.
   const promptTokens = Math.ceil(messages.reduce((n, m) => n + String(m.content || '').length, 0) / 3.5) + 50;
-  const cap = json ? 3072 : 2048;
+  // Normal chat replies are short; this only stops a runaway answer.
+  const cap = json ? 3072 : 1536;
   return Math.max(1024, Math.min(cap, TOKENS_PER_REQUEST - promptTokens));
 }
 
@@ -1626,9 +1661,14 @@ Deno.serve(async (req: Request) => {
         role: m.role === 'assistant' ? 'assistant' : 'user',
         content: m.content,
       }));
+    // Groq gets a compact history (its tokens are the scarce ones); Gemini, used for
+    // big documents and as the backup, keeps the full conversation.
+    const groqHistory = compactHistory(chatHistory);
     const buildMessages = (system: string, roomy = false) => [
       { role: 'system', content: system },
-      ...fitHistory(chatHistory, roomy ? PROMPT_CHAR_BUDGET : PROMPT_CHAR_BUDGET - system.length),
+      ...(roomy
+        ? fitHistory(chatHistory, PROMPT_CHAR_BUDGET)
+        : fitHistory(groqHistory, Math.min(GROQ_HISTORY_CHARS, PROMPT_CHAR_BUDGET - system.length))),
     ];
     // Groq (small per-message limit): the best-matching passages of a big document.
     const excerptText = relevantPassages(docsForAi, lastUserMessage.content, MAX_DOCUMENT_CHARS);
